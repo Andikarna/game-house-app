@@ -11,6 +11,12 @@ const config: Config = {
       screens: {
         xs: '380px',
       },
+      gridTemplateColumns: {
+        '15': 'repeat(15, minmax(0, 1fr))',
+      },
+      gridTemplateRows: {
+        '15': 'repeat(15, minmax(0, 1fr))',
+      },
       colors: {
         background: '#0B0E17',
         surface: '#121727',

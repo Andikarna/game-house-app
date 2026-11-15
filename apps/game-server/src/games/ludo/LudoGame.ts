@@ -245,19 +245,8 @@ export class LudoGame implements GameModule {
       this.lastMoveNotice = `${player.nickname} dapat ${this.diceValue}. Tidak ada langkah valid!`;
       this.broadcastState();
       this.schedulePassTurn(1200);
-    } else if (this.validMoves.length === 1) {
-      // Single valid move option
-      this.lastMoveNotice = `${player.nickname} dapat angka ${this.diceValue}!`;
-      this.broadcastState();
-      // Optional: Auto move after brief delay if only token in base, or wait for player tap
-      const onlyMove = this.validMoves[0];
-      if (player.tokens[onlyMove].state === 'base' && this.diceValue === 6) {
-        this.autoTurnTimeout = setTimeout(() => {
-          this.handleMoveToken(player, onlyMove);
-        }, 900);
-      }
     } else {
-      this.lastMoveNotice = `${player.nickname} dapat angka ${this.diceValue}! Pilih bidak untuk melangkah.`;
+      this.lastMoveNotice = `${player.nickname} dapat angka ${this.diceValue}! Pilih bidak yang ingin dijalankan.`;
       this.broadcastState();
     }
   }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { 
   LudoGameState, 
@@ -110,22 +110,49 @@ export const HOME_STRETCHES: Record<LudoColor, [number, number][]> = {
 // Base slots coordinates inside the white rounded capsule (2x2 grid per color)
 export const BASE_SLOTS: Record<LudoColor, [number, number][]> = {
   blue: [
-    [1.8, 1.8], [1.8, 3.2], [3.2, 1.8], [3.2, 3.2]
+    [1.4, 1.4], [1.4, 3.6], [3.6, 1.4], [3.6, 3.6]
   ],
   green: [
-    [1.8, 10.8], [1.8, 12.2], [3.2, 10.8], [3.2, 12.2]
+    [1.4, 10.4], [1.4, 12.6], [3.6, 10.4], [3.6, 12.6]
   ],
   yellow: [
-    [10.8, 10.8], [10.8, 12.2], [12.2, 10.8], [12.2, 12.2]
+    [10.4, 10.4], [10.4, 12.6], [12.6, 10.4], [12.6, 12.6]
   ],
   red: [
-    [10.8, 1.8], [10.8, 3.2], [12.2, 1.8], [12.2, 3.2]
+    [10.4, 1.4], [10.4, 3.6], [12.6, 1.4], [12.6, 3.6]
   ],
 };
 
+const START_OFFSETS: Record<LudoColor, number> = {
+  red: 0,
+  blue: 13,
+  green: 26,
+  yellow: 39,
+};
+
+// Calculates the exact (row, col) coordinates for any step count from 0 to 57
+export function getTokenCoordinate(
+  color: LudoColor,
+  tokenId: number,
+  stepCount: number,
+  state: 'base' | 'track' | 'home-stretch' | 'finished'
+): [number, number] {
+  if (state === 'base' || stepCount <= 0) {
+    return BASE_SLOTS[color][tokenId];
+  }
+  if (stepCount >= 1 && stepCount <= 51) {
+    const trackIndex = (START_OFFSETS[color] + (stepCount - 1)) % 52;
+    return TRACK_COORDS[trackIndex];
+  }
+  if (stepCount >= 52 && stepCount <= 56) {
+    const stretchIdx = stepCount - 52;
+    return HOME_STRETCHES[color][stretchIdx];
+  }
+  return HOME_STRETCHES[color][5];
+}
+
 // ============================================================================
 // 2. ULTRA-HD 3D GLOSSY TOKEN (PAWN) COMPONENT
-// Renders vector-sharp 3D shaded teardrop pawns matching the reference image
 // ============================================================================
 
 interface HDTokenProps {
@@ -142,8 +169,6 @@ const TOKEN_COLOR_CONFIG: Record<LudoColor, {
   bodyGradMid: string;
   bodyGradEnd: string;
   rimShadow: string;
-  glow: string;
-  haloRing: string;
 }> = {
   blue: {
     headGradStart: '#e0f2fe',
@@ -153,8 +178,6 @@ const TOKEN_COLOR_CONFIG: Record<LudoColor, {
     bodyGradMid: '#0284c7',
     bodyGradEnd: '#0c4a6e',
     rimShadow: '#082f49',
-    glow: 'rgba(14, 165, 233, 0.85)',
-    haloRing: 'ring-sky-400',
   },
   green: {
     headGradStart: '#dcfce7',
@@ -164,8 +187,6 @@ const TOKEN_COLOR_CONFIG: Record<LudoColor, {
     bodyGradMid: '#16a34a',
     bodyGradEnd: '#14532d',
     rimShadow: '#052e16',
-    glow: 'rgba(34, 197, 94, 0.85)',
-    haloRing: 'ring-emerald-400',
   },
   yellow: {
     headGradStart: '#fef9c3',
@@ -175,8 +196,6 @@ const TOKEN_COLOR_CONFIG: Record<LudoColor, {
     bodyGradMid: '#eab308',
     bodyGradEnd: '#854d0e',
     rimShadow: '#713f12',
-    glow: 'rgba(234, 179, 8, 0.85)',
-    haloRing: 'ring-amber-300',
   },
   red: {
     headGradStart: '#fee2e2',
@@ -186,8 +205,6 @@ const TOKEN_COLOR_CONFIG: Record<LudoColor, {
     bodyGradMid: '#dc2626',
     bodyGradEnd: '#7f1d1d',
     rimShadow: '#450a0a',
-    glow: 'rgba(239, 68, 68, 0.85)',
-    haloRing: 'ring-rose-400',
   },
 };
 
@@ -275,16 +292,6 @@ const HDTokenPawn: React.FC<HDTokenProps> = ({ color, isValid, stackCount }) => 
           fill="none"
         />
 
-        {/* Secondary subtle right reflection */}
-        <path
-          d="M 31 33 C 32 37, 31 41, 30 43"
-          stroke="white"
-          strokeWidth="1.2"
-          strokeLinecap="round"
-          opacity="0.35"
-          fill="none"
-        />
-
         {/* 4. Collar Neck Ring */}
         <ellipse
           cx="22"
@@ -314,16 +321,6 @@ const HDTokenPawn: React.FC<HDTokenProps> = ({ color, isValid, stackCount }) => 
           fill="white"
           opacity="0.88"
         />
-
-        {/* Head Secondary Ambient Soft Glow */}
-        <circle
-          cx="24"
-          cy="17"
-          r="7"
-          fill="none"
-          stroke="rgba(255,255,255,0.2)"
-          strokeWidth="1"
-        />
       </svg>
 
       {/* Stack Count Badge (e.g. x2, x3) */}
@@ -340,11 +337,6 @@ const HDTokenPawn: React.FC<HDTokenProps> = ({ color, isValid, stackCount }) => 
 // 3. MAIN LUDO BOARD COMPONENT
 // ============================================================================
 
-// POV Rotation mapping: Rotates board so each player's home base is always at Bottom-Left!
-// Red: already at bottom-left (0deg)
-// Blue: top-left -> rotates 270deg clockwise (-90deg) to bottom-left
-// Green: top-right -> rotates 180deg to bottom-left
-// Yellow: bottom-right -> rotates 90deg clockwise to bottom-left
 const ROTATION_BY_COLOR: Record<LudoColor, number> = {
   red: 0,
   blue: 270,
@@ -366,7 +358,65 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
   const myColor: LudoColor = myPlayer?.color || 'red';
   const boardRotationDeg = povMode === 'player' ? ROTATION_BY_COLOR[myColor] : 0;
 
-  // Group tokens by their board position so we can stack and render cleanly
+  // =========================================================================
+  // STEP-BY-STEP (SATU-PER-SATU) TOKEN MOVEMENT ANIMATION ENGINE
+  // =========================================================================
+  const [animatedSteps, setAnimatedSteps] = useState<Record<string, number>>({});
+  const prevTargetStepsRef = useRef<Record<string, number>>({});
+  const activeIntervalsRef = useRef<Record<string, any>>({});
+
+  useEffect(() => {
+    Object.values(gameState.players).forEach((player) => {
+      player.tokens.forEach((token) => {
+        const key = `${player.playerId}_${token.id}`;
+        const targetStep = token.state === 'base' ? 0 : token.stepCount;
+        const prevTarget = prevTargetStepsRef.current[key];
+
+        // First render / initial position initialization
+        if (prevTarget === undefined) {
+          prevTargetStepsRef.current[key] = targetStep;
+          setAnimatedSteps((prev) => ({ ...prev, [key]: targetStep }));
+          return;
+        }
+
+        // Token has advanced forward (walk step-by-step tile by tile!)
+        if (targetStep > prevTarget) {
+          prevTargetStepsRef.current[key] = targetStep;
+
+          if (activeIntervalsRef.current[key]) {
+            clearInterval(activeIntervalsRef.current[key]);
+          }
+
+          let currentStep = animatedSteps[key] ?? prevTarget;
+
+          activeIntervalsRef.current[key] = setInterval(() => {
+            currentStep += 1;
+            setAnimatedSteps((prev) => ({ ...prev, [key]: currentStep }));
+            soundManager.playTokenMove(); // Sound hop at each single tile!
+
+            if (currentStep >= targetStep) {
+              clearInterval(activeIntervalsRef.current[key]);
+              delete activeIntervalsRef.current[key];
+            }
+          }, 150); // 150ms per step hop
+        } else if (targetStep < prevTarget) {
+          // Token knocked back to base or reset
+          prevTargetStepsRef.current[key] = targetStep;
+          if (activeIntervalsRef.current[key]) {
+            clearInterval(activeIntervalsRef.current[key]);
+            delete activeIntervalsRef.current[key];
+          }
+          setAnimatedSteps((prev) => ({ ...prev, [key]: targetStep }));
+        }
+      });
+    });
+
+    return () => {
+      Object.values(activeIntervalsRef.current).forEach((i) => clearInterval(i));
+    };
+  }, [gameState]);
+
+  // Compute screen coordinates for each token using its animated step
   const tokensOnBoard: Array<{
     token: LudoToken;
     player: typeof myPlayer;
@@ -377,16 +427,9 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
 
   Object.values(gameState.players).forEach((player) => {
     player.tokens.forEach((token) => {
-      let r = 0;
-      let c = 0;
-      if (token.state === 'base') {
-        [r, c] = BASE_SLOTS[player.color][token.id];
-      } else if (token.state === 'track') {
-        [r, c] = TRACK_COORDS[token.trackPosition];
-      } else if (token.state === 'home-stretch' || token.state === 'finished') {
-        const stretchIdx = Math.min(5, Math.max(0, token.stepCount - 52));
-        [r, c] = HOME_STRETCHES[player.color][stretchIdx];
-      }
+      const key = `${player.playerId}_${token.id}`;
+      const currentStep = animatedSteps[key] ?? (token.state === 'base' ? 0 : token.stepCount);
+      const [r, c] = getTokenCoordinate(player.color, token.id, currentStep, token.state);
 
       const isValid = isMyTurn && player.playerId === myPlayerId && validMoves.includes(token.id);
 
@@ -402,7 +445,7 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
 
   const handleTokenClick = (tokenIndex: number) => {
     if (!isMyTurn || !validMoves.includes(tokenIndex)) return;
-    soundManager.playTokenMove(); // SFX token hop
+    soundManager.playTokenMove();
     onSelectToken(tokenIndex);
   };
 
@@ -426,335 +469,372 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
         className="relative w-full h-full transition-transform duration-700 ease-out"
         style={{ transform: `rotate(${boardRotationDeg}deg)` }}
       >
-        {/* 15x15 BOARD GRID CONTAINER */}
-        <div className="relative w-full h-full grid grid-cols-15 grid-rows-15 rounded-[2rem] overflow-hidden bg-white shadow-2xl border-2 border-slate-400/40">
-        
-        {/* ================================================================= */}
-        {/* 1. TOP-LEFT BASE: BLUE (row 0..5, col 0..5)                       */}
-        {/* ================================================================= */}
-        <div className="col-span-6 row-span-6 bg-[#0070f3] p-2.5 sm:p-3.5 flex items-center justify-center relative rounded-tl-[1.8rem]">
-          {/* Inner White Capsule with 4 resting circles */}
-          <div className="w-full h-full rounded-[1.6rem] bg-white border border-slate-200/90 p-2.5 grid grid-cols-2 grid-rows-2 gap-2 shadow-[inset_0_2px_8px_rgba(0,0,0,0.12),0_4px_12px_rgba(0,0,0,0.18)]">
-            {[0, 1, 2, 3].map((i) => (
-              <div 
-                key={i} 
-                className="rounded-full bg-[#f0f9ff] border-2 border-[#bae6fd] flex items-center justify-center shadow-inner"
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* ================================================================= */}
-        {/* 2. TOP ARM (col 6..8, row 0..5) - GREEN PATH & START               */}
-        {/* ================================================================= */}
-        <div className="col-span-3 row-span-6 grid grid-cols-3 grid-rows-6 bg-white border-x border-slate-300">
-          {Array.from({ length: 18 }).map((_, idx) => {
-            const r = Math.floor(idx / 3);
-            const c = 6 + (idx % 3);
-
-            const isGreenArrow = r === 0 && c === 7;
-            const isGreenPath = c === 7 && r >= 1 && r <= 5;
-            const isGreenStart = r === 1 && c === 8;
-            const isSafeStar = r === 2 && c === 6;
-
-            return (
-              <div
-                key={idx}
-                className={`border border-slate-300 flex items-center justify-center relative ${
-                  isGreenStart
-                    ? 'bg-[#16a34a]'
-                    : isGreenPath
-                    ? 'bg-[#16a34a]'
-                    : 'bg-white'
-                }`}
-              >
-                {/* Green Directional Arrow */}
-                {isGreenArrow && (
-                  <ChevronDown className="w-4 h-4 sm:w-5 sm:h-5 text-[#16a34a] stroke-[3.5] animate-bounce" />
-                )}
-
-                {/* Green Start Star */}
-                {isGreenStart && (
-                  <div style={{ transform: `rotate(${-boardRotationDeg}deg)` }} className="transition-transform duration-700">
-                    <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white fill-white drop-shadow" />
-                  </div>
-                )}
-
-                {/* Neutral Safe Star */}
-                {isSafeStar && (
-                  <div style={{ transform: `rotate(${-boardRotationDeg}deg)` }} className="transition-transform duration-700">
-                    <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400 fill-slate-400 drop-shadow-sm" />
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        {/* ================================================================= */}
-        {/* 3. TOP-RIGHT BASE: GREEN (row 0..5, col 9..14)                    */}
-        {/* ================================================================= */}
-        <div className="col-span-6 row-span-6 bg-[#16a34a] p-2.5 sm:p-3.5 flex items-center justify-center relative rounded-tr-[1.8rem]">
-          <div className="w-full h-full rounded-[1.6rem] bg-white border border-slate-200/90 p-2.5 grid grid-cols-2 grid-rows-2 gap-2 shadow-[inset_0_2px_8px_rgba(0,0,0,0.12),0_4px_12px_rgba(0,0,0,0.18)]">
-            {[0, 1, 2, 3].map((i) => (
-              <div 
-                key={i} 
-                className="rounded-full bg-[#f0fdf4] border-2 border-[#bbf7d0] flex items-center justify-center shadow-inner"
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* ================================================================= */}
-        {/* 4. LEFT ARM (col 0..5, row 6..8) - BLUE PATH & START              */}
-        {/* ================================================================= */}
-        <div className="col-span-6 row-span-3 grid grid-cols-6 grid-rows-3 bg-white border-y border-slate-300">
-          {Array.from({ length: 18 }).map((_, idx) => {
-            const r = 6 + Math.floor(idx / 6);
-            const c = idx % 6;
-
-            const isBlueArrow = r === 7 && c === 0;
-            const isBluePath = r === 7 && c >= 1 && c <= 5;
-            const isBlueStart = r === 6 && c === 1;
-            const isSafeStar = r === 8 && c === 2;
-
-            return (
-              <div
-                key={idx}
-                className={`border border-slate-300 flex items-center justify-center relative ${
-                  isBlueStart
-                    ? 'bg-[#0070f3]'
-                    : isBluePath
-                    ? 'bg-[#0070f3]'
-                    : 'bg-white'
-                }`}
-              >
-                {/* Blue Directional Arrow */}
-                {isBlueArrow && (
-                  <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-[#0070f3] stroke-[3.5] animate-pulse" />
-                )}
-
-                {/* Blue Start Star */}
-                {isBlueStart && (
-                  <div style={{ transform: `rotate(${-boardRotationDeg}deg)` }} className="transition-transform duration-700">
-                    <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white fill-white drop-shadow" />
-                  </div>
-                )}
-
-                {/* Neutral Safe Star */}
-                {isSafeStar && (
-                  <div style={{ transform: `rotate(${-boardRotationDeg}deg)` }} className="transition-transform duration-700">
-                    <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400 fill-slate-400 drop-shadow-sm" />
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        {/* ================================================================= */}
-        {/* 5. CENTER 3x3: 4 HOME TRIANGLES & VICTORY CROWN                   */}
-        {/* ================================================================= */}
-        <div className="col-span-3 row-span-3 relative bg-white border border-slate-400/80 overflow-hidden flex items-center justify-center shadow-inner">
-          {/* 4 Diagonal Colored Triangles */}
-          <div className="absolute inset-0">
-            <svg viewBox="0 0 100 100" className="w-full h-full" preserveAspectRatio="none">
-              {/* Top: Green Triangle */}
-              <polygon points="0,0 100,0 50,50" fill="#16a34a" />
-              {/* Right: Yellow Triangle */}
-              <polygon points="100,0 100,100 50,50" fill="#f59e0b" />
-              {/* Bottom: Red Triangle */}
-              <polygon points="100,100 0,100 50,50" fill="#dc2626" />
-              {/* Left: Blue Triangle */}
-              <polygon points="0,100 0,0 50,50" fill="#0070f3" />
-            </svg>
-          </div>
-
-          {/* Central 3D Golden Crown / Trophy Badge */}
+        {/* RIGID 15x15 BOARD GRID CONTAINER WITH EXPLICIT CSS INLINE GRID SPANS */}
+        <div 
+          className="relative w-full h-full rounded-[2rem] overflow-hidden bg-white shadow-2xl border-2 border-slate-400/40"
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(15, minmax(0, 1fr))',
+            gridTemplateRows: 'repeat(15, minmax(0, 1fr))',
+            width: '100%',
+            height: '100%',
+          }}
+        >
+          
+          {/* ================================================================= */}
+          {/* 1. TOP-LEFT BASE: BLUE (grid lines: col 1..7, row 1..7)           */}
+          {/* ================================================================= */}
           <div 
-            className="relative z-10 w-7 h-7 sm:w-9 sm:h-9 rounded-full bg-slate-950/85 backdrop-blur-sm border-2 border-amber-300 flex items-center justify-center shadow-[0_0_15px_rgba(251,191,36,0.85)] transition-transform duration-700"
-            style={{ transform: `rotate(${-boardRotationDeg}deg)` }}
+            style={{ gridColumn: '1 / 7', gridRow: '1 / 7' }}
+            className="bg-[#0070f3] p-2 sm:p-2.5 flex items-center justify-center relative rounded-tl-[1.8rem]"
           >
-            <Crown className="w-4 h-4 sm:w-5 sm:h-5 text-amber-300 fill-amber-300 animate-pulse" />
+            <div className="w-full h-full rounded-[1.4rem] sm:rounded-[1.8rem] bg-white border border-slate-200/90 p-2 sm:p-2.5 grid grid-cols-2 grid-rows-2 gap-2 sm:gap-3 shadow-[inset_0_2px_8px_rgba(0,0,0,0.12),0_4px_12px_rgba(0,0,0,0.18)]">
+              {[0, 1, 2, 3].map((i) => (
+                <div 
+                  key={i} 
+                  className="rounded-full bg-[#f0f9ff] border-2 border-[#bae6fd] flex items-center justify-center shadow-inner aspect-square"
+                />
+              ))}
+            </div>
           </div>
-        </div>
 
-        {/* ================================================================= */}
-        {/* 6. RIGHT ARM (col 9..14, row 6..8) - YELLOW PATH & START          */}
-        {/* ================================================================= */}
-        <div className="col-span-6 row-span-3 grid grid-cols-6 grid-rows-3 bg-white border-y border-slate-300">
-          {Array.from({ length: 18 }).map((_, idx) => {
-            const r = 6 + Math.floor(idx / 6);
-            const c = 9 + (idx % 6);
+          {/* ================================================================= */}
+          {/* 2. TOP ARM (grid lines: col 7..10, row 1..7)                       */}
+          {/* ================================================================= */}
+          <div 
+            style={{ 
+              gridColumn: '7 / 10', 
+              gridRow: '1 / 7',
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+              gridTemplateRows: 'repeat(6, minmax(0, 1fr))',
+            }}
+            className="bg-white border-x border-slate-300"
+          >
+            {Array.from({ length: 18 }).map((_, idx) => {
+              const r = Math.floor(idx / 3);
+              const c = 6 + (idx % 3);
 
-            const isYellowArrow = r === 7 && c === 14;
-            const isYellowPath = r === 7 && c >= 9 && c <= 13;
-            const isYellowStart = r === 8 && c === 13;
-            const isSafeStar = r === 6 && c === 12;
+              const isGreenArrow = r === 0 && c === 7;
+              const isGreenPath = c === 7 && r >= 1 && r <= 5;
+              const isGreenStart = r === 1 && c === 8;
+              const isSafeStar = r === 2 && c === 6;
 
-            return (
-              <div
-                key={idx}
-                className={`border border-slate-300 flex items-center justify-center relative ${
-                  isYellowStart
-                    ? 'bg-[#f59e0b]'
-                    : isYellowPath
-                    ? 'bg-[#f59e0b]'
-                    : 'bg-white'
-                }`}
-              >
-                {/* Yellow Directional Arrow */}
-                {isYellowArrow && (
-                  <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 text-[#f59e0b] stroke-[3.5] animate-pulse" />
-                )}
-
-                {/* Yellow Start Star */}
-                {isYellowStart && (
-                  <div style={{ transform: `rotate(${-boardRotationDeg}deg)` }} className="transition-transform duration-700">
-                    <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white fill-white drop-shadow" />
-                  </div>
-                )}
-
-                {/* Neutral Safe Star */}
-                {isSafeStar && (
-                  <div style={{ transform: `rotate(${-boardRotationDeg}deg)` }} className="transition-transform duration-700">
-                    <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400 fill-slate-400 drop-shadow-sm" />
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        {/* ================================================================= */}
-        {/* 7. BOTTOM-LEFT BASE: RED (row 9..14, col 0..5)                    */}
-        {/* ================================================================= */}
-        <div className="col-span-6 row-span-6 bg-[#dc2626] p-2.5 sm:p-3.5 flex items-center justify-center relative rounded-bl-[1.8rem]">
-          <div className="w-full h-full rounded-[1.6rem] bg-white border border-slate-200/90 p-2.5 grid grid-cols-2 grid-rows-2 gap-2 shadow-[inset_0_2px_8px_rgba(0,0,0,0.12),0_4px_12px_rgba(0,0,0,0.18)]">
-            {[0, 1, 2, 3].map((i) => (
-              <div 
-                key={i} 
-                className="rounded-full bg-[#fef2f2] border-2 border-[#fecaca] flex items-center justify-center shadow-inner"
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* ================================================================= */}
-        {/* 8. BOTTOM ARM (col 6..8, row 9..14) - RED PATH & START             */}
-        {/* ================================================================= */}
-        <div className="col-span-3 row-span-6 grid grid-cols-3 grid-rows-6 bg-white border-x border-slate-300">
-          {Array.from({ length: 18 }).map((_, idx) => {
-            const r = 9 + Math.floor(idx / 3);
-            const c = 6 + (idx % 3);
-
-            const isRedArrow = r === 14 && c === 7;
-            const isRedPath = c === 7 && r >= 9 && r <= 13;
-            const isRedStart = r === 13 && c === 6;
-            const isSafeStar = r === 11 && c === 8;
-
-            return (
-              <div
-                key={idx}
-                className={`border border-slate-300 flex items-center justify-center relative ${
-                  isRedStart
-                    ? 'bg-[#dc2626]'
-                    : isRedPath
-                    ? 'bg-[#dc2626]'
-                    : 'bg-white'
-                }`}
-              >
-                {/* Red Directional Arrow */}
-                {isRedArrow && (
-                  <ChevronUp className="w-4 h-4 sm:w-5 sm:h-5 text-[#dc2626] stroke-[3.5] animate-bounce" />
-                )}
-
-                {/* Red Start Star */}
-                {isRedStart && (
-                  <div style={{ transform: `rotate(${-boardRotationDeg}deg)` }} className="transition-transform duration-700">
-                    <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white fill-white drop-shadow" />
-                  </div>
-                )}
-
-                {/* Neutral Safe Star */}
-                {isSafeStar && (
-                  <div style={{ transform: `rotate(${-boardRotationDeg}deg)` }} className="transition-transform duration-700">
-                    <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400 fill-slate-400 drop-shadow-sm" />
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        {/* ================================================================= */}
-        {/* 9. BOTTOM-RIGHT BASE: YELLOW (row 9..14, col 9..14)               */}
-        {/* ================================================================= */}
-        <div className="col-span-6 row-span-6 bg-[#f59e0b] p-2.5 sm:p-3.5 flex items-center justify-center relative rounded-br-[1.8rem]">
-          <div className="w-full h-full rounded-[1.6rem] bg-white border border-slate-200/90 p-2.5 grid grid-cols-2 grid-rows-2 gap-2 shadow-[inset_0_2px_8px_rgba(0,0,0,0.12),0_4px_12px_rgba(0,0,0,0.18)]">
-            {[0, 1, 2, 3].map((i) => (
-              <div 
-                key={i} 
-                className="rounded-full bg-[#fefce8] border-2 border-[#fef08a] flex items-center justify-center shadow-inner"
-              />
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* =================================================================== */}
-      {/* 10. ANIMATED 3D GLOSSY TOKENS OVERLAY                               */}
-      {/* =================================================================== */}
-      <div className="absolute inset-2 sm:inset-3 pointer-events-none">
-        {tokensOnBoard.map((item) => {
-          const { token, player, row, col, isValid } = item;
-
-          // Compute percent position on the 15x15 board
-          // Cell size = 100% / 15 = 6.666%
-          const leftPercent = (col + 0.5) * (100 / 15);
-          const topPercent = (row + 0.5) * (100 / 15);
-
-          return (
-            <motion.div
-              key={`${player.playerId}_${token.id}`}
-              initial={{ scale: 0.6, opacity: 0 }}
-              animate={{
-                left: `${leftPercent}%`,
-                top: `${topPercent}%`,
-                scale: isValid ? [1, 1.15, 1] : 1,
-                opacity: 1,
-              }}
-              transition={{
-                type: 'spring',
-                stiffness: 320,
-                damping: 24,
-                scale: isValid ? { repeat: Infinity, duration: 0.85 } : undefined,
-              }}
-              className="absolute -translate-x-1/2 -translate-y-1/2 z-20 pointer-events-auto cursor-pointer"
-            >
-              <button
-                type="button"
-                disabled={!isValid}
-                onClick={() => handleTokenClick(token.id)}
-                className={`relative focus:outline-none transition-transform ${
-                  isValid ? 'cursor-pointer active:scale-95' : 'cursor-default'
-                }`}
-                title={`${player.nickname}'s Token #${token.id + 1} (${token.state})`}
-              >
+              return (
                 <div
-                  className="transition-transform duration-700"
-                  style={{ transform: `rotate(${-boardRotationDeg}deg)` }}
+                  key={idx}
+                  className={`border border-slate-300 flex items-center justify-center relative ${
+                    isGreenStart
+                      ? 'bg-[#16a34a]'
+                      : isGreenPath
+                      ? 'bg-[#16a34a]'
+                      : 'bg-white'
+                  }`}
                 >
-                  <HDTokenPawn
-                    color={player.color}
-                    isValid={isValid}
-                  />
+                  {isGreenArrow && (
+                    <ChevronDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#16a34a] stroke-[3.5] animate-bounce" />
+                  )}
+
+                  {isGreenStart && (
+                    <div style={{ transform: `rotate(${-boardRotationDeg}deg)` }} className="transition-transform duration-700">
+                      <Star className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-white fill-white drop-shadow" />
+                    </div>
+                  )}
+
+                  {isSafeStar && (
+                    <div style={{ transform: `rotate(${-boardRotationDeg}deg)` }} className="transition-transform duration-700">
+                      <Star className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-400 fill-slate-400 drop-shadow-sm" />
+                    </div>
+                  )}
                 </div>
-              </button>
-            </motion.div>
-          );
-        })}
-      </div>
+              );
+            })}
+          </div>
+
+          {/* ================================================================= */}
+          {/* 3. TOP-RIGHT BASE: GREEN (grid lines: col 10..16, row 1..7)        */}
+          {/* ================================================================= */}
+          <div 
+            style={{ gridColumn: '10 / 16', gridRow: '1 / 7' }}
+            className="bg-[#16a34a] p-2 sm:p-2.5 flex items-center justify-center relative rounded-tr-[1.8rem]"
+          >
+            <div className="w-full h-full rounded-[1.4rem] sm:rounded-[1.8rem] bg-white border border-slate-200/90 p-2 sm:p-2.5 grid grid-cols-2 grid-rows-2 gap-2 sm:gap-3 shadow-[inset_0_2px_8px_rgba(0,0,0,0.12),0_4px_12px_rgba(0,0,0,0.18)]">
+              {[0, 1, 2, 3].map((i) => (
+                <div 
+                  key={i} 
+                  className="rounded-full bg-[#f0fdf4] border-2 border-[#bbf7d0] flex items-center justify-center shadow-inner aspect-square"
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* ================================================================= */}
+          {/* 4. LEFT ARM (grid lines: col 1..7, row 7..10)                      */}
+          {/* ================================================================= */}
+          <div 
+            style={{ 
+              gridColumn: '1 / 7', 
+              gridRow: '7 / 10',
+              display: 'grid',
+              gridTemplateColumns: 'repeat(6, minmax(0, 1fr))',
+              gridTemplateRows: 'repeat(3, minmax(0, 1fr))',
+            }}
+            className="bg-white border-y border-slate-300"
+          >
+            {Array.from({ length: 18 }).map((_, idx) => {
+              const r = 6 + Math.floor(idx / 6);
+              const c = idx % 6;
+
+              const isBlueArrow = r === 7 && c === 0;
+              const isBluePath = r === 7 && c >= 1 && c <= 5;
+              const isBlueStart = r === 6 && c === 1;
+              const isSafeStar = r === 8 && c === 2;
+
+              return (
+                <div
+                  key={idx}
+                  className={`border border-slate-300 flex items-center justify-center relative ${
+                    isBlueStart
+                      ? 'bg-[#0070f3]'
+                      : isBluePath
+                      ? 'bg-[#0070f3]'
+                      : 'bg-white'
+                  }`}
+                >
+                  {isBlueArrow && (
+                    <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#0070f3] stroke-[3.5] animate-pulse" />
+                  )}
+
+                  {isBlueStart && (
+                    <div style={{ transform: `rotate(${-boardRotationDeg}deg)` }} className="transition-transform duration-700">
+                      <Star className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-white fill-white drop-shadow" />
+                    </div>
+                  )}
+
+                  {isSafeStar && (
+                    <div style={{ transform: `rotate(${-boardRotationDeg}deg)` }} className="transition-transform duration-700">
+                      <Star className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-400 fill-slate-400 drop-shadow-sm" />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* ================================================================= */}
+          {/* 5. CENTER 3x3: 4 HOME TRIANGLES & VICTORY CROWN (col 7..10, row 7..10) */}
+          {/* ================================================================= */}
+          <div 
+            style={{ gridColumn: '7 / 10', gridRow: '7 / 10' }}
+            className="relative bg-white border border-slate-400/80 overflow-hidden flex items-center justify-center shadow-inner"
+          >
+            <div className="absolute inset-0">
+              <svg viewBox="0 0 100 100" className="w-full h-full" preserveAspectRatio="none">
+                <polygon points="0,0 100,0 50,50" fill="#16a34a" />
+                <polygon points="100,0 100,100 50,50" fill="#f59e0b" />
+                <polygon points="100,100 0,100 50,50" fill="#dc2626" />
+                <polygon points="0,100 0,0 50,50" fill="#0070f3" />
+              </svg>
+            </div>
+
+            <div 
+              className="relative z-10 w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-slate-950/85 backdrop-blur-sm border-2 border-amber-300 flex items-center justify-center shadow-[0_0_15px_rgba(251,191,36,0.85)] transition-transform duration-700"
+              style={{ transform: `rotate(${-boardRotationDeg}deg)` }}
+            >
+              <Crown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-300 fill-amber-300 animate-pulse" />
+            </div>
+          </div>
+
+          {/* ================================================================= */}
+          {/* 6. RIGHT ARM (grid lines: col 10..16, row 7..10)                   */}
+          {/* ================================================================= */}
+          <div 
+            style={{ 
+              gridColumn: '10 / 16', 
+              gridRow: '7 / 10',
+              display: 'grid',
+              gridTemplateColumns: 'repeat(6, minmax(0, 1fr))',
+              gridTemplateRows: 'repeat(3, minmax(0, 1fr))',
+            }}
+            className="bg-white border-y border-slate-300"
+          >
+            {Array.from({ length: 18 }).map((_, idx) => {
+              const r = 6 + Math.floor(idx / 6);
+              const c = 9 + (idx % 6);
+
+              const isYellowArrow = r === 7 && c === 14;
+              const isYellowPath = r === 7 && c >= 9 && c <= 13;
+              const isYellowStart = r === 8 && c === 13;
+              const isSafeStar = r === 6 && c === 12;
+
+              return (
+                <div
+                  key={idx}
+                  className={`border border-slate-300 flex items-center justify-center relative ${
+                    isYellowStart
+                      ? 'bg-[#f59e0b]'
+                      : isYellowPath
+                      ? 'bg-[#f59e0b]'
+                      : 'bg-white'
+                  }`}
+                >
+                  {isYellowArrow && (
+                    <ChevronLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#f59e0b] stroke-[3.5] animate-pulse" />
+                  )}
+
+                  {isYellowStart && (
+                    <div style={{ transform: `rotate(${-boardRotationDeg}deg)` }} className="transition-transform duration-700">
+                      <Star className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-white fill-white drop-shadow" />
+                    </div>
+                  )}
+
+                  {isSafeStar && (
+                    <div style={{ transform: `rotate(${-boardRotationDeg}deg)` }} className="transition-transform duration-700">
+                      <Star className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-400 fill-slate-400 drop-shadow-sm" />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* ================================================================= */}
+          {/* 7. BOTTOM-LEFT BASE: RED (grid lines: col 1..7, row 10..16)        */}
+          {/* ================================================================= */}
+          <div 
+            style={{ gridColumn: '1 / 7', gridRow: '10 / 16' }}
+            className="bg-[#dc2626] p-2 sm:p-2.5 flex items-center justify-center relative rounded-bl-[1.8rem]"
+          >
+            <div className="w-full h-full rounded-[1.4rem] sm:rounded-[1.8rem] bg-white border border-slate-200/90 p-2 sm:p-2.5 grid grid-cols-2 grid-rows-2 gap-2 sm:gap-3 shadow-[inset_0_2px_8px_rgba(0,0,0,0.12),0_4px_12px_rgba(0,0,0,0.18)]">
+              {[0, 1, 2, 3].map((i) => (
+                <div 
+                  key={i} 
+                  className="rounded-full bg-[#fef2f2] border-2 border-[#fecaca] flex items-center justify-center shadow-inner aspect-square"
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* ================================================================= */}
+          {/* 8. BOTTOM ARM (grid lines: col 7..10, row 10..16)                  */}
+          {/* ================================================================= */}
+          <div 
+            style={{ 
+              gridColumn: '7 / 10', 
+              gridRow: '10 / 16',
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+              gridTemplateRows: 'repeat(6, minmax(0, 1fr))',
+            }}
+            className="bg-white border-x border-slate-300"
+          >
+            {Array.from({ length: 18 }).map((_, idx) => {
+              const r = 9 + Math.floor(idx / 3);
+              const c = 6 + (idx % 3);
+
+              const isRedArrow = r === 14 && c === 7;
+              const isRedPath = c === 7 && r >= 9 && r <= 13;
+              const isRedStart = r === 13 && c === 6;
+              const isSafeStar = r === 11 && c === 8;
+
+              return (
+                <div
+                  key={idx}
+                  className={`border border-slate-300 flex items-center justify-center relative ${
+                    isRedStart
+                      ? 'bg-[#dc2626]'
+                      : isRedPath
+                      ? 'bg-[#dc2626]'
+                      : 'bg-white'
+                  }`}
+                >
+                  {isRedArrow && (
+                    <ChevronUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#dc2626] stroke-[3.5] animate-bounce" />
+                  )}
+
+                  {isRedStart && (
+                    <div style={{ transform: `rotate(${-boardRotationDeg}deg)` }} className="transition-transform duration-700">
+                      <Star className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-white fill-white drop-shadow" />
+                    </div>
+                  )}
+
+                  {isSafeStar && (
+                    <div style={{ transform: `rotate(${-boardRotationDeg}deg)` }} className="transition-transform duration-700">
+                      <Star className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-400 fill-slate-400 drop-shadow-sm" />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* ================================================================= */}
+          {/* 9. BOTTOM-RIGHT BASE: YELLOW (grid lines: col 10..16, row 10..16)  */}
+          {/* ================================================================= */}
+          <div 
+            style={{ gridColumn: '10 / 16', gridRow: '10 / 16' }}
+            className="bg-[#f59e0b] p-2 sm:p-2.5 flex items-center justify-center relative rounded-br-[1.8rem]"
+          >
+            <div className="w-full h-full rounded-[1.4rem] sm:rounded-[1.8rem] bg-white border border-slate-200/90 p-2 sm:p-2.5 grid grid-cols-2 grid-rows-2 gap-2 sm:gap-3 shadow-[inset_0_2px_8px_rgba(0,0,0,0.12),0_4px_12px_rgba(0,0,0,0.18)]">
+              {[0, 1, 2, 3].map((i) => (
+                <div 
+                  key={i} 
+                  className="rounded-full bg-[#fefce8] border-2 border-[#fef08a] flex items-center justify-center shadow-inner aspect-square"
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* =================================================================== */}
+        {/* 10. ANIMATED 3D GLOSSY TOKENS OVERLAY                               */}
+        {/* =================================================================== */}
+        <div className="absolute inset-0 pointer-events-none">
+          {tokensOnBoard.map((item) => {
+            const { token, player, row, col, isValid } = item;
+
+            // Compute percentage position in the 15x15 coordinate system
+            const leftPercent = (col + 0.5) * (100 / 15);
+            const topPercent = (row + 0.5) * (100 / 15);
+
+            return (
+              <motion.div
+                key={`${player.playerId}_${token.id}`}
+                animate={{
+                  left: `${leftPercent}%`,
+                  top: `${topPercent}%`,
+                  scale: isValid ? [1, 1.15, 1] : 1,
+                }}
+                transition={{
+                  left: { type: 'spring', stiffness: 450, damping: 28 },
+                  top: { type: 'spring', stiffness: 450, damping: 28 },
+                  scale: isValid ? { repeat: Infinity, duration: 0.85 } : undefined,
+                }}
+                className="absolute -translate-x-1/2 -translate-y-1/2 z-20 pointer-events-auto cursor-pointer"
+              >
+                <button
+                  type="button"
+                  disabled={!isValid}
+                  onClick={() => handleTokenClick(token.id)}
+                  className={`relative focus:outline-none transition-transform ${
+                    isValid ? 'cursor-pointer active:scale-95' : 'cursor-default'
+                  }`}
+                  title={`${player.nickname}'s Token #${token.id + 1} (${token.state})`}
+                >
+                  <div
+                    className="transition-transform duration-700"
+                    style={{ transform: `rotate(${-boardRotationDeg}deg)` }}
+                  >
+                    <HDTokenPawn
+                      color={player.color}
+                      isValid={isValid}
+                    />
+                  </div>
+                </button>
+              </motion.div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
