@@ -25,7 +25,6 @@ export const RoomContainer: React.FC<RoomContainerProps> = ({ roomCode }) => {
   const { nickname, avatar, setNickname, setAvatar } = useSettingsStore();
 
   const [isJoining, setIsJoining] = useState(false);
-  const [hasAttemptedAutoJoin, setHasAttemptedAutoJoin] = useState(false);
 
   // Clean code without symbols
   const cleanCode = (roomCode || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
@@ -37,33 +36,6 @@ export const RoomContainer: React.FC<RoomContainerProps> = ({ roomCode }) => {
   useEffect(() => {
     soundManager.startBGM();
   }, []);
-
-  // Auto-join if user has nickname and visits the direct room URL
-  useEffect(() => {
-    if (!isInThisRoom && socket && socket.connected && nickname && !hasAttemptedAutoJoin) {
-      setHasAttemptedAutoJoin(true);
-      setIsJoining(true);
-
-      socket.emit(
-        'room:join',
-        {
-          roomCode: cleanCode,
-          nickname: nickname.trim(),
-          avatar,
-          playerId,
-        },
-        (res: any) => {
-          setIsJoining(false);
-          if (res.success && res.room) {
-            setRoom(res.room);
-            if (res.playerId) {
-              setPlayerId(res.playerId);
-            }
-          }
-        }
-      );
-    }
-  }, [socket, isInThisRoom, cleanCode, nickname, avatar, playerId, hasAttemptedAutoJoin, setRoom, setPlayerId]);
 
   const handleJoinDirectly = (e?: React.FormEvent) => {
     if (e) e.preventDefault();

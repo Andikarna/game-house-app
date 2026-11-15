@@ -6,7 +6,10 @@ class PollingSocket {
   public connected: boolean = true;
   public id: string = '';
   private listeners: Map<string, Set<EventHandler>> = new Map();
-  private pollInterval: any = null;
+  private pollTimer: any = null;
+  private isPollingActive: boolean = false;
+  private isCurrentlyFetching: boolean = false;
+  private abortController: AbortController | null = null;
   private currentRoomCode: string | null = null;
   private currentPlayerId: string | null = null;
   private lastGameStateStr: string = '';
@@ -107,7 +110,7 @@ class PollingSocket {
         return;
       }
 
-      // If we don't have a room code yet, check payload
+      // Determine active context
       const roomCode = this.currentRoomCode || payload?.roomCode || payload?.code;
       const playerId = this.currentPlayerId || payload?.playerId;
 
@@ -121,7 +124,7 @@ class PollingSocket {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'ready', playerId, isReady }),
         });
-        this.pollOnce();
+        this.pollOnce(true);
         return;
       }
 
@@ -133,7 +136,7 @@ class PollingSocket {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'update_avatar', playerId, avatar }),
         });
-        this.pollOnce();
+        this.pollOnce(true);
         return;
       }
 
@@ -144,7 +147,7 @@ class PollingSocket {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'update_settings', playerId, ...payload }),
         });
-        this.pollOnce();
+        this.pollOnce(true);
         return;
       }
 
@@ -156,12 +159,12 @@ class PollingSocket {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'kick', playerId, targetId }),
         });
-        this.pollOnce();
+        this.pollOnce(true);
         return;
       }
 
-      // 4. START
-      if (event === 'room:start') {
+      // 4. START GAME (Both 'room:start' and 'game:start')
+      if (event === 'room:start' || event === 'game:start') {
         const res = await fetch(`/api/rooms/${roomCode}/action`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -170,12 +173,14 @@ class PollingSocket {
         const data = await res.json();
         if (data.success && data.gameState) {
           this.emitInternal('game:start', data.gameState);
+          this.emitInternal('game:state', data.gameState);
+          this.emitInternal('game:ludo_state', data.gameState);
+          await this.pollOnce(true);
         }
-        this.pollOnce();
         return;
       }
 
-      // 5. LUDO ACTION
+      // 5. LUDO ACTION OR GENERIC GAME INPUT
       if (event === 'game:ludo_action') {
         const res = await fetch(`/api/rooms/${roomCode}/action`, {
           method: 'POST',
@@ -192,12 +197,36 @@ class PollingSocket {
         return;
       }
 
-      // 6. PANJAT PINANG INPUT
+      // 6. GAME INPUT (Ludo roll/move or Panjat Pinang movement)
       if (event === 'game:input') {
+        const isLudoAction = payload?.action === 'roll-dice' || payload?.action === 'move-token';
+        const actionName = isLudoAction ? 'ludo_action' : 'input';
         const res = await fetch(`/api/rooms/${roomCode}/action`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'input', playerId, ...payload }),
+          body: JSON.stringify({ action: actionName, playerId, ...payload }),
+        });
+        const data = await res.json();
+        if (data.success && data.gameState) {
+          if (isLudoAction) {
+            this.emitInternal('game:ludo_state', data.gameState);
+          } else {
+            this.emitInternal('game:state', data.gameState);
+          }
+          if (data.results) {
+            this.emitInternal('game:finished', data.results);
+          }
+        }
+        return;
+      }
+
+      // 7. SKILL ACTIVATION
+      if (event === 'player:skill') {
+        const skill = typeof payload === 'string' ? payload : payload?.skill;
+        const res = await fetch(`/api/rooms/${roomCode}/action`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'skill', playerId, skill }),
         });
         const data = await res.json();
         if (data.success && data.gameState) {
@@ -206,24 +235,36 @@ class PollingSocket {
         return;
       }
 
-      // 7. EMOTE
-      if (event === 'emote:send') {
+      // 8. EMOTE
+      if (event === 'emote:send' || event === 'game:emote') {
+        const emoteId = payload?.emoteId || payload;
         await fetch(`/api/rooms/${roomCode}/action`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'emote', playerId, emoteId: payload?.emoteId }),
+          body: JSON.stringify({ action: 'emote', playerId, emoteId }),
         });
         return;
       }
 
-      // 8. LEAVE
+      // 9. RESTART GAME
+      if (event === 'game:restart') {
+        await fetch(`/api/rooms/${roomCode}/action`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'restart', playerId }),
+        });
+        await this.pollOnce(true);
+        return;
+      }
+
+      // 10. LEAVE
       if (event === 'room:leave') {
         await fetch(`/api/rooms/${roomCode}/action`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'leave', playerId }),
         });
-        this.stopPolling();
+        this.stopPolling(true);
         return;
       }
     } catch (err) {
@@ -240,26 +281,51 @@ class PollingSocket {
   public startPolling(roomCode: string, playerId: string) {
     this.currentRoomCode = roomCode;
     this.currentPlayerId = playerId;
-    this.stopPolling();
+    this.isPollingActive = true;
+    this.stopPolling(false);
 
+    // Initial immediate poll
     this.pollOnce();
-    this.pollInterval = setInterval(() => {
-      this.pollOnce();
-    }, 1000); // 1-second interval for smooth updates & friendly DB quota
   }
 
-  public stopPolling() {
-    if (this.pollInterval) {
-      clearInterval(this.pollInterval);
-      this.pollInterval = null;
+  public stopPolling(clearContext: boolean = false) {
+    if (this.pollTimer) {
+      clearTimeout(this.pollTimer);
+      this.pollTimer = null;
+    }
+    if (this.abortController) {
+      try {
+        this.abortController.abort();
+      } catch {}
+      this.abortController = null;
+    }
+    if (clearContext) {
+      this.isPollingActive = false;
+      this.currentRoomCode = null;
+      this.currentPlayerId = null;
     }
   }
 
-  public async pollOnce() {
+  public async pollOnce(force: boolean = false) {
     if (!this.currentRoomCode) return;
+    if (this.isCurrentlyFetching && !force) return;
+
+    this.isCurrentlyFetching = true;
     try {
+      this.abortController = new AbortController();
+      const timeoutId = setTimeout(() => {
+        try {
+          this.abortController?.abort();
+        } catch {}
+      }, 5000);
+
       const url = `/api/rooms/${this.currentRoomCode}${this.currentPlayerId ? `?playerId=${this.currentPlayerId}` : ''}`;
-      const res = await fetch(url);
+      const res = await fetch(url, {
+        signal: this.abortController.signal,
+        cache: 'no-store',
+      });
+      clearTimeout(timeoutId);
+
       if (!res.ok) return;
 
       const data = await res.json();
@@ -305,8 +371,19 @@ class PollingSocket {
           }
         });
       }
-    } catch (e) {
-      console.error('[PollingSocket pollOnce error]:', e);
+    } catch (e: any) {
+      if (e.name !== 'AbortError') {
+        console.error('[PollingSocket pollOnce error]:', e);
+      }
+    } finally {
+      this.isCurrentlyFetching = false;
+      // Sequential scheduling: Only queue the next poll AFTER the previous one finishes!
+      if (this.isPollingActive && this.currentRoomCode) {
+        if (this.pollTimer) clearTimeout(this.pollTimer);
+        this.pollTimer = setTimeout(() => {
+          this.pollOnce();
+        }, 800);
+      }
     }
   }
 }

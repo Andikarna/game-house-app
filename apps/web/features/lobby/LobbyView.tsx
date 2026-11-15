@@ -61,8 +61,8 @@ export const LobbyView: React.FC = () => {
   );
 
   const nonHostPlayers = room.players.filter(p => !p.isHost && p.id !== room.hostId);
-  const allReady = nonHostPlayers.length > 0 && nonHostPlayers.every(p => p.isReady);
-  const canStart = isHost && room.players.length >= 2 && allReady;
+  const allReady = nonHostPlayers.length === 0 ? true : nonHostPlayers.every(p => p.isReady);
+  const canStart = isHost && room.players.length >= 1 && allReady;
 
   const handleCopyCode = () => {
     navigator.clipboard.writeText(room.code);
@@ -501,9 +501,9 @@ export const LobbyView: React.FC = () => {
             {/* Desktop Bottom Actions */}
             <div className="hidden sm:flex pt-6 mt-4 border-t border-slate-800 items-center justify-between gap-4">
               <div className="text-xs text-slate-400">
-                {room.players.length < 2 ? (
-                  <span className="text-amber-400 font-bold flex items-center gap-1.5">
-                    <ShieldAlert className="w-4 h-4" /> Need at least 2 players to start
+                {room.players.length === 1 ? (
+                  <span className="text-emerald-400 font-bold flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4" /> Ready to play! Host can start now!
                   </span>
                 ) : !allReady ? (
                   <span className="text-amber-300 font-semibold">
@@ -573,8 +573,8 @@ export const LobbyView: React.FC = () => {
       <div className="sm:hidden fixed bottom-0 inset-x-0 bg-surface/95 backdrop-blur-md border-t border-slate-800 p-3 pb-safe z-30 flex items-center justify-between gap-3 shadow-2xl">
         <div className="flex-1 truncate">
           <span className="text-[11px] font-bold text-slate-400 block truncate">
-            {room.players.length < 2
-              ? 'Waiting for climbers (min. 2)...'
+            {room.players.length === 1
+              ? 'Solo/Party Ready • Tap START!'
               : !allReady
               ? 'Waiting for all ready...'
               : isHost

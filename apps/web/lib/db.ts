@@ -7,9 +7,13 @@ const pool = mysql.createPool({
   password: process.env.MYSQL_PASSWORD || '6jTluoZGocWweREyR6VGQUM2',
   database: process.env.MYSQL_DATABASE || 'u3290_7ui45c',
   waitForConnections: true,
-  connectionLimit: 10,
+  connectionLimit: 25,
+  maxIdle: 15,
+  idleTimeout: 60000,
   queueLimit: 0,
   connectTimeout: 10000,
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 10000,
 });
 
 export default pool;

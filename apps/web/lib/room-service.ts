@@ -7,20 +7,16 @@ export function generateRoomCode(): string {
 
 export async function getRoomByCode(code: string): Promise<{ room: RoomInfo; gameState: any; gameResults: any } | null> {
   const upperCode = code.toUpperCase();
-  const [roomRows] = await pool.query<any[]>(
-    'SELECT * FROM gh_rooms WHERE code = ? LIMIT 1',
-    [upperCode]
-  );
+  const [[roomRows], [playerRows]] = await Promise.all([
+    pool.query<any[]>('SELECT * FROM gh_rooms WHERE code = ? LIMIT 1', [upperCode]),
+    pool.query<any[]>('SELECT * FROM gh_players WHERE room_code = ? ORDER BY joined_at ASC', [upperCode]),
+  ]);
 
   if (!roomRows || roomRows.length === 0) {
     return null;
   }
 
   const r = roomRows[0];
-  const [playerRows] = await pool.query<any[]>(
-    'SELECT * FROM gh_players WHERE room_code = ? ORDER BY joined_at ASC',
-    [upperCode]
-  );
 
   const players: Player[] = playerRows.map((p) => ({
     id: p.id,

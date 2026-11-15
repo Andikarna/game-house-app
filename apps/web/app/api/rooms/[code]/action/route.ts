@@ -52,11 +52,17 @@ export async function POST(
 
     // 1c. UPDATE SETTINGS
     if (action === 'update_settings') {
+      if (body.gameId) {
+        await pool.query('UPDATE gh_rooms SET game_id = ?, updated_at = ? WHERE code = ?', [body.gameId, now, code]);
+      }
       if (body.gameMode) {
         await pool.query('UPDATE gh_rooms SET game_mode = ?, updated_at = ? WHERE code = ?', [body.gameMode, now, code]);
       }
       if (body.durationSeconds) {
         await pool.query('UPDATE gh_rooms SET duration_seconds = ?, updated_at = ? WHERE code = ?', [body.durationSeconds, now, code]);
+      }
+      if (body.maxPlayers) {
+        await pool.query('UPDATE gh_rooms SET max_players = ?, updated_at = ? WHERE code = ?', [body.maxPlayers, now, code]);
       }
       return NextResponse.json({ success: true });
     }
@@ -75,15 +81,15 @@ export async function POST(
 
       const initialGameState = createInitialGameState(room);
       await pool.query(
-        'UPDATE gh_rooms SET status = "in-game", game_state_json = ?, updated_at = ? WHERE code = ?',
+        'UPDATE gh_rooms SET status = "in-game", game_state_json = ?, game_results_json = NULL, updated_at = ? WHERE code = ?',
         [JSON.stringify(initialGameState), now, code]
       );
 
       return NextResponse.json({ success: true, gameState: initialGameState });
     }
 
-    // 3. LUDO ACTION
-    if (action === 'ludo_action') {
+    // 3. LUDO ACTION (or roll-dice / move-token)
+    if (action === 'ludo_action' || (room.settings.gameId === 'ludo' && (body.action === 'roll-dice' || body.action === 'move-token'))) {
       const { gameState: newGameState, results } = processLudoAction(room, gameState, playerId, body);
       const resultsJson = results ? JSON.stringify(results) : null;
       const newStatus = results ? 'finished' : 'in-game';
@@ -98,6 +104,19 @@ export async function POST(
 
     // 4. PANJAT PINANG INPUT ACTION
     if (action === 'input') {
+      if (room.settings.gameId === 'ludo') {
+        const { gameState: newGameState, results } = processLudoAction(room, gameState, playerId, body);
+        const resultsJson = results ? JSON.stringify(results) : null;
+        const newStatus = results ? 'finished' : 'in-game';
+
+        await pool.query(
+          'UPDATE gh_rooms SET game_state_json = ?, game_results_json = ?, status = ?, updated_at = ? WHERE code = ?',
+          [JSON.stringify(newGameState), resultsJson, newStatus, now, code]
+        );
+
+        return NextResponse.json({ success: true, gameState: newGameState, results });
+      }
+
       const { gameState: newGameState, results } = processPanjatAction(room, gameState, playerId, body);
       const resultsJson = results ? JSON.stringify(results) : null;
       const newStatus = results ? 'finished' : 'in-game';
@@ -108,6 +127,30 @@ export async function POST(
       );
 
       return NextResponse.json({ success: true, gameState: newGameState, results });
+    }
+
+    // 4b. SKILL ACTION
+    if (action === 'skill') {
+      const { gameState: newGameState, results } = processPanjatAction(room, gameState, playerId, { type: 'skill', skill: body.skill });
+      const resultsJson = results ? JSON.stringify(results) : null;
+      const newStatus = results ? 'finished' : 'in-game';
+
+      await pool.query(
+        'UPDATE gh_rooms SET game_state_json = ?, game_results_json = ?, status = ?, updated_at = ? WHERE code = ?',
+        [JSON.stringify(newGameState), resultsJson, newStatus, now, code]
+      );
+
+      return NextResponse.json({ success: true, gameState: newGameState, results });
+    }
+
+    // 4c. RESTART ACTION
+    if (action === 'restart') {
+      await pool.query(
+        'UPDATE gh_rooms SET status = "lobby", game_state_json = NULL, game_results_json = NULL, updated_at = ? WHERE code = ?',
+        [now, code]
+      );
+      await pool.query('UPDATE gh_players SET is_ready = 0 WHERE room_code = ?', [code]);
+      return NextResponse.json({ success: true });
     }
 
     // 5. EMOTE ACTION
