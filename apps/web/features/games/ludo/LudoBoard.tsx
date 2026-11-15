@@ -107,19 +107,20 @@ export const HOME_STRETCHES: Record<LudoColor, [number, number][]> = {
   ],
 };
 
-// Base slots coordinates inside the white rounded capsule (2x2 grid per color)
+// Base slots center coordinates inside the white rounded capsule (2x2 grid per color)
+// Each base is 6x6. With p-[7%] and p-[8%] gap-[8%], circle centers are exactly at offset +/- 1.2 from base center.
 export const BASE_SLOTS: Record<LudoColor, [number, number][]> = {
   blue: [
-    [1.4, 1.4], [1.4, 3.6], [3.6, 1.4], [3.6, 3.6]
+    [1.8, 1.8], [1.8, 4.2], [4.2, 1.8], [4.2, 4.2]
   ],
   green: [
-    [1.4, 10.4], [1.4, 12.6], [3.6, 10.4], [3.6, 12.6]
+    [1.8, 10.8], [1.8, 13.2], [4.2, 10.8], [4.2, 13.2]
   ],
   yellow: [
-    [10.4, 10.4], [10.4, 12.6], [12.6, 10.4], [12.6, 12.6]
+    [10.8, 10.8], [10.8, 13.2], [13.2, 10.8], [13.2, 13.2]
   ],
   red: [
-    [10.4, 1.4], [10.4, 3.6], [12.6, 1.4], [12.6, 3.6]
+    [10.8, 1.8], [10.8, 4.2], [13.2, 1.8], [13.2, 4.2]
   ],
 };
 
@@ -130,7 +131,7 @@ const START_OFFSETS: Record<LudoColor, number> = {
   yellow: 39,
 };
 
-// Calculates the exact (row, col) coordinates for any step count from 0 to 57
+// Calculates the exact (centerRow, centerCol) coordinates for any step count from 0 to 57
 export function getTokenCoordinate(
   color: LudoColor,
   tokenId: number,
@@ -142,13 +143,16 @@ export function getTokenCoordinate(
   }
   if (stepCount >= 1 && stepCount <= 51) {
     const trackIndex = (START_OFFSETS[color] + (stepCount - 1)) % 52;
-    return TRACK_COORDS[trackIndex];
+    const [r, c] = TRACK_COORDS[trackIndex];
+    return [r + 0.5, c + 0.5];
   }
   if (stepCount >= 52 && stepCount <= 56) {
     const stretchIdx = stepCount - 52;
-    return HOME_STRETCHES[color][stretchIdx];
+    const [r, c] = HOME_STRETCHES[color][stretchIdx];
+    return [r + 0.5, c + 0.5];
   }
-  return HOME_STRETCHES[color][5];
+  const [r, c] = HOME_STRETCHES[color][5];
+  return [r + 0.5, c + 0.5];
 }
 
 // ============================================================================
@@ -213,13 +217,13 @@ const HDTokenPawn: React.FC<HDTokenProps> = ({ color, isValid, stackCount }) => 
   const uniqueId = `pawn_grad_${color}`;
 
   return (
-    <div className="relative w-7 h-7 sm:w-9 sm:h-9 flex items-center justify-center select-none">
+    <div className="relative w-6 h-6 sm:w-7.5 sm:h-7.5 flex items-center justify-center select-none pointer-events-none">
       <svg
         viewBox="0 0 44 54"
         className={`w-full h-full filter ${
           isValid
-            ? 'drop-shadow-[0_0_10px_rgba(250,204,21,1)] scale-110'
-            : 'drop-shadow-[0_4px_6px_rgba(0,0,0,0.45)]'
+            ? 'drop-shadow-[0_0_8px_rgba(250,204,21,1)] scale-105'
+            : 'drop-shadow-[0_3px_5px_rgba(0,0,0,0.4)]'
         } transition-transform duration-200`}
       >
         <defs>
@@ -522,9 +526,9 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
           {/* ================================================================= */}
           <div 
             style={{ gridColumn: '1 / 7', gridRow: '1 / 7' }}
-            className="bg-[#0070f3] p-2 sm:p-2.5 flex items-center justify-center relative rounded-tl-[1.8rem]"
+            className="bg-[#0070f3] p-[7%] flex items-center justify-center relative rounded-tl-[1.8rem]"
           >
-            <div className="w-full h-full rounded-[1.4rem] sm:rounded-[1.8rem] bg-white border border-slate-200/90 p-2 sm:p-2.5 grid grid-cols-2 grid-rows-2 gap-2 sm:gap-3 shadow-[inset_0_2px_8px_rgba(0,0,0,0.12),0_4px_12px_rgba(0,0,0,0.18)]">
+            <div className="w-full h-full rounded-[1.4rem] sm:rounded-[1.8rem] bg-white border border-slate-200/90 p-[8%] gap-[8%] grid grid-cols-2 grid-rows-2 shadow-[inset_0_2px_8px_rgba(0,0,0,0.12),0_4px_12px_rgba(0,0,0,0.18)]">
               {[0, 1, 2, 3].map((i) => {
                 const isTokenValid = myColor === 'blue' && isMyTurn && validMoves.includes(i) && myPlayer?.tokens[i]?.state === 'base';
                 return (
@@ -602,9 +606,9 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
           {/* ================================================================= */}
           <div 
             style={{ gridColumn: '10 / 16', gridRow: '1 / 7' }}
-            className="bg-[#16a34a] p-2 sm:p-2.5 flex items-center justify-center relative rounded-tr-[1.8rem]"
+            className="bg-[#16a34a] p-[7%] flex items-center justify-center relative rounded-tr-[1.8rem]"
           >
-            <div className="w-full h-full rounded-[1.4rem] sm:rounded-[1.8rem] bg-white border border-slate-200/90 p-2 sm:p-2.5 grid grid-cols-2 grid-rows-2 gap-2 sm:gap-3 shadow-[inset_0_2px_8px_rgba(0,0,0,0.12),0_4px_12px_rgba(0,0,0,0.18)]">
+            <div className="w-full h-full rounded-[1.4rem] sm:rounded-[1.8rem] bg-white border border-slate-200/90 p-[8%] gap-[8%] grid grid-cols-2 grid-rows-2 shadow-[inset_0_2px_8px_rgba(0,0,0,0.12),0_4px_12px_rgba(0,0,0,0.18)]">
               {[0, 1, 2, 3].map((i) => {
                 const isTokenValid = myColor === 'green' && isMyTurn && validMoves.includes(i) && myPlayer?.tokens[i]?.state === 'base';
                 return (
@@ -759,9 +763,9 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
           {/* ================================================================= */}
           <div 
             style={{ gridColumn: '1 / 7', gridRow: '10 / 16' }}
-            className="bg-[#dc2626] p-2 sm:p-2.5 flex items-center justify-center relative rounded-bl-[1.8rem]"
+            className="bg-[#dc2626] p-[7%] flex items-center justify-center relative rounded-bl-[1.8rem]"
           >
-            <div className="w-full h-full rounded-[1.4rem] sm:rounded-[1.8rem] bg-white border border-slate-200/90 p-2 sm:p-2.5 grid grid-cols-2 grid-rows-2 gap-2 sm:gap-3 shadow-[inset_0_2px_8px_rgba(0,0,0,0.12),0_4px_12px_rgba(0,0,0,0.18)]">
+            <div className="w-full h-full rounded-[1.4rem] sm:rounded-[1.8rem] bg-white border border-slate-200/90 p-[8%] gap-[8%] grid grid-cols-2 grid-rows-2 shadow-[inset_0_2px_8px_rgba(0,0,0,0.12),0_4px_12px_rgba(0,0,0,0.18)]">
               {[0, 1, 2, 3].map((i) => {
                 const isTokenValid = myColor === 'red' && isMyTurn && validMoves.includes(i) && myPlayer?.tokens[i]?.state === 'base';
                 return (
@@ -839,9 +843,9 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
           {/* ================================================================= */}
           <div 
             style={{ gridColumn: '10 / 16', gridRow: '10 / 16' }}
-            className="bg-[#f59e0b] p-2 sm:p-2.5 flex items-center justify-center relative rounded-br-[1.8rem]"
+            className="bg-[#f59e0b] p-[7%] flex items-center justify-center relative rounded-br-[1.8rem]"
           >
-            <div className="w-full h-full rounded-[1.4rem] sm:rounded-[1.8rem] bg-white border border-slate-200/90 p-2 sm:p-2.5 grid grid-cols-2 grid-rows-2 gap-2 sm:gap-3 shadow-[inset_0_2px_8px_rgba(0,0,0,0.12),0_4px_12px_rgba(0,0,0,0.18)]">
+            <div className="w-full h-full rounded-[1.4rem] sm:rounded-[1.8rem] bg-white border border-slate-200/90 p-[8%] gap-[8%] grid grid-cols-2 grid-rows-2 shadow-[inset_0_2px_8px_rgba(0,0,0,0.12),0_4px_12px_rgba(0,0,0,0.18)]">
               {[0, 1, 2, 3].map((i) => {
                 const isTokenValid = myColor === 'yellow' && isMyTurn && validMoves.includes(i) && myPlayer?.tokens[i]?.state === 'base';
                 return (
@@ -866,57 +870,80 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
         {/* 10. ANIMATED 3D GLOSSY TOKENS OVERLAY                               */}
         {/* =================================================================== */}
         <div className="absolute inset-0 pointer-events-none">
-          {tokensOnBoard.map((item) => {
-            const { token, player, row, col, isValid } = item;
+          {(() => {
+            // Track occupancy to stagger multiple pawns sharing the exact same track tile
+            const occupancy: Record<string, number> = {};
+            tokensOnBoard.forEach((item) => {
+              const k = `${item.row.toFixed(2)}_${item.col.toFixed(2)}`;
+              occupancy[k] = (occupancy[k] || 0) + 1;
+            });
 
-            // Compute percentage position in the 15x15 coordinate system
-            const leftPercent = (col + 0.5) * (100 / 15);
-            const topPercent = (row + 0.5) * (100 / 15);
+            const counters: Record<string, number> = {};
 
-            return (
-              <motion.div
-                key={`${player.playerId}_${token.id}`}
-                animate={{
-                  left: `${leftPercent}%`,
-                  top: `${topPercent}%`,
-                  scale: isValid ? [1, 1.15, 1] : 1,
-                }}
-                transition={{
-                  left: { type: 'spring', stiffness: 450, damping: 28 },
-                  top: { type: 'spring', stiffness: 450, damping: 28 },
-                  scale: isValid ? { repeat: Infinity, duration: 0.85 } : undefined,
-                }}
-                className="absolute -translate-x-1/2 -translate-y-1/2 z-20 pointer-events-auto cursor-pointer"
-              >
-                <button
-                  type="button"
-                  disabled={!isValid}
-                  onClick={() => handleTokenClick(token.id)}
-                  className={`relative p-2 flex items-center justify-center focus:outline-none transition-transform ${
-                    isValid ? 'cursor-pointer active:scale-95' : 'cursor-default'
-                  }`}
-                  title={`${player.nickname}'s Token #${token.id + 1} (${token.state})`}
+            return tokensOnBoard.map((item) => {
+              const { token, player, row, col, isValid } = item;
+              const k = `${row.toFixed(2)}_${col.toFixed(2)}`;
+              const totalOnTile = occupancy[k] || 1;
+              const indexOnTile = counters[k] || 0;
+              counters[k] = indexOnTile + 1;
+
+              let offsetX = 0;
+              let offsetY = 0;
+              if (totalOnTile > 1 && token.state !== 'base') {
+                const angle = (indexOnTile / totalOnTile) * Math.PI * 2;
+                offsetX = Math.cos(angle) * 1.1; // 1.1% of board width
+                offsetY = Math.sin(angle) * 1.1;
+              }
+
+              // col and row are already exact center coordinates in 0..15 space
+              const leftPercent = (col / 15) * 100 + offsetX;
+              const topPercent = (row / 15) * 100 + offsetY;
+
+              return (
+                <motion.div
+                  key={`${player.playerId}_${token.id}`}
+                  animate={{
+                    left: `${leftPercent}%`,
+                    top: `${topPercent}%`,
+                    scale: isValid ? [1, 1.12, 1] : 1,
+                  }}
+                  transition={{
+                    left: { type: 'spring', stiffness: 450, damping: 28 },
+                    top: { type: 'spring', stiffness: 450, damping: 28 },
+                    scale: isValid ? { repeat: Infinity, duration: 0.85 } : undefined,
+                  }}
+                  className="absolute -translate-x-1/2 -translate-y-1/2 z-20 pointer-events-auto cursor-pointer"
                 >
-                  {/* Glowing selection halo when it is valid to move */}
-                  {isValid && (
-                    <span className="absolute inset-1 rounded-full bg-amber-400/35 border-2 border-amber-400 animate-ping pointer-events-none" />
-                  )}
-                  {isValid && (
-                    <span className="absolute inset-0 rounded-full border-2 border-amber-300 shadow-[0_0_15px_rgba(251,191,36,0.9)] animate-pulse pointer-events-none" />
-                  )}
-                  <div
-                    className="transition-transform duration-700"
-                    style={{ transform: `rotate(${-boardRotationDeg}deg)` }}
+                  <button
+                    type="button"
+                    disabled={!isValid}
+                    onClick={() => handleTokenClick(token.id)}
+                    className={`relative flex items-center justify-center p-0.5 focus:outline-none transition-transform ${
+                      isValid ? 'cursor-pointer active:scale-95' : 'cursor-default'
+                    }`}
+                    title={`${player.nickname}'s Token #${token.id + 1} (${token.state})`}
                   >
-                    <HDTokenPawn
-                      color={player.color}
-                      isValid={isValid}
-                    />
-                  </div>
-                </button>
-              </motion.div>
-            );
-          })}
+                    {/* Glowing selection halo when it is valid to move */}
+                    {isValid && (
+                      <span className="absolute -inset-1 rounded-full bg-amber-400/35 border-2 border-amber-400 animate-ping pointer-events-none" />
+                    )}
+                    {isValid && (
+                      <span className="absolute -inset-1 rounded-full border-2 border-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.9)] animate-pulse pointer-events-none" />
+                    )}
+                    <div
+                      className="transition-transform duration-700"
+                      style={{ transform: `rotate(${-boardRotationDeg}deg)` }}
+                    >
+                      <HDTokenPawn
+                        color={player.color}
+                        isValid={isValid}
+                      />
+                    </div>
+                  </button>
+                </motion.div>
+              );
+            });
+          })()}
         </div>
       </div>
     </div>
