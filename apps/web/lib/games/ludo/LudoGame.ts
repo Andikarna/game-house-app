@@ -32,6 +32,8 @@ export class LudoGame implements GameModule {
   private consecutiveSixes: number = 0;
   private validMoves: number[] = [];
   private turnTimeRemaining: number = 20; // 20s per turn
+  private turnStartedAt: number = Date.now();
+  private passAt: number | null = null;
   private autoTurnTimeout: any = null;
   private winnerId: string | null = null;
   private rankings: PlayerGameResult[] = [];
@@ -68,6 +70,8 @@ export class LudoGame implements GameModule {
     this.hasRolled = false;
     this.validMoves = [];
     this.consecutiveSixes = 0;
+    this.turnStartedAt = Date.now();
+    this.passAt = null;
     this.lastMoveNotice = 'Game started! Roll the dice to begin.';
 
     // Assign colors in balanced classic layout matching board corners:
@@ -138,6 +142,8 @@ export class LudoGame implements GameModule {
       this.handleRollDice(player);
     } else if (input.action === 'move-token') {
       this.handleMoveToken(player, input.tokenIndex);
+    } else if (input.action === 'pass-turn') {
+      this.passToNextPlayer();
     }
   }
 
@@ -174,6 +180,9 @@ export class LudoGame implements GameModule {
       playersRecord[id] = p;
     });
 
+    const elapsedSeconds = (Date.now() - (this.turnStartedAt || Date.now())) / 1000;
+    const remaining = Math.max(0, Math.ceil(20 - elapsedSeconds));
+
     return {
       gameId: 'ludo',
       gameMode: this.settings.gameMode,
@@ -182,7 +191,11 @@ export class LudoGame implements GameModule {
       currentTurnColor: currentPlayer?.color || 'red',
       diceValue: this.diceValue,
       isRolling: this.isRolling,
-      turnTimeRemaining: Math.max(0, Math.ceil(this.turnTimeRemaining)),
+      hasRolled: this.hasRolled,
+      turnTimeRemaining: remaining,
+      turnStartedAt: this.turnStartedAt,
+      passAt: this.passAt,
+      consecutiveSixes: this.consecutiveSixes,
       players: playersRecord,
       playerOrder: this.playerOrder,
       validMoves: this.validMoves,
@@ -229,6 +242,7 @@ export class LudoGame implements GameModule {
         this.lastMoveNotice = `${player.nickname} dapat angka 6 tiga kali berturut-turut! Giliran dibatalkan.`;
         this.consecutiveSixes = 0;
         this.validMoves = [];
+        this.passAt = Date.now() + 1500;
         this.broadcastState();
         this.schedulePassTurn(1500);
         return;
@@ -248,6 +262,7 @@ export class LudoGame implements GameModule {
       } else {
         this.lastMoveNotice = `${player.nickname} dapat ${this.diceValue}. Tidak ada langkah valid!`;
       }
+      this.passAt = Date.now() + 1500;
       this.broadcastState();
       this.schedulePassTurn(1500);
     } else {
@@ -402,13 +417,16 @@ export class LudoGame implements GameModule {
     }
   }
 
-  private passToNextPlayer(): void {
+  public passToNextPlayer(): void {
     if (this.finished) return;
 
     if (this.autoTurnTimeout) {
       clearTimeout(this.autoTurnTimeout);
       this.autoTurnTimeout = null;
     }
+
+    this.passAt = null;
+    this.turnStartedAt = Date.now();
 
     let attempts = 0;
     do {
@@ -428,13 +446,34 @@ export class LudoGame implements GameModule {
     this.validMoves = [];
     this.consecutiveSixes = 0;
 
+    const nextId = this.playerOrder[this.currentTurnIndex];
+    const nextPlayer = this.players.get(nextId);
+    this.lastMoveNotice = nextPlayer ? `Giliran ${nextPlayer.nickname} melempar dadu.` : 'Giliran melempar dadu.';
+
     this.players.forEach((p, pId) => {
-      p.canRoll = pId === this.playerOrder[this.currentTurnIndex];
+      p.canRoll = pId === nextId;
       p.hasRolled = false;
     });
 
     this.resetTurnTimer();
     this.broadcastState();
+  }
+
+  public checkTimeouts(now: number = Date.now()): boolean {
+    if (this.finished) return false;
+
+    if (this.passAt && now >= this.passAt) {
+      this.passAt = null;
+      this.passToNextPlayer();
+      return true;
+    }
+
+    if (now - (this.turnStartedAt || now) >= 20000) {
+      this.handleTurnTimeout();
+      return true;
+    }
+
+    return false;
   }
 
   private schedulePassTurn(delayMs: number): void {
@@ -447,6 +486,7 @@ export class LudoGame implements GameModule {
   }
 
   private handleTurnTimeout(): void {
+    if (this.finished) return;
     const currentPlayerId = this.playerOrder[this.currentTurnIndex];
     const player = this.players.get(currentPlayerId);
     if (!player) return;
@@ -454,6 +494,9 @@ export class LudoGame implements GameModule {
     if (!this.hasRolled) {
       // Auto-roll for AFK player
       this.handleRollDice(player);
+      if (this.validMoves.length === 0) {
+        this.passToNextPlayer();
+      }
     } else if (this.validMoves.length > 0) {
       // Auto-move first available token
       this.handleMoveToken(player, this.validMoves[0]);
@@ -463,6 +506,8 @@ export class LudoGame implements GameModule {
   }
 
   private resetTurnTimer(): void {
+    this.turnStartedAt = Date.now();
+    this.passAt = null;
     this.turnTimeRemaining = 20; // 20 seconds
   }
 

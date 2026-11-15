@@ -197,9 +197,9 @@ class PollingSocket {
         return;
       }
 
-      // 6. GAME INPUT (Ludo roll/move or Panjat Pinang movement)
+      // 6. GAME INPUT (Ludo roll/move/pass or Panjat Pinang movement)
       if (event === 'game:input') {
-        const isLudoAction = payload?.action === 'roll-dice' || payload?.action === 'move-token';
+        const isLudoAction = payload?.action === 'roll-dice' || payload?.action === 'move-token' || payload?.action === 'pass-turn';
         const actionName = isLudoAction ? 'ludo_action' : 'input';
         const res = await fetch(`/api/rooms/${roomCode}/action`, {
           method: 'POST',

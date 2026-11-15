@@ -187,7 +187,11 @@ export interface LudoGameState {
   currentTurnColor: LudoColor;
   diceValue: number | null; // 1 to 6
   isRolling: boolean;
+  hasRolled?: boolean;
   turnTimeRemaining: number;
+  turnStartedAt?: number;
+  passAt?: number | null;
+  consecutiveSixes?: number;
   players: Record<string, LudoPlayerState>;
   playerOrder: string[]; // List of playerIds in turn order
   validMoves: number[]; // Token indices (0 to 3) that current player can move
@@ -198,7 +202,8 @@ export interface LudoGameState {
 
 export type LudoInput = 
   | { action: 'roll-dice' }
-  | { action: 'move-token'; tokenIndex: number };
+  | { action: 'move-token'; tokenIndex: number }
+  | { action: 'pass-turn' };
 
 export type AnyGameState = PanjatPinangGameState | LudoGameState;
 

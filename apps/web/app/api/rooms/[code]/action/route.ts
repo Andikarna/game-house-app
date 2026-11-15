@@ -88,8 +88,8 @@ export async function POST(
       return NextResponse.json({ success: true, gameState: initialGameState });
     }
 
-    // 3. LUDO ACTION (or roll-dice / move-token)
-    if (action === 'ludo_action' || (room.settings.gameId === 'ludo' && (body.action === 'roll-dice' || body.action === 'move-token'))) {
+    // 3. LUDO ACTION (or roll-dice / move-token / pass-turn)
+    if (action === 'ludo_action' || (room.settings.gameId === 'ludo' && (body.action === 'roll-dice' || body.action === 'move-token' || body.action === 'pass-turn'))) {
       const { gameState: newGameState, results } = processLudoAction(room, gameState, playerId, body);
       const resultsJson = results ? JSON.stringify(results) : null;
       const newStatus = results ? 'finished' : 'in-game';

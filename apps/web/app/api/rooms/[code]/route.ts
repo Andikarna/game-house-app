@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import pool from '../../../../lib/db';
 import { getRoomByCode } from '../../../../lib/room-service';
+import { checkLudoTimeout } from '../../../../lib/game-runner';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,6 +49,36 @@ export async function GET(
 
     if (!roomData) {
       return NextResponse.json({ success: false, error: 'Room not found.' }, { status: 404 });
+    }
+
+    // Check if Ludo turn timed out or passAt expired
+    if (
+      roomData.room.status === 'in-game' &&
+      roomData.room.settings.gameId === 'ludo' &&
+      roomData.gameState
+    ) {
+      const { changed, gameState: updatedState, results } = checkLudoTimeout(
+        roomData.room,
+        roomData.gameState
+      );
+      if (changed) {
+        roomData.gameState = updatedState;
+        if (results) {
+          roomData.gameResults = results;
+          roomData.room.status = 'finished';
+        }
+        const newStatus = results ? 'finished' : 'in-game';
+        pool.query(
+          'UPDATE gh_rooms SET game_state_json = ?, game_results_json = ?, status = ?, updated_at = ? WHERE code = ?',
+          [
+            JSON.stringify(updatedState),
+            results ? JSON.stringify(results) : null,
+            newStatus,
+            now,
+            code,
+          ]
+        ).catch((err) => console.error('[Ludo auto-timeout update error]:', err));
+      }
     }
 
     return NextResponse.json(

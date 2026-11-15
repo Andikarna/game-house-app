@@ -129,6 +129,27 @@ export const LudoView: React.FC = () => {
     setIsAudioMuted(!isPlaying);
   };
 
+  // Auto-pass turn if current player rolled a number with no valid moves
+  useEffect(() => {
+    if (!gameState || gameState.gameId !== 'ludo') return;
+    const ludo = gameState as LudoGameState;
+
+    if (
+      ludo.currentTurnPlayerId === playerId &&
+      ludo.hasRolled &&
+      ludo.validMoves &&
+      ludo.validMoves.length === 0 &&
+      ludo.status !== 'finished'
+    ) {
+      const timer = setTimeout(() => {
+        if (socket && socket.connected) {
+          socket.emit('game:input', { action: 'pass-turn' });
+        }
+      }, 1400);
+      return () => clearTimeout(timer);
+    }
+  }, [gameState, playerId, socket]);
+
   const handleRollDice = () => {
     if (socket && socket.connected) {
       socket.emit('game:input', { action: 'roll-dice' });
@@ -236,6 +257,7 @@ export const LudoView: React.FC = () => {
           canRoll={Boolean(myPlayer?.canRoll)}
           isMyTurn={isMyTurn}
           onRoll={handleRollDice}
+          validMovesLength={ludoState.validMoves?.length}
         />
       </footer>
 

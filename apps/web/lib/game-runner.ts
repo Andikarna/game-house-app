@@ -20,6 +20,38 @@ export function createInitialGameState(room: RoomInfo): any {
   }
 }
 
+function restoreLudoState(ludo: LudoGame, currentGameState: any): void {
+  if (!currentGameState) return;
+
+  if (currentGameState.players) {
+    Object.entries(currentGameState.players).forEach(([pId, pState]: [string, any]) => {
+      (ludo as any).players.set(pId, pState);
+    });
+  }
+
+  if (Array.isArray(currentGameState.playerOrder) && currentGameState.playerOrder.length > 0) {
+    (ludo as any).playerOrder = currentGameState.playerOrder;
+  }
+
+  if (currentGameState.currentTurnPlayerId && (ludo as any).playerOrder) {
+    const idx = (ludo as any).playerOrder.indexOf(currentGameState.currentTurnPlayerId);
+    if (idx !== -1) {
+      (ludo as any).currentTurnIndex = idx;
+    }
+  }
+
+  (ludo as any).diceValue = currentGameState.diceValue ?? null;
+  (ludo as any).hasRolled = Boolean(currentGameState.hasRolled);
+  (ludo as any).validMoves = currentGameState.validMoves || [];
+  (ludo as any).winnerId = currentGameState.winnerId || null;
+  (ludo as any).finished = Boolean(currentGameState.finished);
+  (ludo as any).lastMoveNotice = currentGameState.lastMoveNotice || '';
+  (ludo as any).rankings = currentGameState.rankings || [];
+  (ludo as any).consecutiveSixes = currentGameState.consecutiveSixes || 0;
+  (ludo as any).turnStartedAt = currentGameState.turnStartedAt || Date.now();
+  (ludo as any).passAt = currentGameState.passAt ?? null;
+}
+
 export function processLudoAction(
   room: RoomInfo,
   currentGameState: any,
@@ -28,41 +60,54 @@ export function processLudoAction(
 ): { gameState: any; results: any | null } {
   const ludo = new LudoGame();
   ludo.initialize(room.id, room.players, room.settings, dummyIo);
+  restoreLudoState(ludo, currentGameState);
 
-  if (currentGameState) {
-    // Restore state from JSON
-    (ludo as any).currentTurn = currentGameState.currentTurn;
-    (ludo as any).diceValue = currentGameState.diceValue;
-    (ludo as any).hasRolled = currentGameState.hasRolled;
-    (ludo as any).validMoves = currentGameState.validMoves || [];
-    (ludo as any).winnerId = currentGameState.winnerId;
-    (ludo as any).finished = currentGameState.finished;
-    (ludo as any).turnTimeRemaining = currentGameState.turnTimeRemaining;
-    (ludo as any).lastMoveNotice = currentGameState.lastMoveNotice;
-    (ludo as any).rankings = currentGameState.rankings || [];
-
-    if (currentGameState.players) {
-      Object.entries(currentGameState.players).forEach(([pId, pState]: [string, any]) => {
-        (ludo as any).players.set(pId, pState);
-      });
-    }
-  }
-
-  // Handle the action
-  if (actionData.action === 'roll-dice' || actionData.action === 'move-token') {
-    ludo.handleInput(playerId, actionData);
-  } else if (actionData.type === 'roll') {
+  // Handle actions
+  if (actionData.action === 'pass-turn' || actionData.type === 'pass-turn') {
+    ludo.passToNextPlayer();
+  } else if (actionData.action === 'roll-dice' || actionData.type === 'roll') {
     ludo.handleInput(playerId, { action: 'roll-dice' });
+  } else if (actionData.action === 'move-token') {
+    ludo.handleInput(playerId, { action: 'move-token', tokenIndex: actionData.tokenIndex });
   } else if (actionData.type === 'select_token' || actionData.type === 'move') {
-    ludo.handleInput(playerId, { action: 'move-token', tokenIndex: actionData.tokenIndex ?? actionData.tokenId ?? 0 });
+    ludo.handleInput(playerId, {
+      action: 'move-token',
+      tokenIndex: actionData.tokenIndex ?? actionData.tokenId ?? 0,
+    });
   } else {
-    ludo.handleInput(playerId, actionData as any);
+    ludo.handleInput(playerId, actionData);
   }
 
   const newGameState = ludo.getState();
   const results = ludo.isFinished() ? ludo.getResults() : null;
 
   return { gameState: newGameState, results };
+}
+
+export function checkLudoTimeout(
+  room: RoomInfo,
+  currentGameState: any
+): { changed: boolean; gameState: any; results: any | null } {
+  if (
+    !currentGameState ||
+    currentGameState.gameId !== 'ludo' ||
+    currentGameState.status === 'finished'
+  ) {
+    return { changed: false, gameState: currentGameState, results: null };
+  }
+
+  const ludo = new LudoGame();
+  ludo.initialize(room.id, room.players, room.settings, dummyIo);
+  restoreLudoState(ludo, currentGameState);
+
+  const changed = ludo.checkTimeouts(Date.now());
+  if (changed) {
+    const newGameState = ludo.getState();
+    const results = ludo.isFinished() ? ludo.getResults() : null;
+    return { changed: true, gameState: newGameState, results };
+  }
+
+  return { changed: false, gameState: currentGameState, results: null };
 }
 
 export function processPanjatAction(

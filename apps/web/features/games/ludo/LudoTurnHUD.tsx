@@ -23,6 +23,19 @@ export const LudoTurnHUD: React.FC<LudoTurnHUDProps> = ({
   const isMyTurn = gameState.currentTurnPlayerId === myPlayerId;
   const colorMeta = currentTurnPlayer ? COLOR_TEXT[currentTurnPlayer.color] : COLOR_TEXT.red;
 
+  const [localTime, setLocalTime] = React.useState<number>(gameState.turnTimeRemaining);
+
+  React.useEffect(() => {
+    setLocalTime(gameState.turnTimeRemaining);
+  }, [gameState.turnTimeRemaining, gameState.currentTurnPlayerId]);
+
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      setLocalTime((t) => Math.max(0, t - 1));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   const targetWins = gameState.gameMode === 'quick' ? 2 : 4;
 
   return (
@@ -55,8 +68,8 @@ export const LudoTurnHUD: React.FC<LudoTurnHUDProps> = ({
         {/* Turn Timer Countdown */}
         <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-900 border border-slate-700 font-mono font-bold text-xs">
           <Clock className="w-3.5 h-3.5 text-amber-400" />
-          <span className={gameState.turnTimeRemaining <= 5 ? 'text-rose-400 font-black animate-pulse' : 'text-slate-300'}>
-            {gameState.turnTimeRemaining}s
+          <span className={localTime <= 5 ? 'text-rose-400 font-black animate-pulse' : 'text-slate-300'}>
+            {localTime}s
           </span>
         </div>
       </div>

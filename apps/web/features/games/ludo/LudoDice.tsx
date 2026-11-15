@@ -9,6 +9,7 @@ interface LudoDiceProps {
   isMyTurn: boolean;
   onRoll: () => void;
   accentColor?: string;
+  validMovesLength?: number;
 }
 
 export const LudoDice: React.FC<LudoDiceProps> = ({
@@ -17,6 +18,7 @@ export const LudoDice: React.FC<LudoDiceProps> = ({
   isMyTurn,
   onRoll,
   accentColor = '#6366F1',
+  validMovesLength,
 }) => {
   const [isAnimating, setIsAnimating] = useState(false);
 
@@ -130,7 +132,11 @@ export const LudoDice: React.FC<LudoDiceProps> = ({
           <span>LEMPAR DADU!</span>
         </button>
       ) : isMyTurn && !canRoll ? (
-        <span className="text-[11px] font-bold text-amber-300">Pilih Bidak Untuk Jalan</span>
+        validMovesLength === 0 ? (
+          <span className="text-[11px] font-bold text-amber-400 animate-pulse">Tidak ada langkah valid, passing giliran...</span>
+        ) : (
+          <span className="text-[11px] font-bold text-amber-300 animate-bounce">Pilih Bidak Yang Berpendar 👆</span>
+        )
       ) : (
         <span className="text-[11px] font-medium text-slate-400">Menunggu giliran...</span>
       )}
