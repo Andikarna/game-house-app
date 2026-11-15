@@ -1,8 +1,5 @@
-'use client';
-
 import React from 'react';
 import dynamic from 'next/dynamic';
-import { useParams } from 'next/navigation';
 
 const RoomContainer = dynamic(
   () => import('../../../features/room/RoomContainer').then((mod) => mod.RoomContainer),
@@ -19,9 +16,11 @@ const RoomContainer = dynamic(
   }
 );
 
-export default function RoomPage() {
-  const params = useParams();
-  const roomCode = Array.isArray(params.code) ? params.code[0] : params.code || '';
+export function generateStaticParams() {
+  return [];
+}
 
+export default function RoomPage({ params }: { params: { code: string } }) {
+  const roomCode = params?.code || '';
   return <RoomContainer roomCode={roomCode.toUpperCase()} />;
 }

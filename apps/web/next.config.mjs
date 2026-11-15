@@ -6,13 +6,13 @@ const __dirname = path.dirname(__filename);
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    outputFileTracingRoot: path.join(__dirname, '../../'),
-  },
-  transpilePackages: ['@gamehouse/shared'],
   reactStrictMode: false, // Prevents double mounting socket/canvas in development
   webpack: (config, { isServer }) => {
-    // Handle canvas requirements for client-side rendering
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@gamehouse/shared': path.resolve(__dirname, './shared/index.ts'),
+    };
+
     if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,
