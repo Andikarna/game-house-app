@@ -13,18 +13,36 @@ import { Sparkles, Users, Flame, Clock } from 'lucide-react';
 interface CreateRoomModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialGameId?: GameId;
 }
 
-export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClose }) => {
+export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClose, initialGameId }) => {
   const router = useRouter();
   const { nickname, avatar, setNickname, setAvatar } = useSettingsStore();
   const { socket, setRoom, setPlayerId, playerId, addToast } = useGameStore();
 
-  const [selectedGame, setSelectedGame] = useState<GameId>('panjat-pinang');
+  const [selectedGame, setSelectedGame] = useState<GameId>(initialGameId || 'panjat-pinang');
   const [roomName, setRoomName] = useState(`${nickname}'s Arena`);
   const [gameMode, setGameMode] = useState<GameMode>('classic-race');
   const [maxPlayers, setMaxPlayers] = useState<number>(8);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Sync selected game whenever initialGameId changes or modal opens
+  React.useEffect(() => {
+    if (isOpen) {
+      const targetGame = initialGameId || selectedGame || 'panjat-pinang';
+      setSelectedGame(targetGame);
+      if (targetGame === 'ludo') {
+        setMaxPlayers(4);
+        setGameMode('classic');
+        setRoomName(`${nickname || 'Player'}'s Ludo Table`);
+      } else {
+        setMaxPlayers(8);
+        setGameMode('classic-race');
+        setRoomName(`${nickname || 'Player'}'s Arena`);
+      }
+    }
+  }, [isOpen, initialGameId, nickname]);
 
   const handleSelectGame = (gameId: GameId) => {
     setSelectedGame(gameId);

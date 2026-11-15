@@ -707,6 +707,47 @@ class SoundManager {
     } catch {}
   }
 
+  public playNumberReveal(num: number) {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    try {
+      if (num === 6) {
+        this.playCriticalRoll();
+        return;
+      }
+
+      const now = this.ctx.currentTime;
+      // Melodic crystal chimes for numbers 1 to 5: E4, G4, A4, C5, D5
+      const baseFreqs = [329.63, 392.0, 440.0, 523.25, 587.33];
+      const freq = baseFreqs[Math.max(0, Math.min(4, (num || 1) - 1))];
+
+      const osc = this.ctx.createOscillator();
+      const harm = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, now);
+
+      harm.type = 'sine';
+      harm.frequency.setValueAtTime(freq * 2, now);
+
+      const vol = 0.2 * this.volume;
+      gain.gain.setValueAtTime(vol, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.38);
+
+      osc.connect(gain);
+      harm.connect(gain);
+      gain.connect(this.sfxGain || this.ctx.destination);
+
+      osc.start(now);
+      harm.start(now);
+      osc.stop(now + 0.4);
+      harm.stop(now + 0.4);
+    } catch {}
+  }
+
   public playTokenCapture() {
     if (this.isMuted) return;
     this.initContext();

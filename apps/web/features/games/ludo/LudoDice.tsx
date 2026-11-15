@@ -389,65 +389,119 @@ export const LudoDice: React.FC<LudoDiceProps> = ({
   validMovesLength,
 }) => {
   const [isRolling, setIsRolling] = useState(false);
+  const [isBouncing, setIsBouncing] = useState(false);
   const [displayedValue, setDisplayedValue] = useState<number>(value || 6);
-  const [showCritical, setShowCritical] = useState(false);
+  const [revealedNumber, setRevealedNumber] = useState<number | null>(value);
+  const [showNumberBanner, setShowNumberBanner] = useState(false);
   const [showDustImpact, setShowDustImpact] = useState(false);
+  const [showShockwave, setShowShockwave] = useState(false);
+  const [rollSeqId, setRollSeqId] = useState(0);
+
   const shuffleTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const serverResultRef = useRef<number | null>(value);
+  const prevValueRef = useRef<number | null>(value);
 
-  // Sync displayed value whenever value prop updates
+  // Keep server result updated
   useEffect(() => {
-    if (value !== null && !isRolling) {
-      setDisplayedValue(value);
-      // Trigger critical celebration when value is 6
-      if (value === 6) {
-        setShowCritical(true);
-        soundManager.playCriticalRoll();
-        const timer = setTimeout(() => setShowCritical(false), 2200);
-        return () => clearTimeout(timer);
-      }
+    if (value !== null) {
+      serverResultRef.current = value;
     }
-  }, [value, isRolling]);
+  }, [value]);
 
-  // Handle dice rolling action with rich physical sequence
-  const handleClick = () => {
-    if (!canRoll || !isMyTurn || isRolling) return;
-
+  // Execute full physical roll sequence: 3D Airborne Tumbling -> Elastic Multi-Bounce -> Text Reveal
+  const triggerFullRollSequence = (targetResult?: number) => {
     setIsRolling(true);
-    setShowCritical(false);
+    setIsBouncing(false);
+    setShowNumberBanner(false);
     setShowDustImpact(false);
+    setShowShockwave(false);
+    setRollSeqId((prev) => prev + 1);
 
     // Audio: Real tactile tumbling dice clatter
     soundManager.playDiceRoll();
 
-    // 1. Shuffling sequence: rapidly cycle through random 3D dice faces
-    let shuffleCount = 0;
+    // 1. Airborne Tumbling & Face Shuffling (Rapid swap every 45ms)
+    if (shuffleTimerRef.current) clearInterval(shuffleTimerRef.current);
     shuffleTimerRef.current = setInterval(() => {
       setDisplayedValue((prev) => {
         let next = Math.floor(Math.random() * 6) + 1;
         while (next === prev) next = Math.floor(Math.random() * 6) + 1;
         return next;
       });
-      shuffleCount++;
-    }, 65);
+    }, 45);
 
-    // Trigger parent server input
-    onRoll();
-
-    // 2. Physical impact bounce & settle sequence
+    // 2. Flight Duration: 750ms of intense 3D tumbling in mid-air
     setTimeout(() => {
       if (shuffleTimerRef.current) {
         clearInterval(shuffleTimerRef.current);
         shuffleTimerRef.current = null;
       }
 
-      setIsRolling(false);
-      setShowDustImpact(true);
-      soundManager.playDiceImpact();
+      // Determine final landing value
+      const finalVal = Math.max(
+        1,
+        Math.min(6, Math.floor(targetResult || serverResultRef.current || value || 6))
+      );
 
+      setDisplayedValue(finalVal);
+      setRevealedNumber(finalVal);
+      setIsRolling(false);
+
+      // 3. Impact & Multi-Stage Elastic Bounce (Ground Slam -> Hop 1 -> Hop 2 -> Settle)
+      setIsBouncing(true);
+      setShowDustImpact(true);
+      setShowShockwave(true);
+      setShowNumberBanner(true);
+
+      // Primary hard table impact thump
+      soundManager.playDiceImpact();
+      // Melodic number announcement sound (or critical arpeggio if 6)
+      soundManager.playNumberReveal(finalVal);
+
+      // Secondary hop tap impact sound
       setTimeout(() => {
+        soundManager.playDiceImpact();
+      }, 240);
+
+      // End physical bounce motion and ground shockwave
+      setTimeout(() => {
+        setIsBouncing(false);
+        setShowShockwave(false);
         setShowDustImpact(false);
-      }, 600);
+      }, 620);
+
+      // Keep text announcement visible for 3.2s so player clearly reads and enjoys it
+      setTimeout(() => {
+        setShowNumberBanner(false);
+      }, 3200);
     }, 750);
+  };
+
+  // Sync with incoming server value changes (Handles opponent rolls or state sync)
+  useEffect(() => {
+    if (value !== null && value !== prevValueRef.current) {
+      prevValueRef.current = value;
+      serverResultRef.current = value;
+      // If client is not already actively rolling from manual click, play sequence
+      if (!isRolling && !isBouncing) {
+        triggerFullRollSequence(value);
+      }
+    } else if (value === null) {
+      prevValueRef.current = null;
+      serverResultRef.current = null;
+      setShowNumberBanner(false);
+    }
+  }, [value]);
+
+  // Handle player clicking the dice or "ROLL!" button
+  const handleClick = () => {
+    if (!canRoll || !isMyTurn || isRolling || isBouncing) return;
+
+    // Trigger local animation sequence
+    triggerFullRollSequence();
+
+    // Notify server to execute authoritative dice roll
+    onRoll();
   };
 
   // Clean up on unmount
@@ -459,90 +513,185 @@ export const LudoDice: React.FC<LudoDiceProps> = ({
     };
   }, []);
 
-  const isClickable = canRoll && isMyTurn && !isRolling;
+  const isClickable = canRoll && isMyTurn && !isRolling && !isBouncing;
 
   return (
     <div className="relative flex flex-col items-center justify-center select-none py-1">
       {/* ------------------------------------------------------------- */}
-      {/* 1. CRITICAL 6 CELEBRATORY BANNER & SPARKS                      */}
+      {/* 1. TEXT ANNOUNCEMENT BANNER ("KELUARKAN TEXT ANGKA NYA")        */}
       {/* ------------------------------------------------------------- */}
       <AnimatePresence>
-        {showCritical && (
+        {showNumberBanner && revealedNumber !== null && (
           <motion.div
+            key={`announcement-${rollSeqId}`}
             initial={{ scale: 0, y: 15, opacity: 0 }}
-            animate={{ scale: [0, 1.25, 1], y: -50, opacity: [0, 1, 1] }}
-            exit={{ scale: 0.8, y: -70, opacity: 0 }}
-            transition={{ duration: 0.45, ease: 'easeOut' }}
-            className="absolute z-40 pointer-events-none flex flex-col items-center justify-center"
+            animate={{
+              scale: [0, 1.32, 1],
+              y: [-10, -62, -54],
+              opacity: 1,
+            }}
+            exit={{ scale: 0.75, y: -78, opacity: 0 }}
+            transition={{
+              type: 'spring',
+              stiffness: 420,
+              damping: 17,
+              mass: 0.7,
+            }}
+            className="absolute z-50 pointer-events-none flex flex-col items-center justify-center whitespace-nowrap"
           >
-            <div className="relative flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-red-600 via-amber-500 to-orange-500 border-2 border-yellow-300 shadow-[0_0_25px_rgba(251,191,36,0.9)] animate-pulse">
-              <Flame className="w-4 h-4 text-yellow-200 fill-yellow-200 animate-bounce" />
-              <span className="text-[11px] sm:text-xs font-black text-slate-950 uppercase tracking-wider drop-shadow-sm font-mono">
-                CRITICAL ROLL! LEMPAR LAGI! 🎉
-              </span>
-              <Sparkles className="w-4 h-4 text-yellow-200 fill-yellow-200 animate-spin" />
+            {/* Main Arcade Announcement Badge */}
+            <div
+              className={`relative flex items-center gap-2.5 px-4 py-2 rounded-2xl border-2 shadow-[0_10px_35px_rgba(0,0,0,0.8)] backdrop-blur-md ${
+                revealedNumber === 6
+                  ? 'bg-gradient-to-r from-red-600 via-amber-500 to-orange-500 border-yellow-200 shadow-[0_0_35px_rgba(251,191,36,0.95)] animate-pulse'
+                  : 'bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 border-amber-400/90 shadow-[0_0_24px_rgba(245,158,11,0.6)]'
+              }`}
+            >
+              {/* Number Stamp Bubble */}
+              <div
+                className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-base font-mono shadow-inner ${
+                  revealedNumber === 6
+                    ? 'bg-yellow-300 text-red-950 border border-yellow-100 shadow-[0_0_10px_rgba(254,240,138,0.8)]'
+                    : 'bg-gradient-to-br from-amber-400 to-orange-500 text-slate-950 border border-amber-200 shadow-[0_0_8px_rgba(251,191,36,0.5)]'
+                }`}
+              >
+                {revealedNumber}
+              </div>
+
+              {/* Bold Indonesian Text Description */}
+              <div className="flex flex-col items-start leading-tight">
+                <span className="text-xs sm:text-sm font-black text-white uppercase tracking-wider font-mono drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
+                  {revealedNumber === 6
+                    ? 'ANGKA 6! LEMPAR LAGI! 🎉'
+                    : `MENDAPATKAN ANGKA ${revealedNumber}!`}
+                </span>
+                <span
+                  className={`text-[10px] font-bold ${
+                    revealedNumber === 6 ? 'text-yellow-100' : 'text-amber-400'
+                  }`}
+                >
+                  {revealedNumber === 6
+                    ? '🔥 Bidak Bisa Keluar Base Atau Maju 6 Petak'
+                    : `👉 Maju ${revealedNumber} Petak Di Lintasan`}
+                </span>
+              </div>
+
+              {/* Icon Flair */}
+              {revealedNumber === 6 ? (
+                <Flame className="w-5 h-5 text-yellow-200 fill-yellow-200 animate-bounce" />
+              ) : (
+                <Sparkles className="w-5 h-5 text-amber-300 animate-spin" />
+              )}
             </div>
-            {/* Floating Golden Sparks */}
-            <span className="absolute -left-4 -top-2 text-xs animate-ping">✨</span>
-            <span className="absolute -right-4 -top-2 text-xs animate-ping">⭐</span>
+
+            {/* Floating Comic Stars */}
+            <span className="absolute -left-4 -top-2 text-sm animate-ping">✨</span>
+            <span className="absolute -right-4 -top-2 text-sm animate-ping">⭐</span>
           </motion.div>
         )}
       </AnimatePresence>
 
       {/* ------------------------------------------------------------- */}
-      {/* 2. PHYSICAL 3D DICE & BOUNCE CONTAINER                         */}
+      {/* 2. FLOATING NUMBER POP STAMP OVER DICE (+1 to +6)              */}
+      {/* ------------------------------------------------------------- */}
+      <AnimatePresence>
+        {showNumberBanner && revealedNumber !== null && (
+          <motion.div
+            key={`pop-stamp-${rollSeqId}`}
+            initial={{ scale: 0.2, y: 0, opacity: 0 }}
+            animate={{
+              scale: [0.2, 1.45, 1],
+              y: [-10, -38, -32],
+              opacity: [0, 1, 0.9],
+            }}
+            exit={{ opacity: 0, y: -50, scale: 0.8 }}
+            transition={{ duration: 0.65, ease: 'easeOut' }}
+            className="absolute z-40 pointer-events-none"
+          >
+            <span className="text-3xl sm:text-4xl font-black text-amber-400 drop-shadow-[0_4px_12px_rgba(0,0,0,0.95)] font-mono">
+              +{revealedNumber}
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ------------------------------------------------------------- */}
+      {/* 3. PHYSICAL 3D DICE CONTAINER & MAXIMIZED BOUNCE / ROTATION    */}
       {/* ------------------------------------------------------------- */}
       <div className="relative flex flex-col items-center justify-center">
-        {/* Dynamic Ground Contact Shadow (scales/squashes with bounce) */}
+        {/* Dynamic Ground Contact Shadow (scales/squashes with bounces) */}
         <motion.div
           animate={
             isRolling
               ? {
-                  scaleX: [1, 0.6, 0.8, 0.5, 1],
-                  scaleY: [1, 0.5, 0.7, 0.4, 1],
-                  opacity: [0.6, 0.25, 0.5, 0.2, 0.6],
+                  scaleX: [1, 0.35, 0.22, 0.45, 0.85, 1],
+                  scaleY: [1, 0.3, 0.2, 0.4, 0.8, 1],
+                  opacity: [0.6, 0.2, 0.1, 0.25, 0.65, 0.6],
                 }
-              : showDustImpact
+              : isBouncing
               ? {
-                  scaleX: [0.7, 1.35, 0.95, 1],
-                  scaleY: [0.7, 1.2, 0.9, 1],
-                  opacity: [0.4, 0.85, 0.6, 0.5],
+                  scaleX: [1.5, 0.72, 1.25, 0.9, 1],
+                  scaleY: [1.4, 0.68, 1.2, 0.9, 1],
+                  opacity: [0.85, 0.35, 0.72, 0.45, 0.55],
                 }
               : { scaleX: 1, scaleY: 1, opacity: 0.5 }
           }
-          transition={{ duration: isRolling ? 0.75 : 0.4 }}
-          className="absolute bottom-2 w-20 h-4 rounded-full bg-black/50 blur-sm pointer-events-none"
+          transition={{ duration: isRolling ? 0.75 : 0.62 }}
+          className="absolute bottom-2 w-20 h-4 rounded-full bg-black/60 blur-sm pointer-events-none"
         />
 
-        {/* Tumbling 3D Cube with Motion Wobble & Squash */}
+        {/* Floor Shockwave Ring on Impact */}
+        <AnimatePresence>
+          {showShockwave && (
+            <motion.div
+              initial={{ scale: 0.4, opacity: 0.95 }}
+              animate={{ scale: 2.3, opacity: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.5, ease: 'easeOut' }}
+              className="absolute bottom-1 w-20 h-5 rounded-full border-2 border-amber-300 shadow-[0_0_15px_rgba(251,191,36,0.8)] pointer-events-none"
+            />
+          )}
+        </AnimatePresence>
+
+        {/* 3D Tumbling, Airborne Parabola, and Multi-Stage Bounce Body */}
         <motion.button
           type="button"
           disabled={!isClickable}
           onClick={handleClick}
+          style={{
+            perspective: 1200,
+            transformStyle: 'preserve-3d',
+          }}
           animate={
             isRolling
               ? {
-                  y: [0, -32, -12, -26, -4, 0],
-                  rotate: [0, -28, 22, -18, 12, 0],
-                  scale: [1, 1.18, 1.05, 1.15, 1],
+                  // Dramatic Parabolic Arc Jump into the air
+                  y: [0, -85, -100, -75, -25, 0],
+                  scale: [1, 1.25, 1.35, 1.2, 1],
+                  // Multi-axis 3D rotation tumbling
+                  rotateZ: [0, 180, 360, 540, 720],
+                  rotateX: [0, 45, -45, 30, 0],
+                  rotateY: [0, -45, 45, -30, 0],
                 }
-              : showDustImpact
+              : isBouncing
               ? {
-                  y: [0, 0, -10, 0],
-                  scaleX: [1, 1.2, 0.94, 1.05, 1],
-                  scaleY: [1, 0.8, 1.08, 0.96, 1],
-                  rotate: [0, -8, 5, -2, 0],
+                  // Multi-Stage Physical Elastic Bounce Sequence:
+                  // 1. Heavy Squash -> 2. High Hop & Stretch -> 3. Secondary Squash -> 4. Micro-Hop -> 5. Settle
+                  y: [0, -34, 0, -12, 0],
+                  scaleX: [1.38, 0.88, 1.18, 0.95, 1],
+                  scaleY: [0.62, 1.18, 0.86, 1.05, 1],
+                  rotateZ: [0, -14, 6, -3, 0],
                 }
               : isClickable
               ? {
-                  scale: [1, 1.05, 1],
-                  transition: { repeat: Infinity, duration: 1.3, ease: 'easeInOut' },
+                  scale: [1, 1.06, 1],
+                  transition: { repeat: Infinity, duration: 1.2, ease: 'easeInOut' },
                 }
               : {}
           }
           transition={{
-            duration: isRolling ? 0.75 : 0.45,
-            ease: 'easeOut',
+            duration: isRolling ? 0.75 : 0.62,
+            ease: isRolling ? 'easeInOut' : 'easeOut',
           }}
           className={`relative z-10 flex items-center justify-center p-1 rounded-2xl focus:outline-none transition-transform ${
             isClickable ? 'cursor-pointer active:scale-95' : 'cursor-default'
@@ -551,52 +700,64 @@ export const LudoDice: React.FC<LudoDiceProps> = ({
         >
           {/* Active Player Glowing Aura Pulsing Ring */}
           {isClickable && (
-            <span className="absolute -inset-2 rounded-full border-2 border-amber-400 shadow-[0_0_20px_rgba(251,191,36,0.7)] animate-pulse pointer-events-none" />
+            <span className="absolute -inset-2 rounded-full border-2 border-amber-400 shadow-[0_0_22px_rgba(251,191,36,0.85)] animate-pulse pointer-events-none" />
           )}
 
-          {/* WIND SWOOSH ARCS (Active while rolling - Matches Reference Assets) */}
+          {/* WIND SWOOSH ARCS (Active during 3D tumbling - High Speed Whirl) */}
           {isRolling && (
             <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-              <svg viewBox="0 0 100 100" className="w-32 h-32 animate-spin filter drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]">
-                {/* Motion swoosh trail 1 */}
+              <svg
+                viewBox="0 0 100 100"
+                className="w-36 h-36 animate-spin filter drop-shadow-[0_0_10px_rgba(255,255,255,0.9)]"
+              >
+                {/* Motion swoosh trail 1 (White streak) */}
                 <path
-                  d="M 20 50 A 30 30 0 0 1 80 50"
+                  d="M 15 50 A 35 35 0 0 1 85 50"
                   fill="none"
-                  stroke="rgba(255, 255, 255, 0.85)"
-                  strokeWidth="3.5"
+                  stroke="rgba(255, 255, 255, 0.95)"
+                  strokeWidth="4"
                   strokeLinecap="round"
-                  strokeDasharray="40 20"
+                  strokeDasharray="50 25"
                 />
-                {/* Motion swoosh trail 2 */}
+                {/* Motion swoosh trail 2 (Golden streak) */}
                 <path
-                  d="M 80 50 A 30 30 0 0 1 20 50"
+                  d="M 85 50 A 35 35 0 0 1 15 50"
                   fill="none"
-                  stroke="rgba(251, 191, 36, 0.75)"
+                  stroke="rgba(251, 191, 36, 0.85)"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeDasharray="40 30"
+                />
+                {/* Motion swoosh trail 3 (Crimson red fire trail) */}
+                <path
+                  d="M 50 15 A 35 35 0 0 1 50 85"
+                  fill="none"
+                  stroke="rgba(239, 68, 68, 0.75)"
                   strokeWidth="2.5"
                   strokeLinecap="round"
-                  strokeDasharray="30 25"
+                  strokeDasharray="30 35"
                 />
               </svg>
             </div>
           )}
 
-          {/* DUST PUFFS ON IMPACT (Matches Reference Bounce & Impact FX) */}
+          {/* CARTOON DUST PUFFS ON GROUND IMPACT (Left & Right Spurt) */}
           <AnimatePresence>
             {showDustImpact && (
               <div className="absolute -bottom-2 inset-x-0 pointer-events-none flex items-center justify-between px-1">
                 {/* Left Dust Cloud */}
                 <motion.div
-                  initial={{ scale: 0.3, opacity: 1, x: 5 }}
-                  animate={{ scale: [0.3, 1.25, 0.8], opacity: [1, 0.9, 0], x: -14, y: -8 }}
-                  transition={{ duration: 0.45 }}
-                  className="w-6 h-4 rounded-full bg-slate-300/80 blur-[1px] shadow-sm"
+                  initial={{ scale: 0.2, opacity: 1, x: 5 }}
+                  animate={{ scale: [0.2, 1.4, 0.8], opacity: [1, 0.9, 0], x: -22, y: -10 }}
+                  transition={{ duration: 0.52 }}
+                  className="w-7 h-5 rounded-full bg-slate-300/85 blur-[1px] shadow-sm"
                 />
                 {/* Right Dust Cloud */}
                 <motion.div
-                  initial={{ scale: 0.3, opacity: 1, x: -5 }}
-                  animate={{ scale: [0.3, 1.25, 0.8], opacity: [1, 0.9, 0], x: 14, y: -8 }}
-                  transition={{ duration: 0.45 }}
-                  className="w-6 h-4 rounded-full bg-slate-300/80 blur-[1px] shadow-sm"
+                  initial={{ scale: 0.2, opacity: 1, x: -5 }}
+                  animate={{ scale: [0.2, 1.4, 0.8], opacity: [1, 0.9, 0], x: 22, y: -10 }}
+                  transition={{ duration: 0.52 }}
+                  className="w-7 h-5 rounded-full bg-slate-300/85 blur-[1px] shadow-sm"
                 />
               </div>
             )}
@@ -611,7 +772,7 @@ export const LudoDice: React.FC<LudoDiceProps> = ({
       </div>
 
       {/* ------------------------------------------------------------- */}
-      {/* 3. JUICY ARCADE "ROLL!" ACTION BUTTON (Matches Reference UI)   */}
+      {/* 4. JUICY ARCADE "ROLL!" ACTION BUTTON                           */}
       {/* ------------------------------------------------------------- */}
       <div className="mt-1 flex flex-col items-center gap-1">
         {isClickable ? (
@@ -631,6 +792,11 @@ export const LudoDice: React.FC<LudoDiceProps> = ({
             </span>
             <Sparkles className="w-4 h-4 text-amber-950 animate-spin" />
           </motion.button>
+        ) : isRolling || isBouncing ? (
+          <div className="flex items-center gap-2 px-4 py-1.5 rounded-xl bg-amber-500/20 border border-amber-400 text-xs font-black text-amber-300 shadow-md animate-pulse">
+            <Dices className="w-4 h-4 animate-spin text-amber-300" />
+            <span>Melempar Dadu...</span>
+          </div>
         ) : isMyTurn && !canRoll ? (
           validMovesLength === 0 ? (
             <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-900/90 border border-amber-500/40 text-[11px] font-bold text-amber-400 shadow-md">

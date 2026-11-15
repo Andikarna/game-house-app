@@ -4,7 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { GameHouseLogo } from '../../components/branding/GameHouseLogo';
 import { Button } from '../../components/ui/Button';
 import { HeroSection } from './HeroSection';
-import { FeaturedGame } from './FeaturedGame';
+import { PlayableGamesShowcase } from './PlayableGamesShowcase';
+import { CharacterShowcase } from './CharacterShowcase';
 import { ExploreGames } from './ExploreGames';
 import { HowToPlay } from './HowToPlay';
 import { CreateRoomModal } from './CreateRoomModal';
@@ -22,6 +23,7 @@ export const HomeContent: React.FC = () => {
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isJoinOpen, setIsJoinOpen] = useState(false);
+  const [selectedGameForModal, setSelectedGameForModal] = useState<GameId>('panjat-pinang');
   const [stats, setStats] = useState({ onlinePlayers: 18, activeRooms: 4 });
 
   // Auto-play default party background music on enter
@@ -56,13 +58,21 @@ export const HomeContent: React.FC = () => {
   }, []);
 
   const handleSelectGame = (gameId: GameId) => {
+    setSelectedGameForModal(gameId);
+    setIsCreateOpen(true);
+  };
+
+  const handleCreateRoom = (gameId?: GameId) => {
+    if (gameId) {
+      setSelectedGameForModal(gameId);
+    }
     setIsCreateOpen(true);
   };
 
   return (
     <div className="min-h-screen bg-background text-white flex flex-col relative selection:bg-indigo-500 selection:text-white pb-20 sm:pb-0">
       {/* Navigation Bar */}
-      <header className="sticky top-0 z-40 w-full backdrop-blur-md bg-background/85 border-b border-slate-800">
+      <header className="sticky top-0 z-40 w-full backdrop-blur-md bg-background/90 border-b border-slate-800 shadow-sm">
         <div className="max-w-7xl mx-auto px-3 sm:px-8 h-16 sm:h-20 flex items-center justify-between">
           <GameHouseLogo size="sm" className="scale-90 sm:scale-100 origin-left" />
 
@@ -91,7 +101,7 @@ export const HomeContent: React.FC = () => {
               variant="orange"
               size="sm"
               glow
-              onClick={() => setIsCreateOpen(true)}
+              onClick={() => handleCreateRoom()}
               icon={<Sparkles className="w-4 h-4" />}
               className="font-black text-xs sm:text-sm"
             >
@@ -104,21 +114,24 @@ export const HomeContent: React.FC = () => {
 
       {/* Main Sections */}
       <main className="flex-1 flex flex-col">
-        {/* 1. Hero Section */}
+        {/* 1. Hero Section with quick game launcher */}
         <HeroSection
-          onCreateRoom={() => setIsCreateOpen(true)}
+          onCreateRoom={handleCreateRoom}
           onJoinRoom={() => setIsJoinOpen(true)}
           onlinePlayers={stats.onlinePlayers}
           activeRooms={stats.activeRooms}
         />
 
-        {/* 2. Featured Game: Panjat Pinang Battle */}
-        <FeaturedGame onPlayNow={() => setIsCreateOpen(true)} />
+        {/* 2. Playable Games Showcase (Panjat Pinang Battle & Ludo Party) */}
+        <PlayableGamesShowcase onSelectGame={handleSelectGame} />
 
-        {/* 3. Explore Games Section (Modular Ecosystem) */}
+        {/* 3. Character & Emotes Showcase (8 Avatars & 24 Emotes) */}
+        <CharacterShowcase />
+
+        {/* 4. Explore Games Section (Playable vs Coming Soon Roadmap) */}
         <ExploreGames onSelectGame={handleSelectGame} />
 
-        {/* 4. How To Play Section */}
+        {/* 5. How To Play Section (Party Flow & Gameplay Tips) */}
         <HowToPlay />
       </main>
 
@@ -153,7 +166,7 @@ export const HomeContent: React.FC = () => {
           variant="orange"
           size="md"
           glow
-          onClick={() => setIsCreateOpen(true)}
+          onClick={() => handleCreateRoom()}
           icon={<Sparkles className="w-4 h-4" />}
           className="flex-1 font-black shadow-glow-orange"
         >
@@ -165,6 +178,7 @@ export const HomeContent: React.FC = () => {
       <CreateRoomModal
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
+        initialGameId={selectedGameForModal}
       />
 
       <JoinRoomModal
