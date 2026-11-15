@@ -2,12 +2,7 @@ import pool from './db';
 import { RoomInfo, Player, RoomSettings, RoomStatus, GameId, GameMode, AvatarId } from '../shared';
 
 export function generateRoomCode(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let code = '';
-  for (let i = 0; i < 4; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return code;
+  return Math.floor(10000 + Math.random() * 90000).toString();
 }
 
 export async function getRoomByCode(code: string): Promise<{ room: RoomInfo; gameState: any; gameResults: any } | null> {

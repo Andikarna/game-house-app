@@ -81,7 +81,7 @@ class PollingSocket {
           this.currentRoomCode = data.room.code;
           this.currentPlayerId = data.playerId;
           this.startPolling(data.room.code, data.playerId);
-          callback?.({ success: true, room: data.room });
+          callback?.({ success: true, room: data.room, playerId: data.playerId });
         } else {
           callback?.({ success: false, error: data.error || 'Failed to create room' });
         }
@@ -100,7 +100,7 @@ class PollingSocket {
           this.currentRoomCode = data.room.code;
           this.currentPlayerId = data.playerId;
           this.startPolling(data.room.code, data.playerId);
-          callback?.({ success: true, room: data.room });
+          callback?.({ success: true, room: data.room, playerId: data.playerId });
         } else {
           callback?.({ success: false, error: data.error || 'Failed to join room' });
         }
@@ -115,10 +115,46 @@ class PollingSocket {
 
       // 3. READY
       if (event === 'room:ready') {
+        const isReady = typeof payload === 'boolean' ? payload : (payload?.isReady ?? true);
         await fetch(`/api/rooms/${roomCode}/action`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'ready', playerId, isReady: payload?.isReady }),
+          body: JSON.stringify({ action: 'ready', playerId, isReady }),
+        });
+        this.pollOnce();
+        return;
+      }
+
+      // 3b. UPDATE AVATAR
+      if (event === 'room:update-avatar' || event === 'player:update-avatar') {
+        const avatar = typeof payload === 'string' ? payload : (payload?.avatar || 'budi');
+        await fetch(`/api/rooms/${roomCode}/action`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'update_avatar', playerId, avatar }),
+        });
+        this.pollOnce();
+        return;
+      }
+
+      // 3c. UPDATE SETTINGS
+      if (event === 'room:update-settings') {
+        await fetch(`/api/rooms/${roomCode}/action`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'update_settings', playerId, ...payload }),
+        });
+        this.pollOnce();
+        return;
+      }
+
+      // 3d. KICK PLAYER
+      if (event === 'room:kick-player') {
+        const targetId = typeof payload === 'string' ? payload : payload?.targetId;
+        await fetch(`/api/rooms/${roomCode}/action`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'kick', playerId, targetId }),
         });
         this.pollOnce();
         return;

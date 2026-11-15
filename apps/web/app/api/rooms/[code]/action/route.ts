@@ -32,11 +32,38 @@ export async function POST(
 
     // 1. READY ACTION
     if (action === 'ready') {
-      const isReady = !!body.isReady;
+      const isReady = typeof body.isReady === 'boolean' ? body.isReady : true;
       await pool.query(
         'UPDATE gh_players SET is_ready = ?, last_seen_at = ? WHERE id = ? AND room_code = ?',
         [isReady ? 1 : 0, now, playerId, code]
       );
+      return NextResponse.json({ success: true });
+    }
+
+    // 1b. UPDATE AVATAR
+    if (action === 'update_avatar') {
+      const avatar = body.avatar || 'budi';
+      await pool.query(
+        'UPDATE gh_players SET avatar = ?, last_seen_at = ? WHERE id = ? AND room_code = ?',
+        [avatar, now, playerId, code]
+      );
+      return NextResponse.json({ success: true });
+    }
+
+    // 1c. UPDATE SETTINGS
+    if (action === 'update_settings') {
+      if (body.gameMode) {
+        await pool.query('UPDATE gh_rooms SET game_mode = ?, updated_at = ? WHERE code = ?', [body.gameMode, now, code]);
+      }
+      if (body.durationSeconds) {
+        await pool.query('UPDATE gh_rooms SET duration_seconds = ?, updated_at = ? WHERE code = ?', [body.durationSeconds, now, code]);
+      }
+      return NextResponse.json({ success: true });
+    }
+
+    // 1d. KICK
+    if (action === 'kick') {
+      await pool.query('DELETE FROM gh_players WHERE id = ? AND room_code = ?', [body.targetId, code]);
       return NextResponse.json({ success: true });
     }
 

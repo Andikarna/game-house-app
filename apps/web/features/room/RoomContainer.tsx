@@ -20,7 +20,7 @@ interface RoomContainerProps {
 
 export const RoomContainer: React.FC<RoomContainerProps> = ({ roomCode }) => {
   const socket = useSocket();
-  const { room, playerId, setRoom, addToast } = useGameStore();
+  const { room, playerId, setPlayerId, setRoom, addToast } = useGameStore();
   const { nickname, avatar, setNickname, setAvatar } = useSettingsStore();
 
   const [isJoining, setIsJoining] = useState(false);
@@ -50,11 +50,14 @@ export const RoomContainer: React.FC<RoomContainerProps> = ({ roomCode }) => {
           setIsJoining(false);
           if (res.success && res.room) {
             setRoom(res.room);
+            if (res.playerId) {
+              setPlayerId(res.playerId);
+            }
           }
         }
       );
     }
-  }, [socket, isInThisRoom, cleanCode, nickname, avatar, playerId, hasAttemptedAutoJoin, setRoom]);
+  }, [socket, isInThisRoom, cleanCode, nickname, avatar, playerId, hasAttemptedAutoJoin, setRoom, setPlayerId]);
 
   const handleJoinDirectly = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -81,6 +84,9 @@ export const RoomContainer: React.FC<RoomContainerProps> = ({ roomCode }) => {
         setIsJoining(false);
         if (res.success && res.room) {
           setRoom(res.room);
+          if (res.playerId) {
+            setPlayerId(res.playerId);
+          }
         } else {
           addToast(res.error || `Room ${cleanCode} not found. Please verify the 5-digit room code.`, 'error');
         }

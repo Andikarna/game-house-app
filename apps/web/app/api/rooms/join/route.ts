@@ -35,9 +35,15 @@ export async function POST(req: Request) {
     // Check if player is already in room
     const existingPlayer = room.players.find((p) => p.id === body.playerId || p.nickname.toLowerCase() === nickname.toLowerCase());
     if (existingPlayer) {
+      const now = Date.now();
+      await pool.query(
+        'UPDATE gh_players SET avatar = ?, is_connected = 1, last_seen_at = ? WHERE id = ?',
+        [avatar, now, existingPlayer.id]
+      );
+      const updated = await getRoomByCode(code);
       return NextResponse.json({
         success: true,
-        room,
+        room: updated?.room || room,
         playerId: existingPlayer.id,
       });
     }

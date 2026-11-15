@@ -23,16 +23,18 @@ import {
   Settings
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
-import { ClimberAvatarIcon } from '../../components/ui/AvatarSelector';
+import { ClimberAvatarIcon, AvatarSelector } from '../../components/ui/AvatarSelector';
 import { GameHouseLogo } from '../../components/branding/GameHouseLogo';
 import { useSettingsStore } from '../../stores/useSettingsStore';
+import { Modal } from '../../components/ui/Modal';
 
 export const LobbyView: React.FC = () => {
   const { socket, room, playerId, setPlayerId, ping, addToast } = useGameStore();
-  const { isMuted, toggleMute } = useSettingsStore();
+  const { isMuted, toggleMute, avatar, setAvatar } = useSettingsStore();
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [mobileTab, setMobileTab] = useState<'players' | 'settings'>('players');
+  const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
 
   if (!room) return null;
 
@@ -440,9 +442,18 @@ export const LobbyView: React.FC = () => {
                             {p.nickname}
                           </span>
                           {isThisPlayerMe && (
-                            <span className="text-[9px] font-black text-indigo-300 bg-indigo-500/30 border border-indigo-500/50 px-1.5 py-0.5 rounded">
-                              YOU
-                            </span>
+                            <>
+                              <span className="text-[9px] font-black text-indigo-300 bg-indigo-500/30 border border-indigo-500/50 px-1.5 py-0.5 rounded">
+                                YOU
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setIsAvatarModalOpen(true)}
+                                className="text-[10px] font-bold text-amber-300 hover:text-amber-200 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 px-2 py-0.5 rounded cursor-pointer transition-all ml-1"
+                              >
+                                Ganti Karakter
+                              </button>
+                            </>
                           )}
                         </div>
 
@@ -600,6 +611,25 @@ export const LobbyView: React.FC = () => {
           </Button>
         )}
       </div>
+
+      {/* Modal Ganti Karakter */}
+      <Modal
+        isOpen={isAvatarModalOpen}
+        onClose={() => setIsAvatarModalOpen(false)}
+        title="Pilih Karakter Anda"
+      >
+        <div className="flex flex-col gap-4">
+          <AvatarSelector
+            selected={myPlayer?.avatar || avatar}
+            onSelect={(newAvatar) => {
+              setAvatar(newAvatar);
+              socket?.emit('player:update-avatar' as any, { avatar: newAvatar });
+              setIsAvatarModalOpen(false);
+              addToast('Karakter berhasil diubah!', 'success');
+            }}
+          />
+        </div>
+      </Modal>
     </div>
   );
 };
