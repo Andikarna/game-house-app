@@ -11,6 +11,7 @@ class SoundManager {
   private isBgmPlaying: boolean = false;
   private currentStep: number = 0;
   private nextNoteTime: number = 0;
+  private currentTrack: 'panjat-pinang' | 'ludo' | 'lobby' = 'lobby';
   private musicListeners: Set<(playing: boolean) => void> = new Set();
   private hasSetupUserInteraction: boolean = false;
 
@@ -128,13 +129,23 @@ class SoundManager {
   }
 
   // =========================================================================
-  // 1. PROCEDURAL 17 AGUSTUS INDONESIAN FESTIVE PARTY BACKGROUND MUSIC (BGM)
+  // 1. PROCEDURAL MULTI-GAME BACKGROUND MUSIC (BGM) ENGINE
+  // - Panjat Pinang: 17 Agustus Festive Gamelan & Brass Party (~130 BPM)
+  // - Ludo Party: Playful Bouncy Marimba Board Game Groove (~118 BPM)
   // =========================================================================
-  public startBGM() {
+  public startBGM(track: 'panjat-pinang' | 'ludo' | 'lobby' = 'lobby') {
     this.initContext();
     if (!this.ctx) return;
-    if (this.isBgmPlaying) return;
 
+    // If already playing this exact track, keep playing seamlessly
+    if (this.isBgmPlaying && this.currentTrack === track) return;
+
+    // If playing another track, stop it first
+    if (this.isBgmPlaying) {
+      this.stopBGM(false);
+    }
+
+    this.currentTrack = track;
     this.isBgmPlaying = true;
     this.currentStep = 0;
     this.nextNoteTime = this.ctx.currentTime + 0.05;
@@ -144,13 +155,19 @@ class SoundManager {
     }
 
     // High precision lookahead audio scheduler (25ms timer interval)
-    const stepDuration = 0.115; // 16th note at ~130 BPM
+    // Panjat Pinang: 130 BPM (stepDuration 0.115s)
+    // Ludo: 118 BPM (stepDuration 0.127s)
+    const stepDuration = track === 'ludo' ? 0.127 : 0.115;
     const lookAhead = 0.16;
 
     this.bgmInterval = setInterval(() => {
       if (!this.ctx || !this.isBgmPlaying) return;
       while (this.nextNoteTime < this.ctx.currentTime + lookAhead) {
-        this.scheduleBgmStep(this.currentStep, this.nextNoteTime);
+        if (this.currentTrack === 'ludo') {
+          this.scheduleLudoStep(this.currentStep, this.nextNoteTime);
+        } else {
+          this.schedulePanjatStep(this.currentStep, this.nextNoteTime);
+        }
         this.nextNoteTime += stepDuration;
         this.currentStep = (this.currentStep + 1) % 64; // 64 steps = 4 bars
       }
@@ -159,13 +176,27 @@ class SoundManager {
     this.notifyListeners();
   }
 
-  public stopBGM() {
+  public playPanjatBGM() {
+    this.startBGM('panjat-pinang');
+  }
+
+  public playLudoBGM() {
+    this.startBGM('ludo');
+  }
+
+  public playLobbyBGM() {
+    this.startBGM('lobby');
+  }
+
+  public stopBGM(notify: boolean = true) {
     if (this.bgmInterval) {
       clearInterval(this.bgmInterval);
       this.bgmInterval = null;
     }
     this.isBgmPlaying = false;
-    this.notifyListeners();
+    if (notify) {
+      this.notifyListeners();
+    }
   }
 
   public toggleMusic(): boolean {
@@ -174,12 +205,12 @@ class SoundManager {
       return false;
     } else {
       this.setMuted(false);
-      this.startBGM();
+      this.startBGM(this.currentTrack);
       return true;
     }
   }
 
-  private scheduleBgmStep(step: number, time: number) {
+  private schedulePanjatStep(step: number, time: number) {
     if (!this.ctx || !this.bgmGain || this.isMuted) return;
 
     // A. Percussion: Kick, Snare, Hi-hat, Gamelan Gong
@@ -363,6 +394,218 @@ class SoundManager {
     bGain.connect(this.bgmGain);
     bell.start(time);
     bell.stop(time + duration * 0.75);
+  }
+
+  // =========================================================================
+  // LUDO PARTY PROCEDURAL SOUNDTRACK (Jaunty Marimba Board Game Groove ~118 BPM)
+  // =========================================================================
+  private scheduleLudoStep(step: number, time: number) {
+    if (!this.ctx || !this.bgmGain || this.isMuted) return;
+
+    // 1. Percussion: Soft Acoustic Kick, Rimshot / Woodblock, Shaker
+    // Soft kick on beats 1 and 3 of each bar
+    if (step % 16 === 0 || step % 16 === 8) {
+      this.playAcousticKick(time);
+    }
+
+    // Crisp woodblock / rimshot on beats 2 and 4 (with syncopation on step 14)
+    if (step % 16 === 4 || step % 16 === 12 || step % 32 === 14) {
+      this.playWoodblock(time, step % 16 === 12);
+    }
+
+    // Shaker / Soft Brush on every off-beat 16th
+    if (step % 2 === 1) {
+      this.playShaker(time, step % 4 === 3);
+    }
+
+    // Agogo chime accent on bar downbeats
+    if (step === 0 || step === 32) {
+      this.playAgogoBell(time, step === 0 ? 880 : 1046.5);
+    }
+
+    // 2. Playful Bouncy Walking Upright Bassline (C Major -> A minor -> D minor -> G7)
+    const ludoBassNotes: Record<number, number> = {
+      // Bar 1: C -> E -> G -> A
+      0: 130.81, // C3
+      4: 164.81, // E3
+      8: 196.00, // G3
+      12: 220.00, // A3
+      // Bar 2: A -> C -> D -> F
+      16: 110.00, // A2
+      20: 130.81, // C3
+      24: 146.83, // D3
+      28: 174.61, // F3
+      // Bar 3: G -> B -> D -> F
+      32: 98.00,  // G2
+      36: 123.47, // B2
+      40: 146.83, // D3
+      44: 174.61, // F3
+      // Bar 4: E -> Eb -> D -> G (Classic Jazz Board Game Turnaround)
+      48: 164.81, // E3
+      52: 155.56, // Eb3
+      56: 146.83, // D3
+      60: 98.00,  // G2
+    };
+
+    if (ludoBassNotes[step]) {
+      this.playUprightBass(time, ludoBassNotes[step]);
+    }
+
+    // 3. Playful Marimba / Xylophone Board Game Melody
+    const ludoMelody: Record<number, { freq: number; dur: number }> = {
+      // Bar 1: Bouncy C Major hook
+      0:  { freq: 392.00, dur: 0.14 }, // G4
+      3:  { freq: 659.25, dur: 0.14 }, // E5
+      6:  { freq: 523.25, dur: 0.18 }, // C5
+      10: { freq: 587.33, dur: 0.14 }, // D5
+      12: { freq: 659.25, dur: 0.20 }, // E5
+      // Bar 2: Playful roll down
+      16: { freq: 698.46, dur: 0.16 }, // F5
+      20: { freq: 587.33, dur: 0.16 }, // D5
+      24: { freq: 493.88, dur: 0.18 }, // B4
+      28: { freq: 523.25, dur: 0.26 }, // C5
+      // Bar 3: Ascending bouncy arpeggio
+      32: { freq: 440.00, dur: 0.14 }, // A4
+      35: { freq: 523.25, dur: 0.14 }, // C5
+      38: { freq: 659.25, dur: 0.16 }, // E5
+      42: { freq: 587.33, dur: 0.16 }, // D5
+      44: { freq: 783.99, dur: 0.22 }, // G5
+      // Bar 4: Resolution & Pick-up trill
+      48: { freq: 659.25, dur: 0.16 }, // E5
+      52: { freq: 587.33, dur: 0.16 }, // D5
+      56: { freq: 523.25, dur: 0.30 }, // C5
+      60: { freq: 783.99, dur: 0.12 }, // G5 (pick-up)
+      62: { freq: 880.00, dur: 0.12 }, // A5 (pick-up)
+    };
+
+    if (ludoMelody[step]) {
+      this.playMarimba(time, ludoMelody[step].freq, ludoMelody[step].dur);
+    }
+
+    // 4. Marimba Chord Stabs on upbeat 8ths
+    if (step % 4 === 2) {
+      const chordNotes = 
+        step < 16 ? [659.25, 783.99] :
+        step < 32 ? [698.46, 880.00] :
+        step < 48 ? [698.46, 987.77] :
+        [659.25, 783.99];
+      chordNotes.forEach((f) => {
+        this.playMarimbaChime(time, f, 0.08);
+      });
+    }
+  }
+
+  // Synthesizer voice helpers for Ludo BGM
+  private playAcousticKick(time: number) {
+    if (!this.ctx || !this.bgmGain) return;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.frequency.setValueAtTime(110, time);
+    osc.frequency.exponentialRampToValueAtTime(42, time + 0.07);
+    gain.gain.setValueAtTime(0.24, time);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.08);
+    osc.connect(gain);
+    gain.connect(this.bgmGain);
+    osc.start(time);
+    osc.stop(time + 0.09);
+  }
+
+  private playWoodblock(time: number, isHigh: boolean) {
+    if (!this.ctx || !this.bgmGain) return;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(isHigh ? 1180 : 840, time);
+    osc.frequency.exponentialRampToValueAtTime(320, time + 0.035);
+    gain.gain.setValueAtTime(0.18, time);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.04);
+    osc.connect(gain);
+    gain.connect(this.bgmGain);
+    osc.start(time);
+    osc.stop(time + 0.05);
+  }
+
+  private playShaker(time: number, isAccent: boolean) {
+    if (!this.ctx || !this.bgmGain) return;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(isAccent ? 7400 : 5800, time);
+    gain.gain.setValueAtTime(isAccent ? 0.03 : 0.018, time);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.025);
+    osc.connect(gain);
+    gain.connect(this.bgmGain);
+    osc.start(time);
+    osc.stop(time + 0.03);
+  }
+
+  private playAgogoBell(time: number, freq: number) {
+    if (!this.ctx || !this.bgmGain) return;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freq, time);
+    gain.gain.setValueAtTime(0.12, time);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.22);
+    osc.connect(gain);
+    gain.connect(this.bgmGain);
+    osc.start(time);
+    osc.stop(time + 0.25);
+  }
+
+  private playUprightBass(time: number, freq: number) {
+    if (!this.ctx || !this.bgmGain) return;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(freq, time);
+    gain.gain.setValueAtTime(0.22, time);
+    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.19);
+    osc.connect(gain);
+    gain.connect(this.bgmGain);
+    osc.start(time);
+    osc.stop(time + 0.21);
+  }
+
+  private playMarimba(time: number, freq: number, duration: number) {
+    if (!this.ctx || !this.bgmGain) return;
+    // Primary warm woody sine
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freq, time);
+    gain.gain.setValueAtTime(0.22, time);
+    gain.gain.exponentialRampToValueAtTime(0.005, time + duration);
+    osc.connect(gain);
+    gain.connect(this.bgmGain);
+    osc.start(time);
+    osc.stop(time + duration + 0.02);
+
+    // Mallet wood click overtone
+    const click = this.ctx.createOscillator();
+    const cGain = this.ctx.createGain();
+    click.type = 'triangle';
+    click.frequency.setValueAtTime(freq * 3.0, time);
+    cGain.gain.setValueAtTime(0.08, time);
+    cGain.gain.exponentialRampToValueAtTime(0.001, time + 0.025);
+    click.connect(cGain);
+    cGain.connect(this.bgmGain);
+    click.start(time);
+    click.stop(time + 0.03);
+  }
+
+  private playMarimbaChime(time: number, freq: number, duration: number) {
+    if (!this.ctx || !this.bgmGain) return;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freq, time);
+    gain.gain.setValueAtTime(0.08, time);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
+    osc.connect(gain);
+    gain.connect(this.bgmGain);
+    osc.start(time);
+    osc.stop(time + duration + 0.01);
   }
 
   // =========================================================================

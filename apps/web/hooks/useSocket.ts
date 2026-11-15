@@ -53,6 +53,7 @@ export function useSocket() {
         setRoom(updatedRoom);
         if (updatedRoom.status === 'lobby') {
           resetGame();
+          soundManager.playLobbyBGM();
         }
       });
 

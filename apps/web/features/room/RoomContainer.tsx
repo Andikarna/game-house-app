@@ -34,7 +34,7 @@ export const RoomContainer: React.FC<RoomContainerProps> = ({ roomCode }) => {
 
   // Auto-play BGM in room
   useEffect(() => {
-    soundManager.startBGM();
+    soundManager.playLobbyBGM();
   }, []);
 
   const handleJoinDirectly = (e?: React.FormEvent) => {

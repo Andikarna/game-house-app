@@ -30,9 +30,9 @@ export const PanjatPinangView: React.FC = () => {
   const [showGo, setShowGo] = useState(false);
   const prevCountdownRef = useRef<number | null>(countdown);
 
-  // Auto-start Indonesian 17 Agustus Party BGM during gameplay
+  // Auto-start Indonesian 17 Agustus Party BGM during Panjat Pinang gameplay
   useEffect(() => {
-    soundManager.startBGM();
+    soundManager.playPanjatBGM();
   }, []);
 
   // Detect transition from countdown 1 -> 0 / started to blast "GO!"

@@ -32,9 +32,9 @@ export const LudoView: React.FC = () => {
   const prevTokensStateRef = useRef<Record<string, Record<number, { state: string; stepCount: number }>>>({});
   const isFirstRender = useRef(true);
 
-  // Auto-play party BGM during Ludo match
+  // Auto-play playful Marimba BGM during Ludo match
   useEffect(() => {
-    soundManager.startBGM();
+    soundManager.playLudoBGM();
     return soundManager.subscribeMusicChange((playing) => {
       setIsAudioMuted(!playing);
     });
