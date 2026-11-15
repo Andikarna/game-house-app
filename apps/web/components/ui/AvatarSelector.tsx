@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState } from 'react';
 import { AvatarId, AVATAR_OPTIONS, PRIMARY_AVATARS, normalizeAvatarId, AvatarOption } from '@gamehouse/shared';
 import { Check, Sparkles } from 'lucide-react';

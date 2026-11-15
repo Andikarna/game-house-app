@@ -1,3 +1,5 @@
+'use client';
+
 import React from 'react';
 import { KeyRound, Compass, Zap, Trophy } from 'lucide-react';
 

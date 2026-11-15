@@ -1,3 +1,5 @@
+'use client';
+
 import React from 'react';
 import { Button } from '../../components/ui/Button';
 import { Sparkles, LogIn, Users, Flame, Trophy } from 'lucide-react';
