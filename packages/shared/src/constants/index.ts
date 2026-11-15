@@ -11,13 +11,166 @@ export const DEFAULT_GAME_DURATION: Record<string, number> = {
   'quick': 300, // 5 minutes
 };
 
-export const AVATAR_OPTIONS: { id: AvatarId; name: string; color: string; badge: string }[] = [
-  { id: 'climber-red', name: 'Garuda Red', color: '#EF4444', badge: '🔴' },
-  { id: 'climber-blue', name: 'Samudra Blue', color: '#3B82F6', badge: '🔵' },
-  { id: 'climber-green', name: 'Nusantara Green', color: '#10B981', badge: '🟢' },
-  { id: 'climber-yellow', name: 'Surya Yellow', color: '#F59E0B', badge: '🟡' },
-  { id: 'climber-purple', name: 'Kresna Purple', color: '#8B5CF6', badge: '🟣' },
-  { id: 'climber-orange', name: 'Bara Orange', color: '#F97316', badge: '🟠' },
+export interface AvatarOption {
+  id: AvatarId;
+  name: string;
+  subtitle: string;
+  color: string;
+  badge: string;
+  tagline: string;
+  spriteBase: string;
+}
+
+export const PRIMARY_AVATARS: AvatarId[] = [
+  'budi',
+  'ujang',
+  'rara',
+  'koko',
+  'jaya',
+  'bayu',
+  'siti',
+  'jago',
+];
+
+export function normalizeAvatarId(avatar?: string | null): AvatarId {
+  if (!avatar) return 'budi';
+  if (avatar === 'climber-red') return 'budi';
+  if (avatar === 'climber-blue') return 'rara';
+  if (avatar === 'climber-green') return 'koko';
+  if (avatar === 'climber-yellow') return 'ujang';
+  if (avatar === 'climber-purple') return 'siti';
+  if (avatar === 'climber-orange') return 'jaya';
+  return avatar as AvatarId;
+}
+
+export const AVATAR_OPTIONS: AvatarOption[] = [
+  {
+    id: 'budi',
+    name: 'Budi',
+    subtitle: 'Semangat Merah Putih',
+    color: '#EF4444',
+    badge: '🇮🇩',
+    tagline: 'Kaos putih & ikat kepala merah putih legendaris',
+    spriteBase: '/assets/characters/budi',
+  },
+  {
+    id: 'ujang',
+    name: 'Ujang',
+    subtitle: 'Jawara Madura',
+    color: '#DC2626',
+    badge: '🥊',
+    tagline: 'Kaos loreng merah-putih & sarung tangan cengkeram',
+    spriteBase: '/assets/characters/ujang',
+  },
+  {
+    id: 'rara',
+    name: 'Rara',
+    subtitle: 'Gadis Visor Sporty',
+    color: '#06B6D4',
+    badge: '⚡',
+    tagline: 'Kuncir kuda dinamis & visor sporty cyan',
+    spriteBase: '/assets/characters/rara',
+  },
+  {
+    id: 'koko',
+    name: 'Koko',
+    subtitle: 'Si Ceria Baju Hijau',
+    color: '#10B981',
+    badge: '🌿',
+    tagline: 'Baju motif hijau tropis & topi visor oranye',
+    spriteBase: '/assets/characters/koko',
+  },
+  {
+    id: 'jaya',
+    name: 'Jaya',
+    subtitle: 'Rompi Oranye Energik',
+    color: '#F97316',
+    badge: '🔥',
+    tagline: 'Rambut spike & rompi oranye penuh tenaga',
+    spriteBase: '/assets/characters/jaya',
+  },
+  {
+    id: 'bayu',
+    name: 'Bayu',
+    subtitle: 'Atlet Kilat Lincah',
+    color: '#EA580C',
+    badge: '🌪️',
+    tagline: 'Refleks cepat & gaya pemanjat akrobatik',
+    spriteBase: '/assets/characters/bayu',
+  },
+  {
+    id: 'siti',
+    name: 'Siti',
+    subtitle: 'Caping Bambu & Cyber Neko',
+    color: '#8B5CF6',
+    badge: '🎧',
+    tagline: 'Topi caping bambu & gamer headset telinga kucing',
+    spriteBase: '/assets/characters/siti',
+  },
+  {
+    id: 'jago',
+    name: 'Jago',
+    subtitle: 'Sang Legenda Sabuk Emas',
+    color: '#F59E0B',
+    badge: '👑',
+    tagline: 'Jubah merah, kacamata hitam & sabuk emas juara',
+    spriteBase: '/assets/characters/jago',
+  },
+  // Backward compatibility aliases for existing games/data
+  {
+    id: 'climber-red',
+    name: 'Budi (Red)',
+    subtitle: 'Semangat Merah Putih',
+    color: '#EF4444',
+    badge: '🇮🇩',
+    tagline: 'Kaos putih & ikat kepala merah putih',
+    spriteBase: '/assets/characters/budi',
+  },
+  {
+    id: 'climber-blue',
+    name: 'Rara (Blue)',
+    subtitle: 'Gadis Visor Sporty',
+    color: '#06B6D4',
+    badge: '⚡',
+    tagline: 'Kuncir kuda & visor sporty cyan',
+    spriteBase: '/assets/characters/rara',
+  },
+  {
+    id: 'climber-green',
+    name: 'Koko (Green)',
+    subtitle: 'Si Ceria Baju Hijau',
+    color: '#10B981',
+    badge: '🌿',
+    tagline: 'Baju hijau tropis & topi visor',
+    spriteBase: '/assets/characters/koko',
+  },
+  {
+    id: 'climber-yellow',
+    name: 'Ujang (Yellow)',
+    subtitle: 'Jawara Madura',
+    color: '#DC2626',
+    badge: '🥊',
+    tagline: 'Kaos loreng merah-putih',
+    spriteBase: '/assets/characters/ujang',
+  },
+  {
+    id: 'climber-purple',
+    name: 'Siti (Purple)',
+    subtitle: 'Caping & Cyber Neko',
+    color: '#8B5CF6',
+    badge: '🎧',
+    tagline: 'Caping bambu & cyber neko headset',
+    spriteBase: '/assets/characters/siti',
+  },
+  {
+    id: 'climber-orange',
+    name: 'Jaya (Orange)',
+    subtitle: 'Rompi Oranye Energik',
+    color: '#F97316',
+    badge: '🔥',
+    tagline: 'Rompi oranye penuh tenaga',
+    spriteBase: '/assets/characters/jaya',
+  },
 ];
 
 export const SKILL_DEFINITIONS: Record<SkillType, SkillDefinition> = {

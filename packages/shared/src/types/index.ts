@@ -4,7 +4,21 @@ export type GameMode = 'classic-race' | 'survival-climb' | 'skill-battle' | 'cla
 
 export type RoomStatus = 'lobby' | 'countdown' | 'in-game' | 'finished';
 
-export type AvatarId = 'climber-red' | 'climber-blue' | 'climber-green' | 'climber-yellow' | 'climber-purple' | 'climber-orange';
+export type AvatarId = 
+  | 'budi' 
+  | 'ujang' 
+  | 'rara' 
+  | 'koko' 
+  | 'jaya' 
+  | 'bayu' 
+  | 'siti' 
+  | 'jago'
+  | 'climber-red' 
+  | 'climber-blue' 
+  | 'climber-green' 
+  | 'climber-yellow' 
+  | 'climber-purple' 
+  | 'climber-orange';
 
 export interface Player {
   id: string; // Unique session ID
