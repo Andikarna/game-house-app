@@ -1,11 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { 
   LudoGameState, 
   LudoColor, 
   LudoToken 
 } from '@gamehouse/shared';
-import { Star, Crown, ChevronDown, ChevronLeft, ChevronUp, ChevronRight } from 'lucide-react';
+import { Star, Crown, ChevronDown, ChevronLeft, ChevronUp, ChevronRight, RotateCcw } from 'lucide-react';
 import { soundManager } from '../../../components/audio/SoundManager';
 
 interface LudoBoardProps {
@@ -340,6 +340,18 @@ const HDTokenPawn: React.FC<HDTokenProps> = ({ color, isValid, stackCount }) => 
 // 3. MAIN LUDO BOARD COMPONENT
 // ============================================================================
 
+// POV Rotation mapping: Rotates board so each player's home base is always at Bottom-Left!
+// Red: already at bottom-left (0deg)
+// Blue: top-left -> rotates 270deg clockwise (-90deg) to bottom-left
+// Green: top-right -> rotates 180deg to bottom-left
+// Yellow: bottom-right -> rotates 90deg clockwise to bottom-left
+const ROTATION_BY_COLOR: Record<LudoColor, number> = {
+  red: 0,
+  blue: 270,
+  green: 180,
+  yellow: 90,
+};
+
 export const LudoBoard: React.FC<LudoBoardProps> = ({
   gameState,
   myPlayerId,
@@ -348,6 +360,11 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
   const isMyTurn = gameState.currentTurnPlayerId === myPlayerId;
   const myPlayer = gameState.players[myPlayerId];
   const validMoves = gameState.validMoves || [];
+
+  // Default to player POV: local player base is always at Bottom-Left
+  const [povMode, setPovMode] = useState<'player' | 'global'>('player');
+  const myColor: LudoColor = myPlayer?.color || 'red';
+  const boardRotationDeg = povMode === 'player' ? ROTATION_BY_COLOR[myColor] : 0;
 
   // Group tokens by their board position so we can stack and render cleanly
   const tokensOnBoard: Array<{
@@ -391,8 +408,26 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
 
   return (
     <div className="relative w-full max-w-[480px] sm:max-w-[560px] aspect-square bg-[#0c121e] border-[6px] border-slate-700/80 rounded-[2.5rem] shadow-[0_20px_60px_rgba(0,0,0,0.85)] p-2 sm:p-3 select-none touch-manipulation overflow-hidden">
-      {/* 15x15 BOARD GRID CONTAINER */}
-      <div className="relative w-full h-full grid grid-cols-15 grid-rows-15 rounded-[2rem] overflow-hidden bg-white shadow-2xl border-2 border-slate-400/40">
+      {/* POV CAMERA BADGE */}
+      <div className="absolute top-3.5 right-3.5 z-30 pointer-events-auto">
+        <button
+          type="button"
+          onClick={() => setPovMode((prev) => (prev === 'player' ? 'global' : 'player'))}
+          className="px-2.5 py-1 rounded-xl bg-slate-950/90 backdrop-blur-md border border-slate-700 hover:border-amber-400 text-[10px] font-mono font-bold text-slate-200 hover:text-amber-300 flex items-center gap-1.5 shadow-xl transition-all active:scale-95 cursor-pointer"
+          title="Ubah Sudut Pandang Kamera Ludo"
+        >
+          <RotateCcw className="w-3 h-3 text-amber-400" />
+          <span>POV: {povMode === 'player' ? `${myColor.toUpperCase()} (KIRI BAWAH)` : 'GLOBAL'}</span>
+        </button>
+      </div>
+
+      {/* ROTATABLE BOARD WRAPPER (Local player's home base is always oriented at Bottom-Left) */}
+      <div 
+        className="relative w-full h-full transition-transform duration-700 ease-out"
+        style={{ transform: `rotate(${boardRotationDeg}deg)` }}
+      >
+        {/* 15x15 BOARD GRID CONTAINER */}
+        <div className="relative w-full h-full grid grid-cols-15 grid-rows-15 rounded-[2rem] overflow-hidden bg-white shadow-2xl border-2 border-slate-400/40">
         
         {/* ================================================================= */}
         {/* 1. TOP-LEFT BASE: BLUE (row 0..5, col 0..5)                       */}
@@ -440,12 +475,16 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
 
                 {/* Green Start Star */}
                 {isGreenStart && (
-                  <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white fill-white drop-shadow" />
+                  <div style={{ transform: `rotate(${-boardRotationDeg}deg)` }} className="transition-transform duration-700">
+                    <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white fill-white drop-shadow" />
+                  </div>
                 )}
 
                 {/* Neutral Safe Star */}
                 {isSafeStar && (
-                  <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400 fill-slate-400 drop-shadow-sm" />
+                  <div style={{ transform: `rotate(${-boardRotationDeg}deg)` }} className="transition-transform duration-700">
+                    <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400 fill-slate-400 drop-shadow-sm" />
+                  </div>
                 )}
               </div>
             );
@@ -497,12 +536,16 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
 
                 {/* Blue Start Star */}
                 {isBlueStart && (
-                  <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white fill-white drop-shadow" />
+                  <div style={{ transform: `rotate(${-boardRotationDeg}deg)` }} className="transition-transform duration-700">
+                    <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white fill-white drop-shadow" />
+                  </div>
                 )}
 
                 {/* Neutral Safe Star */}
                 {isSafeStar && (
-                  <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400 fill-slate-400 drop-shadow-sm" />
+                  <div style={{ transform: `rotate(${-boardRotationDeg}deg)` }} className="transition-transform duration-700">
+                    <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400 fill-slate-400 drop-shadow-sm" />
+                  </div>
                 )}
               </div>
             );
@@ -528,7 +571,10 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
           </div>
 
           {/* Central 3D Golden Crown / Trophy Badge */}
-          <div className="relative z-10 w-7 h-7 sm:w-9 sm:h-9 rounded-full bg-slate-950/85 backdrop-blur-sm border-2 border-amber-300 flex items-center justify-center shadow-[0_0_15px_rgba(251,191,36,0.85)]">
+          <div 
+            className="relative z-10 w-7 h-7 sm:w-9 sm:h-9 rounded-full bg-slate-950/85 backdrop-blur-sm border-2 border-amber-300 flex items-center justify-center shadow-[0_0_15px_rgba(251,191,36,0.85)] transition-transform duration-700"
+            style={{ transform: `rotate(${-boardRotationDeg}deg)` }}
+          >
             <Crown className="w-4 h-4 sm:w-5 sm:h-5 text-amber-300 fill-amber-300 animate-pulse" />
           </div>
         </div>
@@ -564,12 +610,16 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
 
                 {/* Yellow Start Star */}
                 {isYellowStart && (
-                  <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white fill-white drop-shadow" />
+                  <div style={{ transform: `rotate(${-boardRotationDeg}deg)` }} className="transition-transform duration-700">
+                    <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white fill-white drop-shadow" />
+                  </div>
                 )}
 
                 {/* Neutral Safe Star */}
                 {isSafeStar && (
-                  <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400 fill-slate-400 drop-shadow-sm" />
+                  <div style={{ transform: `rotate(${-boardRotationDeg}deg)` }} className="transition-transform duration-700">
+                    <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400 fill-slate-400 drop-shadow-sm" />
+                  </div>
                 )}
               </div>
             );
@@ -621,12 +671,16 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
 
                 {/* Red Start Star */}
                 {isRedStart && (
-                  <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white fill-white drop-shadow" />
+                  <div style={{ transform: `rotate(${-boardRotationDeg}deg)` }} className="transition-transform duration-700">
+                    <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white fill-white drop-shadow" />
+                  </div>
                 )}
 
                 {/* Neutral Safe Star */}
                 {isSafeStar && (
-                  <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400 fill-slate-400 drop-shadow-sm" />
+                  <div style={{ transform: `rotate(${-boardRotationDeg}deg)` }} className="transition-transform duration-700">
+                    <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400 fill-slate-400 drop-shadow-sm" />
+                  </div>
                 )}
               </div>
             );
@@ -687,14 +741,20 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
                 }`}
                 title={`${player.nickname}'s Token #${token.id + 1} (${token.state})`}
               >
-                <HDTokenPawn
-                  color={player.color}
-                  isValid={isValid}
-                />
+                <div
+                  className="transition-transform duration-700"
+                  style={{ transform: `rotate(${-boardRotationDeg}deg)` }}
+                >
+                  <HDTokenPawn
+                    color={player.color}
+                    isValid={isValid}
+                  />
+                </div>
               </button>
             </motion.div>
           );
         })}
+      </div>
       </div>
     </div>
   );
