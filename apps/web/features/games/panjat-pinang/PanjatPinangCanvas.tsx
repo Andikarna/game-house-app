@@ -169,6 +169,10 @@ export const PanjatPinangCanvas: React.FC<CanvasProps> = ({ gameState, myPlayerI
       time += 0.035;
 
       const currentGameState = gameStateRef.current;
+      if (!currentGameState || !currentGameState.climbers) {
+        animationFrameId.current = requestAnimationFrame(render);
+        return;
+      }
 
       // High-DPI Resolution Scaling (Ultra-crisp 4K / Retina display rendering)
       const dpr = Math.min(typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1, 2.5);
@@ -364,7 +368,7 @@ export const PanjatPinangCanvas: React.FC<CanvasProps> = ({ gameState, myPlayerI
       draw3DCylindricalPole(ctx, poleX, poleTopY, groundY, poleRadius, camera, time);
 
       // C. Draw Traps placed on the pole in 3D
-      currentGameState.traps.forEach(trap => {
+      (currentGameState.traps || []).forEach(trap => {
         const trapWorldAngle = ((trap.lane % 8) / 8) * (Math.PI * 2);
         let trapRelAngle = trapWorldAngle - camera.orbitAngle;
         while (trapRelAngle > Math.PI) trapRelAngle -= Math.PI * 2;

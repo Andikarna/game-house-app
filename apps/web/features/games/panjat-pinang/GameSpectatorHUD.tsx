@@ -33,12 +33,13 @@ export const GameSpectatorHUD: React.FC<SpectatorHUDProps> = ({ gameState }) => 
     }
   };
 
-  const minutes = Math.floor(gameState.timerSecondsRemaining / 60);
-  const seconds = Math.floor(gameState.timerSecondsRemaining % 60);
+  const remainingTime = gameState?.timerSecondsRemaining ?? 0;
+  const minutes = Math.floor(remainingTime / 60);
+  const seconds = Math.floor(remainingTime % 60);
   const formattedTime = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 
   // Sorted list of climbers
-  const rankedClimbers = Object.values(gameState.climbers)
+  const rankedClimbers = Object.values(gameState?.climbers || {})
     .sort((a, b) => b.height - a.height)
     .map(c => {
       const p = room?.players.find(player => player.id === c.playerId);
@@ -48,6 +49,8 @@ export const GameSpectatorHUD: React.FC<SpectatorHUDProps> = ({ gameState }) => 
         avatar: p?.avatar || 'climber-red',
       };
     });
+
+  const gameMode = gameState?.gameMode || room?.settings.gameMode || 'classic-race';
 
   return (
     <>
@@ -62,8 +65,8 @@ export const GameSpectatorHUD: React.FC<SpectatorHUDProps> = ({ gameState }) => 
 
         <div className="flex items-center gap-1 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-300">
           <Flame className="w-3.5 h-3.5 text-purple-400" />
-          <span className="hidden sm:inline">{gameState.gameMode.replace('-', ' ')}</span>
-          <span className="sm:hidden">{gameState.gameMode === 'classic-race' ? 'Race' : gameState.gameMode === 'survival-climb' ? 'Survival' : 'Skill'}</span>
+          <span className="hidden sm:inline">{gameMode.replace('-', ' ')}</span>
+          <span className="sm:hidden">{gameMode === 'classic-race' ? 'Race' : gameMode === 'survival-climb' ? 'Survival' : 'Skill'}</span>
         </div>
 
         {/* Mobile Trophy Drawer Toggle */}

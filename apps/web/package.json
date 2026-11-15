@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "npm run build --workspace=@gamehouse/shared && next build",
+    "vercel-build": "npm run build --workspace=@gamehouse/shared && next build",
     "start": "next start -p 3000",
     "lint": "next lint"
   },

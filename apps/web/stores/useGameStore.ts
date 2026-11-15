@@ -10,7 +10,6 @@ import {
   ServerToClientEvents 
 } from '@gamehouse/shared';
 import { soundManager } from '../components/audio/SoundManager';
-import confetti from 'canvas-confetti';
 
 interface ToastNotification {
   id: string;
@@ -83,14 +82,17 @@ export const useGameStore = create<GameStoreState>((set, get) => {
     setGameResults: (gameResults) => {
       if (gameResults) {
         soundManager.playVictory();
-        try {
-          confetti({
-            particleCount: 120,
-            spread: 80,
-            origin: { y: 0.6 },
-            colors: ['#EF4444', '#FFFFFF', '#F97316', '#8B5CF6', '#F59E0B']
-          });
-        } catch {}
+        if (typeof window !== 'undefined') {
+          import('canvas-confetti').then((mod) => {
+            const confetti = mod.default || mod;
+            confetti({
+              particleCount: 120,
+              spread: 80,
+              origin: { y: 0.6 },
+              colors: ['#EF4444', '#FFFFFF', '#F97316', '#8B5CF6', '#F59E0B']
+            });
+          }).catch(() => {});
+        }
       }
       set({ gameResults });
     },

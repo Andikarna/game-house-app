@@ -95,6 +95,9 @@ export function useSocket() {
       // Game Events
       socket.on('game:countdown', (count) => {
         setCountdown(count);
+        if (count === 3) {
+          setGameResults(null);
+        }
       });
 
       socket.on('game:started', (initialState) => {

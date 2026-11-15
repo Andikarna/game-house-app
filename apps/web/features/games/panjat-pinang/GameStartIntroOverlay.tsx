@@ -1,8 +1,9 @@
+'use client';
+
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RoomInfo, PanjatPinangGameState } from '@gamehouse/shared';
 import { ClimberAvatarIcon } from '../../../components/ui/AvatarSelector';
-import confetti from 'canvas-confetti';
 import { Crown, Sparkles, Trophy } from 'lucide-react';
 
 interface GameStartIntroOverlayProps {
@@ -24,15 +25,16 @@ export const GameStartIntroOverlay: React.FC<GameStartIntroOverlayProps> = ({
 
   // Trigger confetti burst on "GO!"
   useEffect(() => {
-    if (showGo) {
-      try {
+    if (showGo && typeof window !== 'undefined') {
+      import('canvas-confetti').then((mod) => {
+        const confetti = mod.default || mod;
         confetti({
           particleCount: 100,
           spread: 90,
           origin: { y: 0.55 },
           colors: ['#EF4444', '#FFFFFF', '#F59E0B', '#3B82F6', '#10B981'],
         });
-      } catch {}
+      }).catch(() => {});
     }
   }, [showGo]);
 
