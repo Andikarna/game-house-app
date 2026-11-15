@@ -1,0 +1,22 @@
+{
+  "name": "gamehouse-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:server": "npm run dev --workspace=@gamehouse/game-server",
+    "dev:web": "npm run dev --workspace=@gamehouse/web",
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:web\"",
+    "build:shared": "npm run build --workspace=@gamehouse/shared",
+    "build:server": "npm run build --workspace=@gamehouse/game-server",
+    "build:web": "npm run build --workspace=@gamehouse/web",
+    "build": "npm run build:shared && npm run build:server && npm run build:web",
+    "test": "npm run test --workspace=@gamehouse/game-server"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
