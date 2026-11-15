@@ -25,16 +25,30 @@ class SoundManager {
   }
 
   private setupAutoUnlock() {
-    if (this.hasSetupUserInteraction || typeof window === 'undefined') return;
-    this.hasSetupUserInteraction = true;
+    if (typeof window === 'undefined') return;
     const unlock = () => {
       this.initContext();
       if (this.ctx && this.ctx.state === 'suspended') {
-        this.ctx.resume();
+        this.ctx.resume().catch(() => {});
+      }
+      if (!this.isMuted && !this.isBgmPlaying) {
+        this.startBGM();
       }
     };
+
+    // Attempt to start BGM immediately on load
+    try {
+      this.initContext();
+      if (!this.isMuted) {
+        this.startBGM();
+      }
+    } catch {}
+
+    // Listen to first user touch/click to unlock audio policy seamlessly
     window.addEventListener('pointerdown', unlock, { once: true, passive: true });
     window.addEventListener('keydown', unlock, { once: true, passive: true });
+    window.addEventListener('click', unlock, { once: true, passive: true });
+    window.addEventListener('touchstart', unlock, { once: true, passive: true });
   }
 
   private initContext() {

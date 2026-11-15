@@ -11,6 +11,7 @@ import { Button } from '../../components/ui/Button';
 import { AvatarSelector } from '../../components/ui/AvatarSelector';
 import { GameHouseLogo } from '../../components/branding/GameHouseLogo';
 import { ToastContainer } from '../../components/ui/ToastContainer';
+import { soundManager } from '../../components/audio/SoundManager';
 import { ArrowLeft, LogIn } from 'lucide-react';
 import Link from 'next/link';
 
@@ -31,6 +32,11 @@ export const RoomContainer: React.FC<RoomContainerProps> = ({ roomCode }) => {
 
   // If already in this room, proceed directly
   const isInThisRoom = room && (room.code === cleanCode || room.code === roomCode);
+
+  // Auto-play BGM in room
+  useEffect(() => {
+    soundManager.startBGM();
+  }, []);
 
   // Auto-join if user has nickname and visits the direct room URL
   useEffect(() => {

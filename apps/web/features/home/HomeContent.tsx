@@ -12,6 +12,7 @@ import { JoinRoomModal } from './JoinRoomModal';
 import { ToastContainer } from '../../components/ui/ToastContainer';
 import { useSocket } from '../../hooks/useSocket';
 import { useSettingsStore } from '../../stores/useSettingsStore';
+import { soundManager } from '../../components/audio/SoundManager';
 import { Volume2, VolumeX, Sparkles, LogIn, Heart } from 'lucide-react';
 import { GameId } from '@gamehouse/shared';
 
@@ -22,6 +23,13 @@ export const HomeContent: React.FC = () => {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isJoinOpen, setIsJoinOpen] = useState(false);
   const [stats, setStats] = useState({ onlinePlayers: 18, activeRooms: 4 });
+
+  // Auto-play default party background music on enter
+  useEffect(() => {
+    if (!isMuted) {
+      soundManager.startBGM();
+    }
+  }, [isMuted]);
 
   // Periodically fetch live server stats if available
   useEffect(() => {
