@@ -13,7 +13,8 @@
     "build:shared": "npm run build --workspace=@gamehouse/shared",
     "build:server": "npm run build --workspace=@gamehouse/game-server",
     "build:web": "npm run build --workspace=@gamehouse/web",
-    "build": "npm run build:shared && npm run build:server && npm run build:web",
+    "build": "npm run build:shared && npm run build:web",
+    "build:all": "npm run build:shared && npm run build:server && npm run build:web",
     "test": "npm run test --workspace=@gamehouse/game-server"
   },
   "devDependencies": {

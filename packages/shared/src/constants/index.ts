@@ -3,10 +3,12 @@ import { SkillDefinition, SkillType, AvatarId } from '../types';
 export const SERVER_TICK_RATE = 20; // 20 ticks per second (50ms interval)
 export const CLIENT_INPUT_RATE = 20; // client sends input every 50ms
 
-export const DEFAULT_GAME_DURATION = {
+export const DEFAULT_GAME_DURATION: Record<string, number> = {
   'classic-race': 180, // 3 minutes
   'survival-climb': 120, // 2 minutes
   'skill-battle': 150, // 2.5 minutes
+  'classic': 600, // 10 minutes
+  'quick': 300, // 5 minutes
 };
 
 export const AVATAR_OPTIONS: { id: AvatarId; name: string; color: string; badge: string }[] = [
