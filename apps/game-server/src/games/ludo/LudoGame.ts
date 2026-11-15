@@ -43,9 +43,9 @@ export class LudoGame implements GameModule {
   private static readonly TRACK_LENGTH = 52;
   private static readonly START_TILES: Record<LudoColor, number> = {
     red: 0,
-    green: 13,
-    yellow: 26,
-    blue: 39,
+    blue: 13,
+    green: 26,
+    yellow: 39,
   };
   private static readonly SAFE_TILES = new Set<number>([
     0, 8, 13, 21, 26, 34, 39, 47 // 4 Start tiles + 4 Star tiles
@@ -71,16 +71,17 @@ export class LudoGame implements GameModule {
     this.consecutiveSixes = 0;
     this.lastMoveNotice = 'Game started! Roll the dice to begin.';
 
-    // Assign colors in balanced classic layout
-    // 2 players: Red vs Yellow (opposite sides)
-    // 3 players: Red, Green, Yellow
-    // 4 players: Red, Green, Yellow, Blue
+    // Assign colors in balanced classic layout matching board corners:
+    // Bottom-Left (Red) -> Top-Left (Blue) -> Top-Right (Green) -> Bottom-Right (Yellow)
+    // 2 players: Red vs Green (diagonally opposite sides)
+    // 3 players: Red, Blue, Green
+    // 4 players: Red, Blue, Green, Yellow
     const colors: LudoColor[] = 
       players.length === 2
-        ? ['red', 'yellow']
+        ? ['red', 'green']
         : players.length === 3
-        ? ['red', 'green', 'yellow']
-        : ['red', 'green', 'yellow', 'blue'];
+        ? ['red', 'blue', 'green']
+        : ['red', 'blue', 'green', 'yellow'];
 
     players.forEach((p, idx) => {
       const color = colors[idx % colors.length];

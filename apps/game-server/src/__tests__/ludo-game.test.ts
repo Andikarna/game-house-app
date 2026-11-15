@@ -33,8 +33,8 @@ describe('Ludo Game Engine & Rules', () => {
     {
       id: 'p2',
       socketId: 's2',
-      nickname: 'PlayerYellow',
-      avatar: 'climber-yellow',
+      nickname: 'PlayerGreen',
+      avatar: 'climber-green',
       isHost: false,
       isReady: true,
       isConnected: true,
@@ -42,7 +42,7 @@ describe('Ludo Game Engine & Rules', () => {
     },
   ];
 
-  it('should initialize a 2-player game with Red vs Yellow opposite sides', () => {
+  it('should initialize a 2-player game with Red vs Green diagonally opposite sides', () => {
     const game = new LudoGame();
     game.initialize('room-1', players, mockSettings, mockIo);
 
@@ -50,7 +50,7 @@ describe('Ludo Game Engine & Rules', () => {
     assert.strictEqual(state.gameId, 'ludo');
     assert.strictEqual(state.playerOrder.length, 2);
     assert.strictEqual(state.players['p1'].color, 'red');
-    assert.strictEqual(state.players['p2'].color, 'yellow');
+    assert.strictEqual(state.players['p2'].color, 'green');
     assert.strictEqual(state.players['p1'].tokens.length, 4);
     assert.strictEqual(state.players['p1'].tokens[0].state, 'base');
     assert.strictEqual(state.currentTurnPlayerId, 'p1');
@@ -120,11 +120,11 @@ describe('Ludo Game Engine & Rules', () => {
     const p1 = (game as any).players.get('p1');
     const p2 = (game as any).players.get('p2');
 
-    // Place Yellow token on tile 10 (not a safe square)
-    const yellowToken = p2.tokens[0];
-    yellowToken.state = 'track';
-    yellowToken.stepCount = 10;
-    yellowToken.trackPosition = 10;
+    // Place Green token on tile 10 (not a safe square)
+    const opponentToken = p2.tokens[0];
+    opponentToken.state = 'track';
+    opponentToken.stepCount = 10;
+    opponentToken.trackPosition = 10;
 
     // Place Red token at tile 7
     const redToken = p1.tokens[0];
@@ -139,10 +139,10 @@ describe('Ludo Game Engine & Rules', () => {
 
     game.handleInput('p1', { action: 'move-token', tokenIndex: 0 });
 
-    // Yellow token must be sent back to base!
-    assert.strictEqual(yellowToken.state, 'base');
-    assert.strictEqual(yellowToken.stepCount, 0);
-    assert.strictEqual(yellowToken.trackPosition, -1);
+    // Opponent token must be sent back to base!
+    assert.strictEqual(opponentToken.state, 'base');
+    assert.strictEqual(opponentToken.stepCount, 0);
+    assert.strictEqual(opponentToken.trackPosition, -1);
 
     // Red gets a bonus roll, so p1 is still the current turn!
     const state = game.getState();
