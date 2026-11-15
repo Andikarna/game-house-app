@@ -58,7 +58,15 @@ export async function POST(req: Request) {
     await pool.query(
       `INSERT INTO gh_players 
         (id, room_code, nickname, avatar, is_host, is_ready, is_connected, last_seen_at, joined_at)
-       VALUES (?, ?, ?, ?, 0, 0, 1, ?, ?)`,
+       VALUES (?, ?, ?, ?, 0, 0, 1, ?, ?)
+       ON DUPLICATE KEY UPDATE
+        room_code = VALUES(room_code),
+        nickname = VALUES(nickname),
+        avatar = VALUES(avatar),
+        is_host = 0,
+        is_ready = 0,
+        is_connected = 1,
+        last_seen_at = VALUES(last_seen_at)`,
       [playerId, code, nickname, avatar, now, now]
     );
 
