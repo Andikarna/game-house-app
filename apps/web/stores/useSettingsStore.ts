@@ -27,8 +27,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
     : 'Climber77';
     
   const initialAvatar = (typeof window !== 'undefined'
-    ? (localStorage.getItem('gh_avatar') as AvatarId) || 'climber-red'
-    : 'climber-red') as AvatarId;
+    ? (localStorage.getItem('gh_avatar') as AvatarId) || 'budi'
+    : 'budi') as AvatarId;
 
   return {
     nickname: initialNickname,

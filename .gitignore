@@ -7,7 +7,8 @@ node_modules/
 .next/
 out/
 build/
-dist/
+apps/game-server/dist/
+!packages/shared/dist/
 
 # Debug and Logs
 logs

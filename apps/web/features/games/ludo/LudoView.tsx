@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useEffect, useState, useRef } from 'react';
 import { useGameStore } from '../../../stores/useGameStore';
 import { LudoGameState } from '@gamehouse/shared';

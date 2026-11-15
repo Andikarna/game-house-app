@@ -7,7 +7,8 @@ import {
   GameMode, 
   ClimberInput, 
   SkillType,
-  AvatarId 
+  AvatarId,
+  EmoteId 
 } from '@gamehouse/shared';
 import { RoomManager } from '../rooms/RoomManager';
 
@@ -24,7 +25,7 @@ export function setupSocketHandlers(
           return callback({ success: false, error: 'Nickname must be at least 2 characters.' });
         }
 
-        const validAvatar: AvatarId = avatar || 'climber-red';
+        const validAvatar: AvatarId = avatar || 'budi';
         const settings: RoomSettings = {
           name: (roomName || `${cleanNickname}'s Party`).trim().substring(0, 30),
           gameId: (gameId as GameId) || 'panjat-pinang',
@@ -58,7 +59,7 @@ export function setupSocketHandlers(
           return callback({ success: false, error: 'Nickname must be at least 2 characters.' });
         }
 
-        const validAvatar: AvatarId = avatar || 'climber-blue';
+        const validAvatar: AvatarId = avatar || 'rara';
         const joinResult = roomManager.joinRoom(
           socket.id,
           roomCode,
@@ -198,6 +199,34 @@ export function setupSocketHandlers(
       if (gameInstance) {
         gameInstance.handleSkill(mapping.playerId, skill);
       }
+    });
+
+    // 10. In-Game Emote Trigger
+    socket.on('game:emote', ({ emoteId }) => {
+      const mapping = roomManager.getPlayerMapping(socket.id);
+      if (!mapping) return;
+
+      const room = roomManager.getRoomById(mapping.roomId);
+      if (!room) return;
+
+      const player = room.players.get(mapping.playerId);
+      if (!player) return;
+
+      // Rate limit per socket: max 1 emote every 800ms
+      const now = Date.now();
+      const lastEmote = (socket as any)._lastEmoteTime || 0;
+      if (now - lastEmote < 800) return;
+      (socket as any)._lastEmoteTime = now;
+
+      // Broadcast emote to all players in the room
+      io.to(room.id).emit('game:emote', {
+        id: `emote-${now}-${Math.random().toString(36).substring(2, 7)}`,
+        playerId: player.id,
+        nickname: player.nickname,
+        avatar: player.avatar,
+        emoteId,
+        timestamp: now,
+      });
     });
 
     // 10. Game Rematch / Restart (Host only)

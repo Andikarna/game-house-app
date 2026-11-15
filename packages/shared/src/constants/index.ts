@@ -1,4 +1,4 @@
-import { SkillDefinition, SkillType, AvatarId } from '../types';
+import { SkillDefinition, SkillType, AvatarId, EmoteDefinition, EmoteId, EmoteCategory } from '../types';
 
 export const SERVER_TICK_RATE = 20; // 20 ticks per second (50ms interval)
 export const CLIENT_INPUT_RATE = 20; // client sends input every 50ms
@@ -244,3 +244,49 @@ export const PHYSICS_CONFIG = {
   stunDuration: 1.8, // seconds stunned after a slip
   energyGainRate: 3.5, // ultimate energy points per second of climbing
 };
+
+// =========================================================================
+// IN-GAME EMOTES CONFIGURATION (24 EMOTES)
+// =========================================================================
+
+export const EMOTE_CATEGORIES: { id: EmoteCategory; label: string; badge: string }[] = [
+  { id: 'all', label: 'Semua', badge: '✨' },
+  { id: 'reaction', label: 'Reaksi', badge: '😂' },
+  { id: 'taunt', label: 'Taunt', badge: '🔥' },
+  { id: 'gameplay', label: 'Taktik', badge: '⚡' },
+  { id: 'festival', label: 'Festival', badge: '🎉' },
+];
+
+export const EMOTE_LIST: EmoteDefinition[] = [
+  // Row 1 - Budi, Ujang, Rara
+  { id: 'ggwp', label: 'GGWP!', category: 'reaction', character: 'Budi', image: '/assets/emotes/ggwp.png', description: 'Budi jempol api sportivitas!' },
+  { id: 'aaghh', label: 'AAGHH!!', category: 'reaction', character: 'Budi', image: '/assets/emotes/aaghh.png', description: 'Budi panik histeris kaget!' },
+  { id: 'hahaha', label: 'HAHAHA!', category: 'taunt', character: 'Ujang', image: '/assets/emotes/hahaha.png', description: 'Ujang tertawa puas mengejek lawan!' },
+  { id: 'ez', label: 'EZ!', category: 'taunt', character: 'Ujang', image: '/assets/emotes/ez.png', description: 'Ujang pamer otot terlalu gampang!' },
+  { id: 'cepat', label: 'CEPAT!!', category: 'gameplay', character: 'Rara', image: '/assets/emotes/cepat.png', description: 'Rara visor berpetir memacu tempo!' },
+  { id: 'otw', label: 'OTW!', category: 'gameplay', character: 'Rara', image: '/assets/emotes/otw.png', description: 'Rara meluncur gaspol menuju puncak!' },
+
+  // Row 2 - Koko, Jaya, Siti Caping
+  { id: 'santuy', label: 'SANTUY~', category: 'reaction', character: 'Koko', image: '/assets/emotes/santuy.png', description: 'Koko nyantai minum kelapa muda!' },
+  { id: 'capekk', label: 'CAPEKK..', category: 'reaction', character: 'Koko', image: '/assets/emotes/capekk.png', description: 'Koko lemas kehabisan stamina!' },
+  { id: 'trap', label: 'TRAP!', category: 'gameplay', character: 'Jaya', image: '/assets/emotes/trap.png', description: 'Jaya pasang jebakan pisang licin!' },
+  { id: 'sorry', label: 'SORRY!', category: 'reaction', character: 'Jaya', image: '/assets/emotes/sorry.png', description: 'Jaya garuk kepala minta maaf!' },
+  { id: 'puyeng', label: 'PUYENG!', category: 'reaction', character: 'Siti', image: '/assets/emotes/puyeng.png', description: 'Siti caping pusing berputar bintang!' },
+  { id: 'wush', label: 'WUSH!!', category: 'gameplay', character: 'Siti', image: '/assets/emotes/wush.png', description: 'Siti caping menerobos angin kencang!' },
+
+  // Row 3 - Siti Gamer, Jago, Pole, Ghost
+  { id: 'wow', label: 'WOW!', category: 'reaction', character: 'Siti', image: '/assets/emotes/wow.png', description: 'Siti gamer mata bintang terpukau!' },
+  { id: 'ampun', label: 'AMPUN!', category: 'reaction', character: 'Siti', image: '/assets/emotes/ampun.png', description: 'Siti gamer menangis mohon ampun!' },
+  { id: 'jagoan', label: 'JAGOAN!', category: 'taunt', character: 'Jago', image: '/assets/emotes/jagoan.png', description: 'Jago bermahkota raja pemanjat!' },
+  { id: 'licin', label: 'LICIN!', category: 'gameplay', character: 'Jago', image: '/assets/emotes/licin.png', description: 'Jago belepotan oli licin!' },
+  { id: 'merosot', label: 'MEROSOT!', category: 'gameplay', image: '/assets/emotes/merosot.png', description: 'Tiang oli licin anjlok ke bawah!' },
+  { id: 'rip', label: 'RIP', category: 'taunt', image: '/assets/emotes/rip.png', description: 'Hantu melayang gugur di arena!' },
+
+  // Row 4 - Festival & Item Props
+  { id: 'awas', label: 'AWAS!', category: 'gameplay', image: '/assets/emotes/awas.png', description: 'Awas ada kulit pisang jebakan!' },
+  { id: 'merdeka', label: 'MERDEKA!', category: 'festival', image: '/assets/emotes/merdeka.png', description: 'Bendera Merah Putih berkibar meriah!' },
+  { id: 'juara', label: 'JUARA!', category: 'festival', image: '/assets/emotes/juara.png', description: 'Piala emas sang juara turnamen!' },
+  { id: 'dakap', label: 'DAKAP!', category: 'festival', image: '/assets/emotes/dakap.png', description: 'Sepeda impian hadiah panjat pinang!' },
+  { id: 'tanya', label: '?!', category: 'reaction', image: '/assets/emotes/tanya.png', description: 'Kaget tanda tanya dan tanda seru!' },
+  { id: 'pelicin', label: 'PELICIN!', category: 'gameplay', image: '/assets/emotes/pelicin.png', description: 'Oli pelicin tumpah di tiang pinang!' },
+];

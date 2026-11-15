@@ -9,7 +9,8 @@ import {
   LudoInput,
   SkillType, 
   GameResultData,
-  AvatarId
+  AvatarId,
+  EmoteId
 } from '../types';
 
 export interface ClientToServerEvents {
@@ -47,6 +48,7 @@ export interface ClientToServerEvents {
   'game:input': (input: ClimberInput | LudoInput | any) => void;
   'player:skill': (skill: SkillType) => void;
   'game:restart': () => void; // Host triggers back to lobby for rematch
+  'game:emote': (payload: { emoteId: EmoteId }) => void;
 
   // Heartbeat / Sync
   'ping:check': (clientTimestamp: number, callback: (clientTimestamp: number) => void) => void;
@@ -73,6 +75,16 @@ export interface ServerToClientEvents {
   'player:recovered': (data: { playerId: string; nickname: string }) => void;
   'player:disconnected': (data: { playerId: string; nickname: string }) => void;
   
+  // In-Game Emote Broadcast
+  'game:emote': (data: { 
+    id: string;
+    playerId: string; 
+    nickname: string; 
+    avatar: AvatarId; 
+    emoteId: EmoteId; 
+    timestamp: number; 
+  }) => void;
+
   // Errors / notifications
   'error:message': (message: string) => void;
 }

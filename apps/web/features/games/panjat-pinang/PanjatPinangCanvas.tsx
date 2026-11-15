@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { PanjatPinangGameState, ClimberPlayerState, AVATAR_OPTIONS, AvatarId } from '@gamehouse/shared';
+import { PanjatPinangGameState, ClimberPlayerState, AVATAR_OPTIONS, AvatarId, normalizeAvatarId } from '@gamehouse/shared';
 import { ZoomIn, ZoomOut, Maximize2, RotateCcw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '../../../stores/useGameStore';
@@ -44,6 +44,22 @@ const SHORTS_STYLES = [
   { primary: '#581C87', secondary: '#C084FC', pattern: 'kresna', trim: '#E9D5FF' },
   { primary: '#C2410C', secondary: '#FED7AA', pattern: 'bara-api', trim: '#FDBA74' },
 ];
+
+// Character 64-Sprite System
+const SPRITE_CACHE: Record<string, HTMLImageElement> = {};
+
+function getOrLoadSprite(charId: string, pose: string): HTMLImageElement | null {
+  const norm = normalizeAvatarId(charId);
+  const key = `${norm}_${pose}`;
+  if (typeof window === 'undefined') return null;
+  if (!SPRITE_CACHE[key]) {
+    const img = new Image();
+    img.src = `/assets/characters/${norm}/${pose}.png`;
+    SPRITE_CACHE[key] = img;
+  }
+  const cached = SPRITE_CACHE[key];
+  return cached && cached.complete && cached.naturalWidth > 0 ? cached : null;
+}
 
 export const PanjatPinangCanvas: React.FC<CanvasProps> = ({ gameState, myPlayerId }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -125,6 +141,15 @@ export const PanjatPinangCanvas: React.FC<CanvasProps> = ({ gameState, myPlayerI
     // Preload Modern 3D Champion Trophy Asset for Summit
     const trophyImg = new Image();
     trophyImg.src = '/assets/gameplay/victory_cup_badge.jpg';
+
+    // Preload Character 64-Sprite Poses for all primary characters
+    const PRIMARY_CHARS = ['budi', 'ujang', 'rara', 'koko', 'jaya', 'bayu', 'siti', 'jago'];
+    const PRIMARY_POSES = ['climb', 'fall', 'victory', 'sad', 'idle'];
+    PRIMARY_CHARS.forEach(char => {
+      PRIMARY_POSES.forEach(pose => {
+        getOrLoadSprite(char, pose);
+      });
+    });
 
     const render = () => {
       time += 0.035;
@@ -294,6 +319,7 @@ export const PanjatPinangCanvas: React.FC<CanvasProps> = ({ gameState, myPlayerI
 
         const playerInfo = currentRoom?.players.find(p => p.id === climber.playerId);
         const isMe = climber.playerId === myPlayerId;
+        const avatar = playerInfo?.avatar || 'budi';
 
         return {
           climber,
@@ -305,6 +331,7 @@ export const PanjatPinangCanvas: React.FC<CanvasProps> = ({ gameState, myPlayerI
           angle: relAngle,
           isMe,
           nickname: playerInfo?.nickname || (isMe ? 'YOU' : `Climber ${idx + 1}`),
+          avatar,
           idx,
         };
       });
@@ -316,7 +343,7 @@ export const PanjatPinangCanvas: React.FC<CanvasProps> = ({ gameState, myPlayerI
 
       // A. Draw Climbers that are BEHIND the 3D Pole (with slight dimming shadow)
       backClimbers.forEach(c => {
-        drawRealisticClimber(ctx, c.x, c.y, c.climber, c.interp, c.scale, c.isMe, c.angle, time, c.idx, c.nickname);
+        drawRealisticClimber(ctx, c.x, c.y, c.climber, c.interp, c.scale, c.isMe, c.angle, time, c.idx, c.nickname, c.avatar);
       });
 
       // B. Draw 3D Batang Pinang (Round greased cylinder with lighting & specular sheen)
@@ -339,7 +366,7 @@ export const PanjatPinangCanvas: React.FC<CanvasProps> = ({ gameState, myPlayerI
 
       // D. Draw Climbers that are IN FRONT OF the 3D Pole
       frontClimbers.forEach(c => {
-        drawRealisticClimber(ctx, c.x, c.y, c.climber, c.interp, c.scale, c.isMe, c.angle, time, c.idx, c.nickname);
+        drawRealisticClimber(ctx, c.x, c.y, c.climber, c.interp, c.scale, c.isMe, c.angle, time, c.idx, c.nickname, c.avatar);
       });
 
       // E. Draw 3D Flying Grease Splatters
@@ -692,7 +719,7 @@ function draw3DCylindricalPole(
 }
 
 // =========================================================================
-// 3. REALISTIC INDONESIAN CLIMBER ANATOMY & PROCEDURAL ANIMATION
+// 3. REALISTIC INDONESIAN CLIMBER ANATOMY & SPRITE ANIMATION SYSTEM
 // =========================================================================
 function drawRealisticClimber(
   ctx: CanvasRenderingContext2D,
@@ -705,7 +732,8 @@ function drawRealisticClimber(
   angle3D: number,
   time: number,
   playerIndex: number,
-  nickname?: string
+  nickname?: string,
+  avatar?: AvatarId
 ) {
   ctx.save();
   ctx.translate(x, y);
@@ -726,6 +754,7 @@ function drawRealisticClimber(
   const isClimbing = climber.isClimbing;
   const isStunned = climber.isStunned;
   const isSlipping = climber.isSlipping;
+  const isFinished = (climber.finishedAt && climber.finishedAt > 0) || climber.height >= 100;
 
   // Arm and leg kinematics calculation
   // Alternating reach: hand-over-hand movement
@@ -740,8 +769,8 @@ function drawRealisticClimber(
   const pantOffset = isStunned ? Math.sin(time * 8) * 3 : 0;
 
   // Slipping jitter
-  const slipShakeX = isSlipping ? (Math.random() - 0.5) * 4 : 0;
-  const slipShakeY = isSlipping ? Math.random() * 6 : 0;
+  const slipShakeX = isSlipping ? (Math.random() - 0.5) * 5 : 0;
+  const slipShakeY = isSlipping ? Math.random() * 8 : 0;
   ctx.translate(slipShakeX, slipShakeY);
 
   // Active Skill Auras (Iron Grip / Super Climb / Legendary)
@@ -767,161 +796,216 @@ function drawRealisticClimber(
     ctx.beginPath();
     ctx.ellipse(0, -30, 34, 48, 0, 0, Math.PI * 2);
     ctx.stroke();
+  } else if (hasSuper) {
+    // 3D Blazing Speed Trail Sheen
+    ctx.strokeStyle = '#F97316';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.ellipse(0, -30, 34, 48, 0, 0, Math.PI * 2);
+    ctx.stroke();
   }
 
-  // -------------------------------------------------------------
-  // A. LEGS & CLAMPING FEET (MEMELUK BATANG PINANG DENGAN KAKI)
-  // -------------------------------------------------------------
-  // Left Leg (Thigh, Knee, Calf, Foot)
-  drawRealisticLeg(ctx, -12, -4, -22, 18 + legDriveL, -14, 30 + legDriveL, skin, shorts, true);
-  // Right Leg
-  drawRealisticLeg(ctx, 12, -4, 22, 18 + legDriveR, 14, 30 + legDriveR, skin, shorts, false);
+  // Determine Character Sprite Pose
+  const normId = normalizeAvatarId(avatar);
+  let pose = 'climb';
+  if (isFinished) {
+    pose = 'victory';
+  } else if (isSlipping) {
+    pose = 'fall';
+  } else if (isStunned) {
+    pose = 'sad';
+  } else if (climber.height < 1 && !isClimbing) {
+    pose = 'idle';
+  } else {
+    pose = 'climb';
+  }
 
-  // -------------------------------------------------------------
-  // B. FESTIVAL SHORTS (CELANA PENDEK BATIK / MERAH PUTIH)
-  // -------------------------------------------------------------
-  ctx.fillStyle = shorts.primary;
-  ctx.beginPath();
-  ctx.moveTo(-16, -18);
-  ctx.lineTo(16, -18);
-  ctx.lineTo(18, 2);
-  ctx.lineTo(3, 4);
-  ctx.lineTo(0, -2);
-  ctx.lineTo(-3, 4);
-  ctx.lineTo(-18, 2);
-  ctx.closePath();
-  ctx.fill();
+  const sprite = getOrLoadSprite(normId, pose);
+  let headY = -62;
 
-  // Shorts Pattern Trim
-  ctx.fillStyle = shorts.secondary;
-  ctx.fillRect(-17, -2, 15, 3);
-  ctx.fillRect(2, -2, 15, 3);
+  if (sprite) {
+    // -------------------------------------------------------------
+    // RENDER AUTHENTIC 64-SPRITE CHARACTER ASSET
+    // -------------------------------------------------------------
+    ctx.save();
 
-  // Grease smudges on shorts
-  ctx.fillStyle = '#0F172ACC';
-  ctx.beginPath();
-  ctx.ellipse(-5, -6, 6, 4, 0.3, 0, Math.PI * 2);
-  ctx.ellipse(8, -4, 5, 3, -0.4, 0, Math.PI * 2);
-  ctx.fill();
+    // Subtle climb bobbing when moving up
+    const climbBobY = isClimbing ? Math.sin(cycle) * 3 : 0;
+    // Breathing panting motion when exhausted/stunned
+    const pantY = isStunned ? Math.sin(time * 8) * 3 : 0;
+    ctx.translate(0, climbBobY + pantY);
 
-  // -------------------------------------------------------------
-  // C. REALISTIC ATHLETIC BACK & MUSCULAR TORSO (PUNGGUNG ATLETIS)
-  // -------------------------------------------------------------
-  const backWidth = 32;
-  const backHeight = 36;
-  const torsoY = -48 + pantOffset;
+    // If on left side of the pole, face towards pole (sprites in climb column face left)
+    const shouldFlip = angle3D < -0.05;
+    if (shouldFlip) {
+      ctx.scale(-1, 1);
+    }
 
-  // 3D Muscular Torso Base Gradient (Trapezius, Latissimus Dorsi & Spinal groove)
-  const backGrad = ctx.createLinearGradient(0, torsoY, 0, torsoY + backHeight);
-  backGrad.addColorStop(0.0, skin.highlight); // Upper shoulders catching light
-  backGrad.addColorStop(0.3, skin.base); // Mid back
-  backGrad.addColorStop(0.8, skin.shadow); // Lower waist
-  backGrad.addColorStop(1.0, skin.deepShadow);
+    const drawH = 88;
+    const drawW = Math.round((sprite.naturalWidth / Math.max(1, sprite.naturalHeight)) * drawH);
+    ctx.drawImage(sprite, -drawW / 2, -64, drawW, drawH);
 
-  ctx.fillStyle = backGrad;
-  ctx.beginPath();
-  // V-taper muscular back shape
-  ctx.moveTo(-18, torsoY + 4);
-  ctx.quadraticCurveTo(-19, torsoY + 16, -14, torsoY + backHeight);
-  ctx.lineTo(14, torsoY + backHeight);
-  ctx.quadraticCurveTo(19, torsoY + 16, 18, torsoY + 4);
-  ctx.quadraticCurveTo(0, torsoY - 2, -18, torsoY + 4);
-  ctx.closePath();
-  ctx.fill();
+    // If stunned, draw spinning cartoon dizzy stars overhead
+    if (isStunned) {
+      const starRot = time * 5;
+      ctx.fillStyle = '#FDE047';
+      for (let s = 0; s < 3; s++) {
+        const starAngle = starRot + (s * Math.PI * 2) / 3;
+        const sx = Math.cos(starAngle) * 16;
+        const sy = -68 + Math.sin(starAngle) * 6;
+        ctx.beginPath();
+        ctx.arc(sx, sy, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
 
-  // Muscular Anatomy: Scapula / Shoulder Blades Shading
-  ctx.strokeStyle = skin.shadow;
-  ctx.lineWidth = 2.5;
-  // Left shoulder blade
-  ctx.beginPath();
-  ctx.moveTo(-12, torsoY + 8);
-  ctx.quadraticCurveTo(-8, torsoY + 16, -11, torsoY + 22);
-  ctx.stroke();
-  // Right shoulder blade
-  ctx.beginPath();
-  ctx.moveTo(12, torsoY + 8);
-  ctx.quadraticCurveTo(8, torsoY + 16, 11, torsoY + 22);
-  ctx.stroke();
+    ctx.restore();
+    headY = -70;
+  } else {
+    // -------------------------------------------------------------
+    // PROCEDURAL FALLBACK (IF SPRITE ASSET IS STILL LOADING)
+    // -------------------------------------------------------------
+    // A. LEGS & CLAMPING FEET (MEMELUK BATANG PINANG DENGAN KAKI)
+    drawRealisticLeg(ctx, -12, -4, -22, 18 + legDriveL, -14, 30 + legDriveL, skin, shorts, true);
+    drawRealisticLeg(ctx, 12, -4, 22, 18 + legDriveR, 14, 30 + legDriveR, skin, shorts, false);
 
-  // Central Spinal Furrow (Garis Tulang Belakang)
-  ctx.strokeStyle = skin.deepShadow + '99';
-  ctx.lineWidth = 1.8;
-  ctx.beginPath();
-  ctx.moveTo(0, torsoY + 6);
-  ctx.lineTo(0, torsoY + backHeight - 2);
-  ctx.stroke();
+    // B. FESTIVAL SHORTS (CELANA PENDEK BATIK / MERAH PUTIH)
+    ctx.fillStyle = shorts.primary;
+    ctx.beginPath();
+    ctx.moveTo(-16, -18);
+    ctx.lineTo(16, -18);
+    ctx.lineTo(18, 2);
+    ctx.lineTo(3, 4);
+    ctx.lineTo(0, -2);
+    ctx.lineTo(-3, 4);
+    ctx.lineTo(-18, 2);
+    ctx.closePath();
+    ctx.fill();
 
-  // Real Black Grease / Lumpur Smudges on skin
-  ctx.fillStyle = '#0A0E18DD';
-  ctx.beginPath();
-  ctx.ellipse(-7, torsoY + 14, 5, 8, 0.4, 0, Math.PI * 2);
-  ctx.ellipse(9, torsoY + 18, 6, 7, -0.3, 0, Math.PI * 2);
-  ctx.ellipse(-2, torsoY + 28, 4, 3, 0, 0, Math.PI * 2);
-  ctx.fill();
+    // Shorts Pattern Trim
+    ctx.fillStyle = shorts.secondary;
+    ctx.fillRect(-17, -2, 15, 3);
+    ctx.fillRect(2, -2, 15, 3);
 
-  // Wet Specular Shine on greased muscular back
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
-  ctx.beginPath();
-  ctx.ellipse(-6, torsoY + 12, 2, 4, 0.4, 0, Math.PI * 2);
-  ctx.ellipse(8, torsoY + 16, 2, 4, -0.3, 0, Math.PI * 2);
-  ctx.fill();
+    // Grease smudges on shorts
+    ctx.fillStyle = '#0F172ACC';
+    ctx.beginPath();
+    ctx.ellipse(-5, -6, 6, 4, 0.3, 0, Math.PI * 2);
+    ctx.ellipse(8, -4, 5, 3, -0.4, 0, Math.PI * 2);
+    ctx.fill();
 
-  // -------------------------------------------------------------
-  // D. ARMS & REALISTIC HANDS (MEMELUK BATANG PINANG)
-  // -------------------------------------------------------------
-  // Left Arm (Shoulder -> Elbow -> Forearm -> Clasping Hand)
-  drawRealisticArm(ctx, -16, torsoY + 6, -26, torsoY - 6 + reachL, -14, torsoY - 14 + reachL, skin, true);
-  // Right Arm
-  drawRealisticArm(ctx, 16, torsoY + 6, 26, torsoY - 6 + reachR, 14, torsoY - 14 + reachR, skin, false);
+    // C. REALISTIC ATHLETIC BACK & MUSCULAR TORSO (PUNGGUNG ATLETIS)
+    const backHeight = 36;
+    const torsoY = -48 + pantOffset;
 
-  // -------------------------------------------------------------
-  // E. HEAD, HAIR & FLAPPING IKAT KEPALA MERAH-PUTIH
-  // -------------------------------------------------------------
-  const headY = torsoY - 14;
+    // 3D Muscular Torso Base Gradient (Trapezius, Latissimus Dorsi & Spinal groove)
+    const backGrad = ctx.createLinearGradient(0, torsoY, 0, torsoY + backHeight);
+    backGrad.addColorStop(0.0, skin.highlight); // Upper shoulders catching light
+    backGrad.addColorStop(0.3, skin.base); // Mid back
+    backGrad.addColorStop(0.8, skin.shadow); // Lower waist
+    backGrad.addColorStop(1.0, skin.deepShadow);
 
-  // Neck
-  ctx.fillStyle = skin.shadow;
-  ctx.fillRect(-6, headY + 8, 12, 8);
+    ctx.fillStyle = backGrad;
+    ctx.beginPath();
+    // V-taper muscular back shape
+    ctx.moveTo(-18, torsoY + 4);
+    ctx.quadraticCurveTo(-19, torsoY + 16, -14, torsoY + backHeight);
+    ctx.lineTo(14, torsoY + backHeight);
+    ctx.quadraticCurveTo(19, torsoY + 16, 18, torsoY + 4);
+    ctx.quadraticCurveTo(0, torsoY - 2, -18, torsoY + 4);
+    ctx.closePath();
+    ctx.fill();
 
-  // Head Silhouette
-  ctx.fillStyle = skin.base;
-  ctx.beginPath();
-  ctx.ellipse(0, headY, 12, 13, 0, 0, Math.PI * 2);
-  ctx.fill();
+    // Muscular Anatomy: Scapula / Shoulder Blades Shading
+    ctx.strokeStyle = skin.shadow;
+    ctx.lineWidth = 2.5;
+    // Left shoulder blade
+    ctx.beginPath();
+    ctx.moveTo(-12, torsoY + 8);
+    ctx.quadraticCurveTo(-8, torsoY + 16, -11, torsoY + 22);
+    ctx.stroke();
+    // Right shoulder blade
+    ctx.beginPath();
+    ctx.moveTo(12, torsoY + 8);
+    ctx.quadraticCurveTo(8, torsoY + 16, 11, torsoY + 22);
+    ctx.stroke();
 
-  // Short cropped athletic Indonesian hair
-  ctx.fillStyle = '#1A1D20';
-  ctx.beginPath();
-  ctx.arc(0, headY - 4, 12, Math.PI, Math.PI * 2);
-  ctx.quadraticCurveTo(12, headY - 2, 8, headY + 4);
-  ctx.quadraticCurveTo(0, headY + 2, -8, headY + 4);
-  ctx.quadraticCurveTo(-12, headY - 2, -12, headY - 4);
-  ctx.closePath();
-  ctx.fill();
+    // Central Spinal Furrow (Garis Tulang Belakang)
+    ctx.strokeStyle = skin.deepShadow + '99';
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.moveTo(0, torsoY + 6);
+    ctx.lineTo(0, torsoY + backHeight - 2);
+    ctx.stroke();
 
-  // Authentic Indonesian Headband (Ikat Kepala Merah Putih)
-  ctx.fillStyle = '#DC2626'; // Red stripe
-  ctx.fillRect(-12, headY - 5, 24, 4);
-  ctx.fillStyle = '#FFFFFF'; // White stripe
-  ctx.fillRect(-12, headY - 1, 24, 3.5);
+    // Real Black Grease / Lumpur Smudges on skin
+    ctx.fillStyle = '#0A0E18DD';
+    ctx.beginPath();
+    ctx.ellipse(-7, torsoY + 14, 5, 8, 0.4, 0, Math.PI * 2);
+    ctx.ellipse(9, torsoY + 18, 6, 7, -0.3, 0, Math.PI * 2);
+    ctx.ellipse(-2, torsoY + 28, 4, 3, 0, 0, Math.PI * 2);
+    ctx.fill();
 
-  // Two Flapping Ribbon Tails of Headband in the Wind
-  const wave1 = Math.sin(time * 4) * 6;
-  const wave2 = Math.cos(time * 4) * 6;
-  // Red ribbon
-  ctx.strokeStyle = '#DC2626';
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.moveTo(11, headY - 2);
-  ctx.quadraticCurveTo(20, headY - 8 + wave1, 30, headY - 4 + wave2);
-  ctx.stroke();
-  // White ribbon
-  ctx.strokeStyle = '#FFFFFF';
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.moveTo(11, headY + 1);
-  ctx.quadraticCurveTo(22, headY - 3 + wave2, 32, headY + 2 + wave1);
-  ctx.stroke();
+    // Wet Specular Shine on greased muscular back
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+    ctx.beginPath();
+    ctx.ellipse(-6, torsoY + 12, 2, 4, 0.4, 0, Math.PI * 2);
+    ctx.ellipse(8, torsoY + 16, 2, 4, -0.3, 0, Math.PI * 2);
+    ctx.fill();
+
+    // D. ARMS & REALISTIC HANDS (MEMELUK BATANG PINANG)
+    // Left Arm (Shoulder -> Elbow -> Forearm -> Clasping Hand)
+    drawRealisticArm(ctx, -16, torsoY + 6, -26, torsoY - 6 + reachL, -14, torsoY - 14 + reachL, skin, true);
+    // Right Arm
+    drawRealisticArm(ctx, 16, torsoY + 6, 26, torsoY - 6 + reachR, 14, torsoY - 14 + reachR, skin, false);
+
+    // E. HEAD, HAIR & FLAPPING IKAT KEPALA MERAH-PUTIH
+    headY = torsoY - 14;
+
+    // Neck
+    ctx.fillStyle = skin.shadow;
+    ctx.fillRect(-6, headY + 8, 12, 8);
+
+    // Head Silhouette
+    ctx.fillStyle = skin.base;
+    ctx.beginPath();
+    ctx.ellipse(0, headY, 12, 13, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Short cropped athletic Indonesian hair
+    ctx.fillStyle = '#1A1D20';
+    ctx.beginPath();
+    ctx.arc(0, headY - 4, 12, Math.PI, Math.PI * 2);
+    ctx.quadraticCurveTo(12, headY - 2, 8, headY + 4);
+    ctx.quadraticCurveTo(0, headY + 2, -8, headY + 4);
+    ctx.quadraticCurveTo(-12, headY - 2, -12, headY - 4);
+    ctx.closePath();
+    ctx.fill();
+
+    // Authentic Indonesian Headband (Ikat Kepala Merah Putih)
+    ctx.fillStyle = '#DC2626'; // Red stripe
+    ctx.fillRect(-12, headY - 5, 24, 4);
+    ctx.fillStyle = '#FFFFFF'; // White stripe
+    ctx.fillRect(-12, headY - 1, 24, 3.5);
+
+    // Two Flapping Ribbon Tails of Headband in the Wind
+    const wave1 = Math.sin(time * 4) * 6;
+    const wave2 = Math.cos(time * 4) * 6;
+    // Red ribbon
+    ctx.strokeStyle = '#DC2626';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(11, headY - 2);
+    ctx.quadraticCurveTo(20, headY - 8 + wave1, 30, headY - 4 + wave2);
+    ctx.stroke();
+    // White ribbon
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(11, headY + 1);
+    ctx.quadraticCurveTo(22, headY - 3 + wave2, 32, headY + 2 + wave1);
+    ctx.stroke();
+  }
 
   // Sweat Drops flying during struggle
   if (isClimbing || isSlipping) {

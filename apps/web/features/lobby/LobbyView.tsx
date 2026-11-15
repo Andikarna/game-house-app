@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useEffect } from 'react';
 import { useGameStore } from '../../stores/useGameStore';
 import { GameMode, RoomSettings } from '@gamehouse/shared';

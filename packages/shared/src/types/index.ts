@@ -201,3 +201,53 @@ export type LudoInput =
   | { action: 'move-token'; tokenIndex: number };
 
 export type AnyGameState = PanjatPinangGameState | LudoGameState;
+
+// =========================================================================
+// IN-GAME EMOTES SYSTEM
+// =========================================================================
+
+export type EmoteId = 
+  | 'ggwp'
+  | 'aaghh'
+  | 'hahaha'
+  | 'ez'
+  | 'cepat'
+  | 'otw'
+  | 'santuy'
+  | 'capekk'
+  | 'trap'
+  | 'sorry'
+  | 'puyeng'
+  | 'wush'
+  | 'wow'
+  | 'ampun'
+  | 'jagoan'
+  | 'licin'
+  | 'merosot'
+  | 'rip'
+  | 'awas'
+  | 'merdeka'
+  | 'juara'
+  | 'dakap'
+  | 'tanya'
+  | 'pelicin';
+
+export type EmoteCategory = 'all' | 'reaction' | 'taunt' | 'gameplay' | 'festival';
+
+export interface EmoteDefinition {
+  id: EmoteId;
+  label: string;
+  category: 'reaction' | 'taunt' | 'gameplay' | 'festival';
+  character?: string;
+  image: string;
+  description: string;
+}
+
+export interface ActiveEmoteEvent {
+  id: string; // unique random instance ID
+  playerId: string;
+  nickname: string;
+  avatar: AvatarId;
+  emoteId: EmoteId;
+  timestamp: number;
+}
