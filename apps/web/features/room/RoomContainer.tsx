@@ -46,7 +46,7 @@ export const RoomContainer: React.FC<RoomContainerProps> = ({ roomCode }) => {
           avatar,
           playerId,
         },
-        (res) => {
+        (res: any) => {
           setIsJoining(false);
           if (res.success && res.room) {
             setRoom(res.room);
@@ -77,7 +77,7 @@ export const RoomContainer: React.FC<RoomContainerProps> = ({ roomCode }) => {
         avatar,
         playerId,
       },
-      (res) => {
+      (res: any) => {
         setIsJoining(false);
         if (res.success && res.room) {
           setRoom(res.room);

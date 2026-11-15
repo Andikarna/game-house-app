@@ -27,21 +27,14 @@ export const HomeContent: React.FC = () => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        let serverUrl = process.env.NEXT_PUBLIC_GAME_SERVER_URL;
-        if (!serverUrl && typeof window !== 'undefined') {
-          const hostname = window.location.hostname || 'localhost';
-          serverUrl = `http://${hostname}:4000`;
-        }
-        if (serverUrl) {
-          const res = await fetch(`${serverUrl}/health`);
-          if (res.ok) {
-            const data = await res.json();
-            if (data.stats) {
-              setStats({
-                onlinePlayers: Math.max(12, data.stats.onlinePlayers),
-                activeRooms: Math.max(2, data.stats.activeRooms),
-              });
-            }
+        const res = await fetch('/api/health');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.stats) {
+            setStats({
+              onlinePlayers: Math.max(12, data.stats.onlinePlayers),
+              activeRooms: Math.max(2, data.stats.activeRooms),
+            });
           }
         }
       } catch {

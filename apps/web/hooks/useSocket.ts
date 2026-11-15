@@ -1,16 +1,13 @@
 import { useEffect } from 'react';
-import { io, Socket } from 'socket.io-client';
 import { useGameStore } from '../stores/useGameStore';
 import { useEmoteStore } from '../stores/useEmoteStore';
 import { soundManager } from '../components/audio/SoundManager';
-import { ClientToServerEvents, ServerToClientEvents } from '@gamehouse/shared';
+import { globalPollingSocket } from '../lib/polling-socket';
 
-// Module-level persistent singleton socket so route navigation never disconnects the player!
-let globalSocket: Socket<ServerToClientEvents, ClientToServerEvents> | null = null;
 let isInitialized = false;
 
-export function getGlobalSocket(): Socket<ServerToClientEvents, ClientToServerEvents> | null {
-  return globalSocket;
+export function getGlobalSocket() {
+  return globalPollingSocket as any;
 }
 
 export function useSocket() {
@@ -25,29 +22,19 @@ export function useSocket() {
     addToast,
     resetGame,
     playerId,
+    room,
   } = useGameStore();
 
+  const { triggerEmote } = useEmoteStore();
+
   useEffect(() => {
-    if (!globalSocket && typeof window !== 'undefined') {
-      let serverUrl = process.env.NEXT_PUBLIC_GAME_SERVER_URL;
-      if (!serverUrl) {
-        const hostname = window.location.hostname || 'localhost';
-        serverUrl = `http://${hostname}:4000`;
-      }
-
-      globalSocket = io(serverUrl, {
-        transports: ['websocket', 'polling'],
-        reconnectionAttempts: 15,
-        reconnectionDelay: 1000,
-        autoConnect: true,
-      });
-    }
-
-    const socket = globalSocket;
-    if (!socket) return;
-
+    const socket = globalPollingSocket as any;
     setSocket(socket);
-    setIsConnected(socket.connected);
+    setIsConnected(true);
+
+    if (room?.code && playerId) {
+      globalPollingSocket.setContext(room.code, playerId);
+    }
 
     if (!isInitialized) {
       isInitialized = true;
@@ -62,103 +49,88 @@ export function useSocket() {
       });
 
       // Room Events
-      socket.on('room:updated', (updatedRoom) => {
+      socket.on('room:updated', (updatedRoom: any) => {
         setRoom(updatedRoom);
         if (updatedRoom.status === 'lobby') {
           resetGame();
         }
       });
 
-      socket.on('room:player-joined', (newPlayer) => {
+      socket.on('room:player-joined', (newPlayer: any) => {
         addToast(`${newPlayer.nickname} joined the room!`, 'info');
       });
 
-      socket.on('room:player-left', ({ nickname, newHostId }) => {
+      socket.on('room:player-left', ({ nickname, newHostId }: any) => {
         addToast(`${nickname} left the room.`, 'info');
         if (newHostId && newHostId === playerId) {
           addToast('You are now the room Host!', 'success');
         }
       });
 
-      socket.on('room:kicked', (reason) => {
+      socket.on('room:kicked', (reason: string) => {
         setRoom(null);
         resetGame();
         addToast(reason || 'You have been kicked from the room.', 'error');
       });
 
-      socket.on('room:closed', (reason) => {
+      socket.on('room:closed', (reason: string) => {
         setRoom(null);
         resetGame();
         addToast(reason || 'Room closed by host.', 'warning');
       });
 
       // Game Events
-      socket.on('game:countdown', (count) => {
+      socket.on('game:countdown', (count: number) => {
         setCountdown(count);
         if (count === 3) {
           setGameResults(null);
         }
+        if (count > 0) {
+          soundManager.playCountdown(count);
+        } else {
+          soundManager.playCountdown(0);
+        }
       });
 
-      socket.on('game:started', (initialState) => {
+      socket.on('game:start', (initialState: any) => {
         setCountdown(null);
         setGameState(initialState);
-        addToast('BATTLE STARTED! CLIMB TO THE TOP!', 'success');
+        soundManager.playCountdown(0);
       });
 
-      socket.on('game:state', (state) => {
+      socket.on('game:state', (state: any) => {
         setGameState(state);
       });
 
-      socket.on('game:finished', (results) => {
+      socket.on('game:ludo_state', (state: any) => {
+        setGameState(state);
+      });
+
+      socket.on('game:finished', (results: any) => {
         setGameResults(results);
+        soundManager.playVictory();
       });
 
-      // Player SFX and action events
-      socket.on('player:skill-used', ({ skill, nickname, playerId: pId }) => {
+      socket.on('emote:received', (emoteEvent: any) => {
+        triggerEmote(emoteEvent);
+      });
+
+      socket.on('player:skill-used', ({ nickname, skill }: any) => {
+        addToast(`${nickname} used skill: ${skill}!`, 'warning');
         soundManager.playSkill(skill);
-        if (pId !== playerId) {
-          addToast(`${nickname} activated ${skill.replace('_', ' ').toUpperCase()}!`, 'info');
-        }
       });
 
-      socket.on('player:fallen', ({ nickname, heightDropped, playerId: pId }) => {
-        if (pId === playerId) {
-          soundManager.playSlip();
-          addToast(`You slipped and dropped ${heightDropped}%! MASH RECOVER!`, 'error');
-        } else {
-          addToast(`${nickname} slipped down!`, 'warning');
-        }
+      socket.on('player:fallen', ({ nickname }: any) => {
+        addToast(`${nickname} slipped down the pole!`, 'warning');
+        soundManager.playSlip();
       });
 
-      socket.on('player:recovered', ({ nickname, playerId: pId }) => {
-        if (pId === playerId) {
-          soundManager.playRecovery();
-          addToast('Recovered! Back in the race!', 'success');
-        }
+      socket.on('player:recovered', ({ nickname }: any) => {
+        addToast(`${nickname} recovered balance!`, 'info');
+        soundManager.playRecovery();
       });
-
-      // In-Game Emote Received
-      socket.on('game:emote', (emoteData) => {
-        useEmoteStore.getState().triggerEmote(emoteData);
-      });
-
-      socket.on('error:message', (msg) => {
-        addToast(msg, 'error');
-      });
-
-      // Heartbeat ping loop (every 3 seconds)
-      setInterval(() => {
-        if (socket.connected) {
-          const start = Date.now();
-          socket.emit('ping:check', start, (clientStart) => {
-            const latency = Date.now() - clientStart;
-            setPing(latency);
-          });
-        }
-      }, 3000);
     }
-  }, []);
+  }, [room?.code, playerId]);
 
-  return globalSocket;
+  return globalPollingSocket as any;
 }
