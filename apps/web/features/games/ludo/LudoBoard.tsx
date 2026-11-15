@@ -923,134 +923,146 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
               })}
             </div>
           </div>
-        </div>
 
-        {/* =================================================================== */}
-        {/* 10. ANIMATED 3D GLOSSY TOKENS OVERLAY                               */}
-        {/* =================================================================== */}
-        <div className="absolute inset-0 pointer-events-none">
-          {(() => {
-            // Track occupancy to stagger multiple pawns sharing the exact same track tile
-            const occupancy: Record<string, number> = {};
-            tokensOnBoard.forEach((item) => {
-              const k = `${item.row.toFixed(2)}_${item.col.toFixed(2)}`;
-              occupancy[k] = (occupancy[k] || 0) + 1;
-            });
+          {/* =================================================================== */}
+          {/* 10. ANIMATED 3D GLOSSY TOKENS OVERLAY (Inside 15x15 grid padding box) */}
+          {/* =================================================================== */}
+          <div className="absolute inset-0 pointer-events-none">
+            {(() => {
+              // Track occupancy to stagger multiple pawns sharing the exact same track tile
+              const occupancy: Record<string, number> = {};
+              tokensOnBoard.forEach((item) => {
+                const k = `${item.row.toFixed(2)}_${item.col.toFixed(2)}`;
+                occupancy[k] = (occupancy[k] || 0) + 1;
+              });
 
-            const counters: Record<string, number> = {};
+              const counters: Record<string, number> = {};
 
-            return tokensOnBoard.map((item) => {
-              const { token, player, row, col, isValid } = item;
-              const k = `${row.toFixed(2)}_${col.toFixed(2)}`;
-              const totalOnTile = occupancy[k] || 1;
-              const indexOnTile = counters[k] || 0;
-              counters[k] = indexOnTile + 1;
+              return tokensOnBoard.map((item) => {
+                const { token, player, row, col, isValid } = item;
+                const k = `${row.toFixed(2)}_${col.toFixed(2)}`;
+                const totalOnTile = occupancy[k] || 1;
+                const indexOnTile = counters[k] || 0;
+                counters[k] = indexOnTile + 1;
 
-              let offsetX = 0;
-              let offsetY = 0;
-              if (totalOnTile > 1 && token.state !== 'base') {
-                const angle = (indexOnTile / totalOnTile) * Math.PI * 2;
-                offsetX = Math.cos(angle) * 1.1; // 1.1% of board width
-                offsetY = Math.sin(angle) * 1.1;
-              }
+                let offsetX = 0;
+                let offsetY = 0;
+                if (totalOnTile > 1 && token.state !== 'base') {
+                  const angle = (indexOnTile / totalOnTile) * Math.PI * 2;
+                  offsetX = Math.cos(angle) * 1.1; // 1.1% of board width
+                  offsetY = Math.sin(angle) * 1.1;
+                }
 
-              // col and row are already exact center coordinates in 0..15 space
-              const leftPercent = (col / 15) * 100 + offsetX;
-              const topPercent = (row / 15) * 100 + offsetY;
+                // col and row are already exact center coordinates in 0..15 space
+                const leftPercent = (col / 15) * 100 + offsetX;
+                const topPercent = (row / 15) * 100 + offsetY;
 
-              return (
-                <motion.div
-                  key={`${player.playerId}_${token.id}`}
-                  animate={{
-                    left: `${leftPercent}%`,
-                    top: `${topPercent}%`,
-                    scale: isValid ? [1, 1.12, 1] : 1,
-                  }}
-                  transition={{
-                    left: { type: 'spring', stiffness: 450, damping: 28 },
-                    top: { type: 'spring', stiffness: 450, damping: 28 },
-                    scale: isValid ? { repeat: Infinity, duration: 0.85 } : undefined,
-                  }}
-                  className="absolute -translate-x-1/2 -translate-y-1/2 z-20 pointer-events-auto cursor-pointer"
-                >
-                  <button
-                    type="button"
-                    disabled={!isValid}
-                    onClick={() => handleTokenClick(token.id)}
-                    className={`relative flex items-center justify-center p-0.5 focus:outline-none transition-transform ${
-                      isValid ? 'cursor-pointer active:scale-95' : 'cursor-default'
-                    }`}
-                    title={`${player.nickname}'s Token #${token.id + 1} (${token.state})`}
+                return (
+                  <motion.div
+                    key={`${player.playerId}_${token.id}`}
+                    animate={{
+                      left: `${leftPercent}%`,
+                      top: `${topPercent}%`,
+                      x: '-50%',
+                      y: '-50%',
+                      scale: isValid ? [1, 1.12, 1] : 1,
+                    }}
+                    transition={{
+                      left: { type: 'spring', stiffness: 450, damping: 28 },
+                      top: { type: 'spring', stiffness: 450, damping: 28 },
+                      x: { duration: 0 },
+                      y: { duration: 0 },
+                      scale: isValid ? { repeat: Infinity, duration: 0.85 } : undefined,
+                    }}
+                    style={{
+                      x: '-50%',
+                      y: '-50%',
+                    }}
+                    className="absolute z-20 pointer-events-auto cursor-pointer"
                   >
-                    {/* Glowing selection halo when it is valid to move */}
-                    {isValid && (
-                      <span className="absolute -inset-1 rounded-full bg-amber-400/35 border-2 border-amber-400 animate-ping pointer-events-none" />
-                    )}
-                    {isValid && (
-                      <span className="absolute -inset-1 rounded-full border-2 border-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.9)] animate-pulse pointer-events-none" />
-                    )}
-                    <div
-                      className="transition-transform duration-700"
-                      style={{ transform: `rotate(${-boardRotationDeg}deg)` }}
+                    <button
+                      type="button"
+                      disabled={!isValid}
+                      onClick={() => handleTokenClick(token.id)}
+                      className={`relative flex items-center justify-center p-0.5 focus:outline-none transition-transform ${
+                        isValid ? 'cursor-pointer active:scale-95' : 'cursor-default'
+                      }`}
+                      title={`${player.nickname}'s Token #${token.id + 1} (${token.state})`}
                     >
-                      <HDTokenPawn
-                        color={player.color}
-                        isValid={isValid}
-                      />
-                    </div>
-                  </button>
-                </motion.div>
-              );
-            });
-          })()}
+                      {/* Glowing selection halo when it is valid to move */}
+                      {isValid && (
+                        <span className="absolute -inset-1 rounded-full bg-amber-400/35 border-2 border-amber-400 animate-ping pointer-events-none" />
+                      )}
+                      {isValid && (
+                        <span className="absolute -inset-1 rounded-full border-2 border-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.9)] animate-pulse pointer-events-none" />
+                      )}
+                      <div
+                        className="transition-transform duration-700"
+                        style={{ transform: `rotate(${-boardRotationDeg}deg)` }}
+                      >
+                        <HDTokenPawn
+                          color={player.color}
+                          isValid={isValid}
+                        />
+                      </div>
+                    </button>
+                  </motion.div>
+                );
+              });
+            })()}
 
-          {/* Comic KAPOW Impact Burst Effect when our pawn knocks out opponent */}
-          {impactBurst && (
-            <motion.div
-              key={impactBurst.id}
-              initial={{ scale: 0.2, opacity: 1, rotate: -20 }}
-              animate={{ scale: [0.2, 1.35, 1.1], opacity: [1, 1, 0], rotate: [-20, 10, 0] }}
-              transition={{ duration: 0.65, ease: 'easeOut' }}
-              style={{
-                left: `${(impactBurst.coord[1] / 15) * 100}%`,
-                top: `${(impactBurst.coord[0] / 15) * 100}%`,
-              }}
-              className="absolute -translate-x-1/2 -translate-y-1/2 z-40 pointer-events-none flex flex-col items-center justify-center select-none"
-            >
-              <div className="relative flex items-center justify-center">
-                <span className="absolute w-12 h-12 rounded-full border-4 border-amber-400 bg-amber-400/30 animate-ping" />
-                <span className="relative text-3xl filter drop-shadow-[0_0_12px_rgba(239,68,68,1)]">
-                  💥
-                </span>
-                <span className="absolute -top-3.5 font-black text-[9px] tracking-widest text-amber-300 uppercase bg-slate-950/95 px-2 py-0.5 rounded-full border border-amber-400 shadow-xl">
-                  BONK!
-                </span>
-              </div>
-            </motion.div>
-          )}
+            {/* Comic KAPOW Impact Burst Effect when our pawn knocks out opponent */}
+            {impactBurst && (
+              <motion.div
+                key={impactBurst.id}
+                initial={{ scale: 0.2, opacity: 1, rotate: -20, x: '-50%', y: '-50%' }}
+                animate={{ scale: [0.2, 1.35, 1.1], opacity: [1, 1, 0], rotate: [-20, 10, 0], x: '-50%', y: '-50%' }}
+                transition={{ duration: 0.65, ease: 'easeOut' }}
+                style={{
+                  left: `${(impactBurst.coord[1] / 15) * 100}%`,
+                  top: `${(impactBurst.coord[0] / 15) * 100}%`,
+                  x: '-50%',
+                  y: '-50%',
+                }}
+                className="absolute z-40 pointer-events-none flex flex-col items-center justify-center select-none"
+              >
+                <div className="relative flex items-center justify-center">
+                  <span className="absolute w-12 h-12 rounded-full border-4 border-amber-400 bg-amber-400/30 animate-ping" />
+                  <span className="relative text-3xl filter drop-shadow-[0_0_12px_rgba(239,68,68,1)]">
+                    💥
+                  </span>
+                  <span className="absolute -top-3.5 font-black text-[9px] tracking-widest text-amber-300 uppercase bg-slate-950/95 px-2 py-0.5 rounded-full border border-amber-400 shadow-xl">
+                    BONK!
+                  </span>
+                </div>
+              </motion.div>
+            )}
 
-          {/* Celebratory Finish Crown / Sparkles Burst when entering HOME */}
-          {finishCelebrate && (
-            <motion.div
-              key={finishCelebrate.id}
-              initial={{ scale: 0, opacity: 0 }}
-              animate={{ scale: [0, 1.25, 1], opacity: [0, 1, 1, 0] }}
-              transition={{ duration: 2.3, ease: 'easeOut' }}
-              style={{
-                left: '50%',
-                top: '50%',
-              }}
-              className="absolute -translate-x-1/2 -translate-y-1/2 z-40 pointer-events-none flex flex-col items-center justify-center select-none"
-            >
-              <div className="relative flex flex-col items-center justify-center">
-                <span className="absolute w-24 h-24 rounded-full border-4 border-amber-400 bg-amber-400/25 animate-ping" />
-                <Sparkles className="w-12 h-12 text-amber-300 fill-amber-300 animate-spin filter drop-shadow-[0_0_20px_rgba(251,191,36,1)]" />
-                <span className="mt-1 font-black text-[11px] sm:text-xs text-amber-300 uppercase bg-slate-950/95 px-2.5 py-1 rounded-full border-2 border-amber-400 shadow-2xl tracking-wider animate-bounce">
-                  GOAL! HOME! 🎉
-                </span>
-              </div>
-            </motion.div>
-          )}
+            {/* Celebratory Finish Crown / Sparkles Burst when entering HOME */}
+            {finishCelebrate && (
+              <motion.div
+                key={finishCelebrate.id}
+                initial={{ scale: 0, opacity: 0, x: '-50%', y: '-50%' }}
+                animate={{ scale: [0, 1.25, 1], opacity: [0, 1, 1, 0], x: '-50%', y: '-50%' }}
+                transition={{ duration: 2.3, ease: 'easeOut' }}
+                style={{
+                  left: '50%',
+                  top: '50%',
+                  x: '-50%',
+                  y: '-50%',
+                }}
+                className="absolute z-40 pointer-events-none flex flex-col items-center justify-center select-none"
+              >
+                <div className="relative flex flex-col items-center justify-center">
+                  <span className="absolute w-24 h-24 rounded-full border-4 border-amber-400 bg-amber-400/25 animate-ping" />
+                  <Sparkles className="w-12 h-12 text-amber-300 fill-amber-300 animate-spin filter drop-shadow-[0_0_20px_rgba(251,191,36,1)]" />
+                  <span className="mt-1 font-black text-[11px] sm:text-xs text-amber-300 uppercase bg-slate-950/95 px-2.5 py-1 rounded-full border-2 border-amber-400 shadow-2xl tracking-wider animate-bounce">
+                    GOAL! HOME! 🎉
+                  </span>
+                </div>
+              </motion.div>
+            )}
+          </div>
         </div>
       </div>
     </div>
