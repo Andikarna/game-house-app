@@ -3,6 +3,7 @@ import { PanjatPinangGameState, ClimberPlayerState, AVATAR_OPTIONS, AvatarId, no
 import { ZoomIn, ZoomOut, Maximize2, RotateCcw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '../../../stores/useGameStore';
+import { useEmoteStore } from '../../../stores/useEmoteStore';
 
 interface CanvasProps {
   gameState: PanjatPinangGameState;
@@ -58,6 +59,19 @@ function getOrLoadSprite(charId: string, pose: string): HTMLImageElement | null 
     SPRITE_CACHE[key] = img;
   }
   const cached = SPRITE_CACHE[key];
+  return cached && cached.complete && cached.naturalWidth > 0 ? cached : null;
+}
+
+const EMOTE_IMG_CACHE: Record<string, HTMLImageElement> = {};
+
+function getOrLoadEmoteImg(emoteId: string): HTMLImageElement | null {
+  if (typeof window === 'undefined') return null;
+  if (!EMOTE_IMG_CACHE[emoteId]) {
+    const img = new Image();
+    img.src = `/assets/emotes/${emoteId}.png`;
+    EMOTE_IMG_CACHE[emoteId] = img;
+  }
+  const cached = EMOTE_IMG_CACHE[emoteId];
   return cached && cached.complete && cached.naturalWidth > 0 ? cached : null;
 }
 
@@ -1014,6 +1028,46 @@ function drawRealisticClimber(
     ctx.arc(14, headY + Math.sin(time * 10) * 8, 1.8, 0, Math.PI * 2);
     ctx.arc(-14, headY + Math.cos(time * 10) * 8, 1.5, 0, Math.PI * 2);
     ctx.fill();
+  }
+
+  // Active Climber 3D Emote Speech Bubble
+  const activeEmotes = useEmoteStore.getState().activeEmotes;
+  const climberEmote = activeEmotes.find(e => e.playerId === climber.playerId);
+
+  if (climberEmote) {
+    const emoteImg = getOrLoadEmoteImg(climberEmote.emoteId);
+    if (emoteImg) {
+      const bubbleY = headY - 64;
+      const bob = Math.sin(time * 8) * 3;
+
+      ctx.save();
+      ctx.translate(0, bubbleY + bob);
+
+      // Speech bubble background pill with golden neon glow
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.95)';
+      ctx.strokeStyle = '#F59E0B';
+      ctx.lineWidth = 2.5;
+      ctx.shadowColor = 'rgba(245, 158, 11, 0.6)';
+      ctx.shadowBlur = 14;
+
+      ctx.beginPath();
+      ctx.roundRect(-26, -26, 52, 52, 14);
+      ctx.fill();
+      ctx.stroke();
+
+      // Tail pointing to climber head
+      ctx.beginPath();
+      ctx.moveTo(-4, 26);
+      ctx.lineTo(0, 32);
+      ctx.lineTo(4, 26);
+      ctx.fill();
+      ctx.stroke();
+
+      // Draw Emote Sticker inside
+      ctx.drawImage(emoteImg, -21, -21, 42, 42);
+
+      ctx.restore();
+    }
   }
 
   // "YOU" Indicator or Opponent 3D Nickname Badge

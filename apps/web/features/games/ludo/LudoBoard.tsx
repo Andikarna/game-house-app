@@ -362,58 +362,87 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
   // STEP-BY-STEP (SATU-PER-SATU) TOKEN MOVEMENT ANIMATION ENGINE
   // =========================================================================
   const [animatedSteps, setAnimatedSteps] = useState<Record<string, number>>({});
-  const prevTargetStepsRef = useRef<Record<string, number>>({});
-  const activeIntervalsRef = useRef<Record<string, any>>({});
+  const displayedStepsRef = useRef<Record<string, number>>({});
+  const targetStepsRef = useRef<Record<string, number>>({});
+  const activeIntervalsRef = useRef<Record<string, NodeJS.Timeout>>({});
 
+  // Cleanup on unmount ONLY
+  useEffect(() => {
+    return () => {
+      Object.values(activeIntervalsRef.current).forEach((t) => clearInterval(t));
+    };
+  }, []);
+
+  // Synchronize token movements whenever gameState updates
   useEffect(() => {
     Object.values(gameState.players).forEach((player) => {
       player.tokens.forEach((token) => {
         const key = `${player.playerId}_${token.id}`;
-        const targetStep = token.state === 'base' ? 0 : token.stepCount;
-        const prevTarget = prevTargetStepsRef.current[key];
+        const serverTarget = token.state === 'base' ? 0 : token.stepCount;
+        const currentDisplayed = displayedStepsRef.current[key];
 
-        // First render / initial position initialization
-        if (prevTarget === undefined) {
-          prevTargetStepsRef.current[key] = targetStep;
-          setAnimatedSteps((prev) => ({ ...prev, [key]: targetStep }));
+        // 1. Initial load
+        if (currentDisplayed === undefined) {
+          displayedStepsRef.current[key] = serverTarget;
+          targetStepsRef.current[key] = serverTarget;
+          setAnimatedSteps((prev) => ({ ...prev, [key]: serverTarget }));
           return;
         }
 
-        // Token has advanced forward (walk step-by-step tile by tile!)
-        if (targetStep > prevTarget) {
-          prevTargetStepsRef.current[key] = targetStep;
-
-          if (activeIntervalsRef.current[key]) {
-            clearInterval(activeIntervalsRef.current[key]);
-          }
-
-          let currentStep = animatedSteps[key] ?? prevTarget;
-
-          activeIntervalsRef.current[key] = setInterval(() => {
-            currentStep += 1;
-            setAnimatedSteps((prev) => ({ ...prev, [key]: currentStep }));
-            soundManager.playTokenMove(); // Sound hop at each single tile!
-
-            if (currentStep >= targetStep) {
-              clearInterval(activeIntervalsRef.current[key]);
-              delete activeIntervalsRef.current[key];
-            }
-          }, 150); // 150ms per step hop
-        } else if (targetStep < prevTarget) {
-          // Token knocked back to base or reset
-          prevTargetStepsRef.current[key] = targetStep;
+        // 2. Token reset or knocked back to base
+        if (serverTarget < currentDisplayed) {
           if (activeIntervalsRef.current[key]) {
             clearInterval(activeIntervalsRef.current[key]);
             delete activeIntervalsRef.current[key];
           }
-          setAnimatedSteps((prev) => ({ ...prev, [key]: targetStep }));
+          displayedStepsRef.current[key] = serverTarget;
+          targetStepsRef.current[key] = serverTarget;
+          setAnimatedSteps((prev) => ({ ...prev, [key]: serverTarget }));
+          return;
+        }
+
+        // 3. Token advanced forward
+        const prevTarget = targetStepsRef.current[key] ?? currentDisplayed;
+        if (serverTarget > prevTarget) {
+          targetStepsRef.current[key] = serverTarget;
+
+          // If moving from base (0) directly to start tile (1)
+          if (currentDisplayed === 0 && serverTarget === 1) {
+            if (activeIntervalsRef.current[key]) {
+              clearInterval(activeIntervalsRef.current[key]);
+              delete activeIntervalsRef.current[key];
+            }
+            displayedStepsRef.current[key] = 1;
+            setAnimatedSteps((prev) => ({ ...prev, [key]: 1 }));
+            soundManager.playTokenMove();
+            return;
+          }
+
+          // If walking along track (e.g., 1 -> 5), walk tile by tile!
+          if (!activeIntervalsRef.current[key]) {
+            activeIntervalsRef.current[key] = setInterval(() => {
+              const cur = displayedStepsRef.current[key] ?? 0;
+              const target = targetStepsRef.current[key] ?? cur;
+
+              if (cur < target) {
+                const next = cur + 1;
+                displayedStepsRef.current[key] = next;
+                setAnimatedSteps((prev) => ({ ...prev, [key]: next }));
+                soundManager.playTokenMove(); // Sound hop at each single tile!
+
+                if (next >= target) {
+                  clearInterval(activeIntervalsRef.current[key]);
+                  delete activeIntervalsRef.current[key];
+                }
+              } else {
+                clearInterval(activeIntervalsRef.current[key]);
+                delete activeIntervalsRef.current[key];
+              }
+            }, 140);
+          }
         }
       });
     });
-
-    return () => {
-      Object.values(activeIntervalsRef.current).forEach((i) => clearInterval(i));
-    };
   }, [gameState]);
 
   // Compute screen coordinates for each token using its animated step
@@ -428,7 +457,14 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
   Object.values(gameState.players).forEach((player) => {
     player.tokens.forEach((token) => {
       const key = `${player.playerId}_${token.id}`;
-      const currentStep = animatedSteps[key] ?? (token.state === 'base' ? 0 : token.stepCount);
+      const serverStep = token.state === 'base' ? 0 : token.stepCount;
+      const animStep = animatedSteps[key];
+
+      // Safeguard: token on track or home-stretch must never fall back to base coordinates (0)
+      const currentStep = (serverStep > 0 && (animStep === undefined || animStep === 0))
+        ? serverStep
+        : (animStep ?? serverStep);
+
       const [r, c] = getTokenCoordinate(player.color, token.id, currentStep, token.state);
 
       const isValid = isMyTurn && player.playerId === myPlayerId && validMoves.includes(token.id);
@@ -489,12 +525,22 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
             className="bg-[#0070f3] p-2 sm:p-2.5 flex items-center justify-center relative rounded-tl-[1.8rem]"
           >
             <div className="w-full h-full rounded-[1.4rem] sm:rounded-[1.8rem] bg-white border border-slate-200/90 p-2 sm:p-2.5 grid grid-cols-2 grid-rows-2 gap-2 sm:gap-3 shadow-[inset_0_2px_8px_rgba(0,0,0,0.12),0_4px_12px_rgba(0,0,0,0.18)]">
-              {[0, 1, 2, 3].map((i) => (
-                <div 
-                  key={i} 
-                  className="rounded-full bg-[#f0f9ff] border-2 border-[#bae6fd] flex items-center justify-center shadow-inner aspect-square"
-                />
-              ))}
+              {[0, 1, 2, 3].map((i) => {
+                const isTokenValid = myColor === 'blue' && isMyTurn && validMoves.includes(i) && myPlayer?.tokens[i]?.state === 'base';
+                return (
+                  <button 
+                    key={i} 
+                    type="button"
+                    disabled={!isTokenValid}
+                    onClick={() => handleTokenClick(i)}
+                    className={`rounded-full bg-[#f0f9ff] border-2 flex items-center justify-center shadow-inner aspect-square transition-all ${
+                      isTokenValid 
+                        ? 'border-amber-400 shadow-[0_0_12px_rgba(251,191,36,0.9)] cursor-pointer active:scale-95' 
+                        : 'border-[#bae6fd] cursor-default'
+                    }`}
+                  />
+                );
+              })}
             </div>
           </div>
 
@@ -559,12 +605,22 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
             className="bg-[#16a34a] p-2 sm:p-2.5 flex items-center justify-center relative rounded-tr-[1.8rem]"
           >
             <div className="w-full h-full rounded-[1.4rem] sm:rounded-[1.8rem] bg-white border border-slate-200/90 p-2 sm:p-2.5 grid grid-cols-2 grid-rows-2 gap-2 sm:gap-3 shadow-[inset_0_2px_8px_rgba(0,0,0,0.12),0_4px_12px_rgba(0,0,0,0.18)]">
-              {[0, 1, 2, 3].map((i) => (
-                <div 
-                  key={i} 
-                  className="rounded-full bg-[#f0fdf4] border-2 border-[#bbf7d0] flex items-center justify-center shadow-inner aspect-square"
-                />
-              ))}
+              {[0, 1, 2, 3].map((i) => {
+                const isTokenValid = myColor === 'green' && isMyTurn && validMoves.includes(i) && myPlayer?.tokens[i]?.state === 'base';
+                return (
+                  <button 
+                    key={i} 
+                    type="button"
+                    disabled={!isTokenValid}
+                    onClick={() => handleTokenClick(i)}
+                    className={`rounded-full bg-[#f0fdf4] border-2 flex items-center justify-center shadow-inner aspect-square transition-all ${
+                      isTokenValid 
+                        ? 'border-amber-400 shadow-[0_0_12px_rgba(251,191,36,0.9)] cursor-pointer active:scale-95' 
+                        : 'border-[#bbf7d0] cursor-default'
+                    }`}
+                  />
+                );
+              })}
             </div>
           </div>
 
@@ -706,12 +762,22 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
             className="bg-[#dc2626] p-2 sm:p-2.5 flex items-center justify-center relative rounded-bl-[1.8rem]"
           >
             <div className="w-full h-full rounded-[1.4rem] sm:rounded-[1.8rem] bg-white border border-slate-200/90 p-2 sm:p-2.5 grid grid-cols-2 grid-rows-2 gap-2 sm:gap-3 shadow-[inset_0_2px_8px_rgba(0,0,0,0.12),0_4px_12px_rgba(0,0,0,0.18)]">
-              {[0, 1, 2, 3].map((i) => (
-                <div 
-                  key={i} 
-                  className="rounded-full bg-[#fef2f2] border-2 border-[#fecaca] flex items-center justify-center shadow-inner aspect-square"
-                />
-              ))}
+              {[0, 1, 2, 3].map((i) => {
+                const isTokenValid = myColor === 'red' && isMyTurn && validMoves.includes(i) && myPlayer?.tokens[i]?.state === 'base';
+                return (
+                  <button 
+                    key={i} 
+                    type="button"
+                    disabled={!isTokenValid}
+                    onClick={() => handleTokenClick(i)}
+                    className={`rounded-full bg-[#fef2f2] border-2 flex items-center justify-center shadow-inner aspect-square transition-all ${
+                      isTokenValid 
+                        ? 'border-amber-400 shadow-[0_0_12px_rgba(251,191,36,0.9)] cursor-pointer active:scale-95' 
+                        : 'border-[#fecaca] cursor-default'
+                    }`}
+                  />
+                );
+              })}
             </div>
           </div>
 
@@ -776,12 +842,22 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
             className="bg-[#f59e0b] p-2 sm:p-2.5 flex items-center justify-center relative rounded-br-[1.8rem]"
           >
             <div className="w-full h-full rounded-[1.4rem] sm:rounded-[1.8rem] bg-white border border-slate-200/90 p-2 sm:p-2.5 grid grid-cols-2 grid-rows-2 gap-2 sm:gap-3 shadow-[inset_0_2px_8px_rgba(0,0,0,0.12),0_4px_12px_rgba(0,0,0,0.18)]">
-              {[0, 1, 2, 3].map((i) => (
-                <div 
-                  key={i} 
-                  className="rounded-full bg-[#fefce8] border-2 border-[#fef08a] flex items-center justify-center shadow-inner aspect-square"
-                />
-              ))}
+              {[0, 1, 2, 3].map((i) => {
+                const isTokenValid = myColor === 'yellow' && isMyTurn && validMoves.includes(i) && myPlayer?.tokens[i]?.state === 'base';
+                return (
+                  <button 
+                    key={i} 
+                    type="button"
+                    disabled={!isTokenValid}
+                    onClick={() => handleTokenClick(i)}
+                    className={`rounded-full bg-[#fefce8] border-2 flex items-center justify-center shadow-inner aspect-square transition-all ${
+                      isTokenValid 
+                        ? 'border-amber-400 shadow-[0_0_12px_rgba(251,191,36,0.9)] cursor-pointer active:scale-95' 
+                        : 'border-[#fef08a] cursor-default'
+                    }`}
+                  />
+                );
+              })}
             </div>
           </div>
         </div>
@@ -816,11 +892,18 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
                   type="button"
                   disabled={!isValid}
                   onClick={() => handleTokenClick(token.id)}
-                  className={`relative focus:outline-none transition-transform ${
+                  className={`relative p-2 flex items-center justify-center focus:outline-none transition-transform ${
                     isValid ? 'cursor-pointer active:scale-95' : 'cursor-default'
                   }`}
                   title={`${player.nickname}'s Token #${token.id + 1} (${token.state})`}
                 >
+                  {/* Glowing selection halo when it is valid to move */}
+                  {isValid && (
+                    <span className="absolute inset-1 rounded-full bg-amber-400/35 border-2 border-amber-400 animate-ping pointer-events-none" />
+                  )}
+                  {isValid && (
+                    <span className="absolute inset-0 rounded-full border-2 border-amber-300 shadow-[0_0_15px_rgba(251,191,36,0.9)] animate-pulse pointer-events-none" />
+                  )}
                   <div
                     className="transition-transform duration-700"
                     style={{ transform: `rotate(${-boardRotationDeg}deg)` }}

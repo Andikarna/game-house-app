@@ -7,6 +7,8 @@ import { LudoBoard } from './LudoBoard';
 import { LudoDice } from './LudoDice';
 import { LudoTurnHUD } from './LudoTurnHUD';
 import { LudoResultModal } from './LudoResultModal';
+import { EmotePicker } from '../../../components/emotes/EmotePicker';
+import { FloatingEmoteLayer } from '../../../components/emotes/FloatingEmoteLayer';
 import { soundManager } from '../../../components/audio/SoundManager';
 import { LogOut, Volume2, VolumeX, Dices, Trophy, Swords } from 'lucide-react';
 import Link from 'next/link';
@@ -198,6 +200,12 @@ export const LudoView: React.FC = () => {
           onRoll={handleRollDice}
         />
       </footer>
+
+      {/* Floating Animated Emote Broadcast Layer */}
+      <FloatingEmoteLayer />
+
+      {/* Floating Emote Trigger & Drawer */}
+      <EmotePicker buttonPosition="bottom-right" />
 
       {/* ================= 5. RESULT MODAL ================= */}
       {gameResults && (

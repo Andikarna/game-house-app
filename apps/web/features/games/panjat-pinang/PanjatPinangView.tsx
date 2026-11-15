@@ -9,6 +9,8 @@ import { VirtualControls } from './VirtualControls';
 import { GameSpectatorHUD } from './GameSpectatorHUD';
 import { GameResultModal } from './GameResultModal';
 import { GameStartIntroOverlay } from './GameStartIntroOverlay';
+import { EmotePicker } from '../../../components/emotes/EmotePicker';
+import { FloatingEmoteLayer } from '../../../components/emotes/FloatingEmoteLayer';
 import { useKeyboardControls } from '../../../hooks/useKeyboardControls';
 import { soundManager } from '../../../components/audio/SoundManager';
 import { SkillType } from '@gamehouse/shared';
@@ -123,6 +125,12 @@ export const PanjatPinangView: React.FC = () => {
         gameState={gameState}
         myPlayerId={playerId}
       />
+
+      {/* Floating Animated Emote Broadcast Layer */}
+      <FloatingEmoteLayer />
+
+      {/* In-Game Emote Trigger & Drawer Button */}
+      <EmotePicker buttonPosition="top-right" />
 
       {/* Match Result Screen */}
       {gameResults && (

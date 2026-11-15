@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useGameStore } from '../stores/useGameStore';
+import { useEmoteStore } from '../stores/useEmoteStore';
 import { soundManager } from '../components/audio/SoundManager';
 import { ClientToServerEvents, ServerToClientEvents } from '@gamehouse/shared';
 
@@ -132,6 +133,11 @@ export function useSocket() {
           soundManager.playRecovery();
           addToast('Recovered! Back in the race!', 'success');
         }
+      });
+
+      // In-Game Emote Received
+      socket.on('game:emote', (emoteData) => {
+        useEmoteStore.getState().triggerEmote(emoteData);
       });
 
       socket.on('error:message', (msg) => {

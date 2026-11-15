@@ -342,7 +342,11 @@ export class LudoGame implements GameModule {
     if (dice === 6) {
       grantBonusRoll = true;
       if (!didCapture && !didFinishToken) {
-        this.lastMoveNotice = `🎲 ${player.nickname} dapat dadu 6! Dapat giliran lempar ekstra.`;
+        if (token.stepCount === 1) {
+          this.lastMoveNotice = `🎲 ${player.nickname} mengeluarkan bidak ke arena & dapat lempar dadu lagi!`;
+        } else {
+          this.lastMoveNotice = `🎲 ${player.nickname} dapat dadu 6! Dapat giliran lempar ekstra.`;
+        }
       }
     }
 
