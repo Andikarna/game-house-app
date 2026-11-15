@@ -5,7 +5,6 @@ import {
   Player, 
   GameResultData 
 } from '@gamehouse/shared';
-import { Server as SocketIOServer } from 'socket.io';
 
 export interface GameModule {
   readonly id: GameId;
@@ -18,7 +17,7 @@ export interface GameModule {
     roomId: string, 
     players: Player[], 
     settings: RoomSettings, 
-    io: SocketIOServer
+    io?: any
   ): void;
 
   start(): void;

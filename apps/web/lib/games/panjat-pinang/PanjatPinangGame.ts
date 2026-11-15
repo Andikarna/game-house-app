@@ -14,7 +14,6 @@ import {
   SKILL_DEFINITIONS
 } from '@gamehouse/shared';
 import { GameModule } from '../../core/GameModule';
-import { Server as SocketIOServer } from 'socket.io';
 
 export class PanjatPinangGame implements GameModule {
   public readonly id: GameId = 'panjat-pinang';
@@ -24,7 +23,7 @@ export class PanjatPinangGame implements GameModule {
   public readonly availableModes: GameMode[] = ['classic-race', 'survival-climb', 'skill-battle'];
 
   private roomId: string = '';
-  private io!: SocketIOServer;
+  private io?: any;
   private settings!: RoomSettings;
   private players: Player[] = [];
   
@@ -39,7 +38,7 @@ export class PanjatPinangGame implements GameModule {
     roomId: string, 
     players: Player[], 
     settings: RoomSettings, 
-    io: SocketIOServer
+    io?: any
   ): void {
     this.roomId = roomId;
     this.players = [...players];

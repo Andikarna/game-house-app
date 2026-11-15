@@ -12,7 +12,6 @@ import {
   LudoInput
 } from '@gamehouse/shared';
 import { GameModule } from '../../core/GameModule';
-import { Server as SocketIOServer } from 'socket.io';
 
 export class LudoGame implements GameModule {
   public readonly id: GameId = 'ludo';
@@ -22,7 +21,7 @@ export class LudoGame implements GameModule {
   public readonly availableModes: GameMode[] = ['classic', 'quick'];
 
   private roomId: string = '';
-  private io!: SocketIOServer;
+  private io?: any;
   private settings!: RoomSettings;
   private players: Map<string, LudoPlayerState> = new Map();
   private playerOrder: string[] = []; // Turn sequence
@@ -55,7 +54,7 @@ export class LudoGame implements GameModule {
     roomId: string,
     players: Player[],
     settings: RoomSettings,
-    io: SocketIOServer
+    io?: any
   ): void {
     this.roomId = roomId;
     this.settings = settings;
