@@ -543,32 +543,32 @@ export const LudoDice: React.FC<LudoDiceProps> = ({
   const isClickable = canRoll && isMyTurn && !isRolling && !isBouncing;
 
   return (
-    <div className="relative flex flex-col items-center justify-center select-none py-1">
+    <div className="relative flex flex-col items-center justify-center select-none pt-12 pb-1">
       {/* ------------------------------------------------------------- */}
-      {/* 1. TEXT ANNOUNCEMENT BANNER ("KELUARKAN TEXT ANGKA NYA")        */}
+      {/* 1. TEXT ANNOUNCEMENT BANNER - FLOATING CLEANLY ABOVE THE DICE  */}
       {/* ------------------------------------------------------------- */}
       <AnimatePresence>
         {showNumberBanner && revealedNumber !== null && (
           <motion.div
             key={`announcement-${rollSeqId}`}
-            initial={{ scale: 0, y: 15, opacity: 0 }}
+            initial={{ scale: 0.6, y: 10, opacity: 0 }}
             animate={{
-              scale: [0, 1.32, 1],
-              y: [-10, -62, -54],
+              scale: [0.6, 1.15, 1],
+              y: 0,
               opacity: 1,
             }}
-            exit={{ scale: 0.75, y: -78, opacity: 0 }}
+            exit={{ scale: 0.7, y: -15, opacity: 0 }}
             transition={{
               type: 'spring',
               stiffness: 420,
-              damping: 17,
-              mass: 0.7,
+              damping: 18,
+              mass: 0.6,
             }}
-            className="absolute z-50 pointer-events-none flex flex-col items-center justify-center whitespace-nowrap"
+            className="absolute top-0 left-1/2 -translate-x-1/2 z-50 pointer-events-none flex flex-col items-center justify-center whitespace-nowrap"
           >
             {/* Main Arcade Announcement Badge */}
             <div
-              className={`relative flex items-center gap-2.5 px-4 py-2 rounded-2xl border-2 shadow-[0_10px_35px_rgba(0,0,0,0.8)] backdrop-blur-md ${
+              className={`relative flex items-center gap-2.5 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-2xl border-2 shadow-[0_10px_35px_rgba(0,0,0,0.85)] backdrop-blur-md ${
                 revealedNumber === 6
                   ? 'bg-gradient-to-r from-red-600 via-amber-500 to-orange-500 border-yellow-200 shadow-[0_0_35px_rgba(251,191,36,0.95)] animate-pulse'
                   : 'bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 border-amber-400/90 shadow-[0_0_24px_rgba(245,158,11,0.6)]'
@@ -576,7 +576,7 @@ export const LudoDice: React.FC<LudoDiceProps> = ({
             >
               {/* Number Stamp Bubble */}
               <div
-                className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-base font-mono shadow-inner ${
+                className={`w-7 h-7 sm:w-8 sm:h-8 rounded-xl flex items-center justify-center font-black text-sm sm:text-base font-mono shadow-inner ${
                   revealedNumber === 6
                     ? 'bg-yellow-300 text-red-950 border border-yellow-100 shadow-[0_0_10px_rgba(254,240,138,0.8)]'
                     : 'bg-gradient-to-br from-amber-400 to-orange-500 text-slate-950 border border-amber-200 shadow-[0_0_8px_rgba(251,191,36,0.5)]'
@@ -593,7 +593,7 @@ export const LudoDice: React.FC<LudoDiceProps> = ({
                     : `MENDAPATKAN ANGKA ${revealedNumber}!`}
                 </span>
                 <span
-                  className={`text-[10px] font-bold ${
+                  className={`text-[9px] sm:text-[10px] font-bold ${
                     revealedNumber === 6 ? 'text-yellow-100' : 'text-amber-400'
                   }`}
                 >
@@ -605,45 +605,21 @@ export const LudoDice: React.FC<LudoDiceProps> = ({
 
               {/* Icon Flair */}
               {revealedNumber === 6 ? (
-                <Flame className="w-5 h-5 text-yellow-200 fill-yellow-200 animate-bounce" />
+                <Flame className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-200 fill-yellow-200 animate-bounce" />
               ) : (
-                <Sparkles className="w-5 h-5 text-amber-300 animate-spin" />
+                <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-amber-300 animate-spin" />
               )}
             </div>
 
             {/* Floating Comic Stars */}
-            <span className="absolute -left-4 -top-2 text-sm animate-ping">✨</span>
-            <span className="absolute -right-4 -top-2 text-sm animate-ping">⭐</span>
+            <span className="absolute -left-3 -top-1.5 text-xs animate-ping">✨</span>
+            <span className="absolute -right-3 -top-1.5 text-xs animate-ping">⭐</span>
           </motion.div>
         )}
       </AnimatePresence>
 
       {/* ------------------------------------------------------------- */}
-      {/* 2. FLOATING NUMBER POP STAMP OVER DICE (+1 to +6)              */}
-      {/* ------------------------------------------------------------- */}
-      <AnimatePresence>
-        {showNumberBanner && revealedNumber !== null && (
-          <motion.div
-            key={`pop-stamp-${rollSeqId}`}
-            initial={{ scale: 0.2, y: 0, opacity: 0 }}
-            animate={{
-              scale: [0.2, 1.45, 1],
-              y: [-10, -38, -32],
-              opacity: [0, 1, 0.9],
-            }}
-            exit={{ opacity: 0, y: -50, scale: 0.8 }}
-            transition={{ duration: 0.65, ease: 'easeOut' }}
-            className="absolute z-40 pointer-events-none"
-          >
-            <span className="text-3xl sm:text-4xl font-black text-amber-400 drop-shadow-[0_4px_12px_rgba(0,0,0,0.95)] font-mono">
-              +{revealedNumber}
-            </span>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* ------------------------------------------------------------- */}
-      {/* 3. PHYSICAL 3D DICE CONTAINER & MAXIMIZED BOUNCE / ROTATION    */}
+      {/* 2. PHYSICAL 3D DICE CONTAINER & MAXIMIZED BOUNCE / ROTATION    */}
       {/* ------------------------------------------------------------- */}
       <div className="relative flex flex-col items-center justify-center">
         {/* Dynamic Ground Contact Shadow (scales/squashes with bounces) */}
