@@ -30,8 +30,8 @@ export const IsometricDice3D: React.FC<IsometricDiceFaceProps> = ({
   topValue,
   isRolling = false,
 }) => {
-  // Clamp value between 1 and 6 (default 6 if null/unspecified)
-  const val = Math.max(1, Math.min(6, Math.floor(topValue || 6)));
+  // Clamp value between 1 and 6 (default 1 if null/unspecified)
+  const val = Math.max(1, Math.min(6, Math.floor(topValue || 1)));
 
   // Perspective dots configuration on the 3 visible faces
   // Standard dice layout: opposite sides sum to 7
@@ -390,7 +390,7 @@ export const LudoDice: React.FC<LudoDiceProps> = ({
 }) => {
   const [isRolling, setIsRolling] = useState(false);
   const [isBouncing, setIsBouncing] = useState(false);
-  const [displayedValue, setDisplayedValue] = useState<number>(value || 6);
+  const [displayedValue, setDisplayedValue] = useState<number>(value || 1);
   const [revealedNumber, setRevealedNumber] = useState<number | null>(value);
   const [showNumberBanner, setShowNumberBanner] = useState(false);
   const [showDustImpact, setShowDustImpact] = useState(false);
@@ -398,18 +398,16 @@ export const LudoDice: React.FC<LudoDiceProps> = ({
   const [rollSeqId, setRollSeqId] = useState(0);
 
   const shuffleTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const serverResultRef = useRef<number | null>(value);
+  const landTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const safetyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const bannerTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const isAwaitingServerResultRef = useRef<boolean>(false);
+  const rollStartTimeRef = useRef<number>(0);
   const prevValueRef = useRef<number | null>(value);
 
-  // Keep server result updated
-  useEffect(() => {
-    if (value !== null) {
-      serverResultRef.current = value;
-    }
-  }, [value]);
-
-  // Execute full physical roll sequence: 3D Airborne Tumbling -> Elastic Multi-Bounce -> Text Reveal
-  const triggerFullRollSequence = (targetResult?: number) => {
+  // 1. Function to start airborne 3D tumbling & fast face-shuffling
+  const startTumbling = () => {
     setIsRolling(true);
     setIsBouncing(false);
     setShowNumberBanner(false);
@@ -417,10 +415,8 @@ export const LudoDice: React.FC<LudoDiceProps> = ({
     setShowShockwave(false);
     setRollSeqId((prev) => prev + 1);
 
-    // Audio: Real tactile tumbling dice clatter
     soundManager.playDiceRoll();
 
-    // 1. Airborne Tumbling & Face Shuffling (Rapid swap every 45ms)
     if (shuffleTimerRef.current) clearInterval(shuffleTimerRef.current);
     shuffleTimerRef.current = setInterval(() => {
       setDisplayedValue((prev) => {
@@ -429,66 +425,83 @@ export const LudoDice: React.FC<LudoDiceProps> = ({
         return next;
       });
     }, 45);
-
-    // 2. Flight Duration: 750ms of intense 3D tumbling in mid-air
-    setTimeout(() => {
-      if (shuffleTimerRef.current) {
-        clearInterval(shuffleTimerRef.current);
-        shuffleTimerRef.current = null;
-      }
-
-      // Determine final landing value
-      const finalVal = Math.max(
-        1,
-        Math.min(6, Math.floor(targetResult || serverResultRef.current || value || 6))
-      );
-
-      setDisplayedValue(finalVal);
-      setRevealedNumber(finalVal);
-      setIsRolling(false);
-
-      // 3. Impact & Multi-Stage Elastic Bounce (Ground Slam -> Hop 1 -> Hop 2 -> Settle)
-      setIsBouncing(true);
-      setShowDustImpact(true);
-      setShowShockwave(true);
-      setShowNumberBanner(true);
-
-      // Primary hard table impact thump
-      soundManager.playDiceImpact();
-      // Melodic number announcement sound (or critical arpeggio if 6)
-      soundManager.playNumberReveal(finalVal);
-
-      // Secondary hop tap impact sound
-      setTimeout(() => {
-        soundManager.playDiceImpact();
-      }, 240);
-
-      // End physical bounce motion and ground shockwave
-      setTimeout(() => {
-        setIsBouncing(false);
-        setShowShockwave(false);
-        setShowDustImpact(false);
-      }, 620);
-
-      // Keep text announcement visible for 3.2s so player clearly reads and enjoys it
-      setTimeout(() => {
-        setShowNumberBanner(false);
-      }, 3200);
-    }, 750);
   };
 
-  // Sync with incoming server value changes (Handles opponent rolls or state sync)
+  // 2. Function to execute physical landing on the authoritative value
+  const landOnAuthoritativeNumber = (finalVal: number) => {
+    if (shuffleTimerRef.current) {
+      clearInterval(shuffleTimerRef.current);
+      shuffleTimerRef.current = null;
+    }
+    if (landTimeoutRef.current) {
+      clearTimeout(landTimeoutRef.current);
+      landTimeoutRef.current = null;
+    }
+    if (safetyTimeoutRef.current) {
+      clearTimeout(safetyTimeoutRef.current);
+      safetyTimeoutRef.current = null;
+    }
+
+    const clampedVal = Math.max(1, Math.min(6, Math.floor(finalVal || 1)));
+
+    setDisplayedValue(clampedVal);
+    setRevealedNumber(clampedVal);
+    setIsRolling(false);
+    setIsBouncing(true);
+    setShowDustImpact(true);
+    setShowShockwave(true);
+    setShowNumberBanner(true);
+
+    // Primary impact thump & melodic number reveal chime
+    soundManager.playDiceImpact();
+    soundManager.playNumberReveal(clampedVal);
+
+    // Secondary hop impact sound
+    setTimeout(() => {
+      soundManager.playDiceImpact();
+    }, 240);
+
+    // End physical bounce & ground shockwave
+    setTimeout(() => {
+      setIsBouncing(false);
+      setShowShockwave(false);
+      setShowDustImpact(false);
+    }, 620);
+
+    // Keep text banner visible for 3.2s so player clearly reads and enjoys it
+    if (bannerTimeoutRef.current) clearTimeout(bannerTimeoutRef.current);
+    bannerTimeoutRef.current = setTimeout(() => {
+      setShowNumberBanner(false);
+    }, 3200);
+  };
+
+  // Sync with incoming server value changes (Handles server response or opponent roll)
   useEffect(() => {
     if (value !== null && value !== prevValueRef.current) {
       prevValueRef.current = value;
-      serverResultRef.current = value;
-      // If client is not already actively rolling from manual click, play sequence
-      if (!isRolling && !isBouncing) {
-        triggerFullRollSequence(value);
+
+      if (isAwaitingServerResultRef.current) {
+        // Player's manual roll has arrived from server!
+        isAwaitingServerResultRef.current = false;
+        const elapsed = Date.now() - rollStartTimeRef.current;
+        const minFlightDuration = 650; // Ensure at least 650ms of intense 3D tumbling
+        const remaining = Math.max(0, minFlightDuration - elapsed);
+
+        if (landTimeoutRef.current) clearTimeout(landTimeoutRef.current);
+        landTimeoutRef.current = setTimeout(() => {
+          landOnAuthoritativeNumber(value);
+        }, remaining);
+      } else if (!isRolling && !isBouncing) {
+        // Opponent rolled in multiplayer!
+        startTumbling();
+        if (landTimeoutRef.current) clearTimeout(landTimeoutRef.current);
+        landTimeoutRef.current = setTimeout(() => {
+          landOnAuthoritativeNumber(value);
+        }, 650);
       }
     } else if (value === null) {
       prevValueRef.current = null;
-      serverResultRef.current = null;
+      isAwaitingServerResultRef.current = false;
       setShowNumberBanner(false);
     }
   }, [value]);
@@ -497,19 +510,33 @@ export const LudoDice: React.FC<LudoDiceProps> = ({
   const handleClick = () => {
     if (!canRoll || !isMyTurn || isRolling || isBouncing) return;
 
-    // Trigger local animation sequence
-    triggerFullRollSequence();
+    isAwaitingServerResultRef.current = true;
+    rollStartTimeRef.current = Date.now();
+
+    // Start local tumbling animation
+    startTumbling();
 
     // Notify server to execute authoritative dice roll
     onRoll();
+
+    // Safety timeout: if server doesn't respond within 3500ms, fall back to random (1-6)
+    if (safetyTimeoutRef.current) clearTimeout(safetyTimeoutRef.current);
+    safetyTimeoutRef.current = setTimeout(() => {
+      if (isAwaitingServerResultRef.current) {
+        isAwaitingServerResultRef.current = false;
+        const randomFallback = Math.floor(Math.random() * 6) + 1;
+        landOnAuthoritativeNumber(randomFallback);
+      }
+    }, 3500);
   };
 
-  // Clean up on unmount
+  // Clean up all timers on unmount
   useEffect(() => {
     return () => {
-      if (shuffleTimerRef.current) {
-        clearInterval(shuffleTimerRef.current);
-      }
+      if (shuffleTimerRef.current) clearInterval(shuffleTimerRef.current);
+      if (landTimeoutRef.current) clearTimeout(landTimeoutRef.current);
+      if (safetyTimeoutRef.current) clearTimeout(safetyTimeoutRef.current);
+      if (bannerTimeoutRef.current) clearTimeout(bannerTimeoutRef.current);
     };
   }, []);
 

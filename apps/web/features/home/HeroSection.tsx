@@ -111,7 +111,7 @@ export const HeroSection: React.FC<HeroProps> = ({
                 </div>
               </div>
 
-              <p className="text-xs text-slate-300 leading-relaxed mb-4">
+              <p className="text-xs text-slate-300 leading-relaxed mb-4 min-h-[48px]">
                 Panjat tiang berlumur oli licin, jaga keseimbangan, lempar kulit pisang, dan aktifkan Iron Grip untuk merebut hadiah di puncak tiang!
               </p>
 
@@ -175,7 +175,7 @@ export const HeroSection: React.FC<HeroProps> = ({
                 </div>
               </div>
 
-              <p className="text-xs text-slate-300 leading-relaxed mb-4">
+              <p className="text-xs text-slate-300 leading-relaxed mb-4 min-h-[48px]">
                 Papan Ludo klasik penuh strategi! Lempar dadu angka 6, tendang bidak lawan kembali ke base, amankan di petak bintang, dan balapan ke finish!
               </p>
 

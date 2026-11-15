@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState } from 'react';
-import Image from 'next/image';
 import { GameId } from '@gamehouse/shared';
 import { Button } from '../../components/ui/Button';
 import { 
@@ -84,7 +83,7 @@ export const PlayableGamesShowcase: React.FC<PlayableGamesProps> = ({ onSelectGa
       </div>
 
       {/* Grid of Playable Games */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 items-stretch">
         
         {/* ========================================================= */}
         {/* GAME 1: PANJAT PINANG BATTLE */}
@@ -94,9 +93,9 @@ export const PlayableGamesShowcase: React.FC<PlayableGamesProps> = ({ onSelectGa
             {/* Top decorative gradient glow */}
             <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-red-500 via-orange-500 to-amber-400" />
             
-            <div>
+            <div className="flex flex-col flex-1">
               {/* Visual Banner Area */}
-              <div className="relative w-full h-48 sm:h-64 bg-slate-900 overflow-hidden">
+              <div className="relative w-full h-52 sm:h-64 bg-slate-900 overflow-hidden">
                 <img
                   src="/assets/gameplay/panjat_pinang_battle_banner.jpg"
                   alt="Panjat Pinang Battle"
@@ -105,7 +104,7 @@ export const PlayableGamesShowcase: React.FC<PlayableGamesProps> = ({ onSelectGa
                 <div className="absolute inset-0 bg-gradient-to-t from-surface via-surface/40 to-transparent" />
                 
                 {/* Badges on banner */}
-                <div className="absolute top-3 left-3 sm:top-4 sm:left-4 flex flex-wrap gap-2">
+                <div className="absolute top-3 left-3 sm:top-4 sm:left-4 flex flex-wrap gap-1.5 sm:gap-2 z-10">
                   <span className="px-3 py-1 rounded-full bg-emerald-500/90 text-white text-[11px] font-black uppercase tracking-wider backdrop-blur-md shadow-md flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
                     Siap Dimainkan
@@ -115,14 +114,14 @@ export const PlayableGamesShowcase: React.FC<PlayableGamesProps> = ({ onSelectGa
                   </span>
                 </div>
 
-                <div className="absolute top-3 right-3 sm:top-4 sm:right-4">
+                <div className="absolute top-3 right-3 sm:top-4 sm:right-4 z-10">
                   <span className="px-3 py-1 rounded-full bg-surface-elevated/90 text-amber-300 text-xs font-black backdrop-blur-md border border-amber-500/40 shadow-lg flex items-center gap-1">
                     <Users className="w-3.5 h-3.5" /> 2 - 8 Pemain
                   </span>
                 </div>
 
                 {/* Bottom title over banner */}
-                <div className="absolute bottom-3 left-4 sm:bottom-4 sm:left-6">
+                <div className="absolute bottom-3 left-4 sm:bottom-4 sm:left-6 z-10">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-2xl sm:text-3xl">🌴</span>
                     <h3 className="text-xl sm:text-3xl font-black text-white tracking-tight drop-shadow-md">
@@ -136,8 +135,8 @@ export const PlayableGamesShowcase: React.FC<PlayableGamesProps> = ({ onSelectGa
               </div>
 
               {/* Game Body Details */}
-              <div className="p-5 sm:p-7 space-y-5">
-                <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+              <div className="p-5 sm:p-7 space-y-5 flex-1 flex flex-col justify-between">
+                <p className="text-xs sm:text-sm text-slate-300 leading-relaxed min-h-[48px]">
                   Rasakan keseruan lomba 17-an legendaris secara online! Jaga keseimbangan di atas tiang berlumur oli licin, pasang jebakan kulit pisang untuk menjatuhkan lawan, gunakan skill <span className="text-orange-400 font-bold">Iron Grip</span>, dan rebut hadiah sepeda di puncak tiang!
                 </p>
 
@@ -206,82 +205,35 @@ export const PlayableGamesShowcase: React.FC<PlayableGamesProps> = ({ onSelectGa
             {/* Top decorative gradient glow */}
             <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500" />
             
-            <div>
-              {/* Visual Banner Area - Interactive stylized mini board */}
-              <div className="relative w-full h-48 sm:h-64 bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-950 overflow-hidden flex items-center justify-center p-4">
+            <div className="flex flex-col flex-1">
+              {/* Visual Banner Area */}
+              <div className="relative w-full h-52 sm:h-64 bg-slate-900 overflow-hidden">
+                <img
+                  src="/assets/gameplay/ludo_party_banner.jpg"
+                  alt="Ludo Party"
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-90"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-surface via-surface/40 to-transparent" />
                 
-                {/* Decorative background grid and animated dice icon */}
-                <div className="absolute inset-0 bg-[radial-gradient(#4f46e5_1px,transparent_1px)] [background-size:16px_16px] opacity-25" />
-
-                {/* Stylized Mini Ludo Board Display */}
-                <div className="relative z-10 w-40 sm:w-52 h-40 sm:h-52 bg-slate-900/90 rounded-2xl border-2 border-indigo-400/50 shadow-2xl p-2.5 grid grid-cols-2 grid-rows-2 gap-2 group-hover:scale-105 transition-transform duration-500">
-                  {/* Red Base */}
-                  <div className="rounded-xl bg-red-600/30 border border-red-500/60 p-2 flex flex-col justify-between">
-                    <span className="text-[10px] font-black text-red-400">RED</span>
-                    <div className="flex gap-1">
-                      <div className="w-3.5 h-3.5 rounded-full bg-red-500 shadow-sm" />
-                      <div className="w-3.5 h-3.5 rounded-full bg-red-400 shadow-sm" />
-                    </div>
-                  </div>
-                  {/* Green Base */}
-                  <div className="rounded-xl bg-emerald-600/30 border border-emerald-500/60 p-2 flex flex-col justify-between items-end">
-                    <span className="text-[10px] font-black text-emerald-400">GREEN</span>
-                    <div className="flex gap-1">
-                      <div className="w-3.5 h-3.5 rounded-full bg-emerald-500 shadow-sm" />
-                      <div className="w-3.5 h-3.5 rounded-full bg-emerald-400 shadow-sm" />
-                    </div>
-                  </div>
-                  {/* Blue Base */}
-                  <div className="rounded-xl bg-blue-600/30 border border-blue-500/60 p-2 flex flex-col justify-between">
-                    <div className="flex gap-1">
-                      <div className="w-3.5 h-3.5 rounded-full bg-blue-500 shadow-sm" />
-                      <div className="w-3.5 h-3.5 rounded-full bg-blue-400 shadow-sm" />
-                    </div>
-                    <span className="text-[10px] font-black text-blue-400">BLUE</span>
-                  </div>
-                  {/* Yellow Base */}
-                  <div className="rounded-xl bg-amber-500/30 border border-amber-400/60 p-2 flex flex-col justify-between items-end">
-                    <div className="flex gap-1">
-                      <div className="w-3.5 h-3.5 rounded-full bg-amber-400 shadow-sm" />
-                      <div className="w-3.5 h-3.5 rounded-full bg-amber-500 shadow-sm" />
-                    </div>
-                    <span className="text-[10px] font-black text-amber-300">YELLOW</span>
-                  </div>
-
-                  {/* Center Star Badge */}
-                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 rounded-xl bg-indigo-600 border border-indigo-300 flex items-center justify-center shadow-lg animate-bounce">
-                    <Dices className="w-5 h-5 text-white" />
-                  </div>
-                </div>
-
-                {/* Floating 3D Dice accent */}
-                <div className="absolute bottom-3 right-4 sm:bottom-4 sm:right-6 bg-surface-elevated/90 border border-indigo-400/40 px-3 py-1.5 rounded-xl shadow-xl flex items-center gap-2 backdrop-blur-md">
-                  <span className="text-xl">🎲</span>
-                  <div className="text-left">
-                    <div className="text-[10px] font-bold text-slate-400 uppercase">Fisika Dadu</div>
-                    <div className="text-xs font-black text-indigo-300">Dadu 3D Interaktif</div>
-                  </div>
-                </div>
-
                 {/* Badges on banner */}
-                <div className="absolute top-3 left-3 sm:top-4 sm:left-4 flex flex-wrap gap-2">
+                <div className="absolute top-3 left-3 sm:top-4 sm:left-4 flex flex-wrap gap-1.5 sm:gap-2 z-10">
                   <span className="px-3 py-1 rounded-full bg-emerald-500/90 text-white text-[11px] font-black uppercase tracking-wider backdrop-blur-md shadow-md flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
                     Siap Dimainkan
                   </span>
-                  <span className="px-2.5 py-1 rounded-full bg-indigo-600/80 text-white text-[11px] font-black tracking-wider backdrop-blur-md border border-white/20">
+                  <span className="px-2.5 py-1 rounded-full bg-indigo-600/90 text-white text-[11px] font-black tracking-wider backdrop-blur-md border border-white/20">
                     🎲 Board Game Favorit
                   </span>
                 </div>
 
-                <div className="absolute top-3 right-3 sm:top-4 sm:right-4">
+                <div className="absolute top-3 right-3 sm:top-4 sm:right-4 z-10">
                   <span className="px-3 py-1 rounded-full bg-surface-elevated/90 text-indigo-300 text-xs font-black backdrop-blur-md border border-indigo-500/40 shadow-lg flex items-center gap-1">
                     <Users className="w-3.5 h-3.5" /> 2 - 4 Pemain
                   </span>
                 </div>
 
                 {/* Bottom title */}
-                <div className="absolute bottom-3 left-4 sm:bottom-4 sm:left-6">
+                <div className="absolute bottom-3 left-4 sm:bottom-4 sm:left-6 z-10">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-2xl sm:text-3xl">🎲</span>
                     <h3 className="text-xl sm:text-3xl font-black text-white tracking-tight drop-shadow-md">
@@ -295,8 +247,8 @@ export const PlayableGamesShowcase: React.FC<PlayableGamesProps> = ({ onSelectGa
               </div>
 
               {/* Game Body Details */}
-              <div className="p-5 sm:p-7 space-y-5">
-                <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+              <div className="p-5 sm:p-7 space-y-5 flex-1 flex flex-col justify-between">
+                <p className="text-xs sm:text-sm text-slate-300 leading-relaxed min-h-[48px]">
                   Bawa keseruan game papan klasik ke layar browsermu! Lempar dadu angka 6 untuk keluar dari markas, serang dan tendang bidak lawan kembali ke base, berlindung di petak bintang aman, dan balapan sampai garis finish!
                 </p>
 
@@ -306,7 +258,7 @@ export const PlayableGamesShowcase: React.FC<PlayableGamesProps> = ({ onSelectGa
                     <Dices className="w-4 h-4 text-indigo-400 shrink-0" />
                     <div>
                       <div className="font-bold text-white text-[11px] sm:text-xs">Dadu 3D Fisik</div>
-                      <div className="text-[10px] text-slate-400">Lempar & Animasi</div>
+                      <div className="text-[10px] text-slate-400">Lempar & Animasi Roll</div>
                     </div>
                   </div>
                   <div className="p-2.5 rounded-2xl bg-surface-elevated border border-slate-700/80 flex items-center gap-2">
