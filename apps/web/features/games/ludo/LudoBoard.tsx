@@ -5,7 +5,7 @@ import {
   LudoColor, 
   LudoToken 
 } from '@gamehouse/shared';
-import { Star, Crown, ChevronDown, ChevronLeft, ChevronUp, ChevronRight, RotateCcw } from 'lucide-react';
+import { Star, Crown, ChevronDown, ChevronLeft, ChevronUp, ChevronRight, RotateCcw, Sparkles } from 'lucide-react';
 import { soundManager } from '../../../components/audio/SoundManager';
 
 interface LudoBoardProps {
@@ -369,16 +369,36 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
   const displayedStepsRef = useRef<Record<string, number>>({});
   const targetStepsRef = useRef<Record<string, number>>({});
   const activeIntervalsRef = useRef<Record<string, NodeJS.Timeout>>({});
+  const captureTimeoutsRef = useRef<Record<string, NodeJS.Timeout>>({});
+
+  // Visual effects state
+  const [impactBurst, setImpactBurst] = useState<{ coord: [number, number]; id: number } | null>(null);
+  const [finishCelebrate, setFinishCelebrate] = useState<{ color: LudoColor; id: number } | null>(null);
 
   // Cleanup on unmount ONLY
   useEffect(() => {
     return () => {
       Object.values(activeIntervalsRef.current).forEach((t) => clearInterval(t));
+      Object.values(captureTimeoutsRef.current).forEach((t) => clearTimeout(t));
     };
   }, []);
 
   // Synchronize token movements whenever gameState updates
   useEffect(() => {
+    // 0. Compute walking duration of any advancing token in this turn
+    let maxWalkDuration = 0;
+    Object.values(gameState.players).forEach((p) => {
+      p.tokens.forEach((t) => {
+        const k = `${p.playerId}_${t.id}`;
+        const target = t.state === 'base' ? 0 : t.stepCount;
+        const cur = displayedStepsRef.current[k] ?? target;
+        if (target > cur) {
+          const steps = target - cur;
+          maxWalkDuration = Math.max(maxWalkDuration, steps * 140);
+        }
+      });
+    });
+
     Object.values(gameState.players).forEach((player) => {
       player.tokens.forEach((token) => {
         const key = `${player.playerId}_${token.id}`;
@@ -393,12 +413,41 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
           return;
         }
 
-        // 2. Token reset or knocked back to base
+        // 2. Token knocked back to base by capture
         if (serverTarget < currentDisplayed) {
           if (activeIntervalsRef.current[key]) {
             clearInterval(activeIntervalsRef.current[key]);
             delete activeIntervalsRef.current[key];
           }
+
+          // If another token is walking towards it, delay capture until the capturer arrives!
+          if (maxWalkDuration > 0) {
+            if (captureTimeoutsRef.current[key]) {
+              clearTimeout(captureTimeoutsRef.current[key]);
+            }
+
+            const capturedCoord = getTokenCoordinate(player.color, token.id, currentDisplayed, 'track');
+            targetStepsRef.current[key] = 0;
+
+            captureTimeoutsRef.current[key] = setTimeout(() => {
+              // 1. Play dramatic comic BONK & slide whistle sound effect
+              soundManager.playTokenCapture();
+
+              // 2. Spawn visual comic KAPOW impact burst on that exact square
+              setImpactBurst({
+                coord: capturedCoord,
+                id: Date.now(),
+              });
+              setTimeout(() => setImpactBurst(null), 700);
+
+              // 3. Now send the captured token flying back to its base!
+              displayedStepsRef.current[key] = 0;
+              setAnimatedSteps((prev) => ({ ...prev, [key]: 0 }));
+              delete captureTimeoutsRef.current[key];
+            }, maxWalkDuration);
+            return;
+          }
+
           displayedStepsRef.current[key] = serverTarget;
           targetStepsRef.current[key] = serverTarget;
           setAnimatedSteps((prev) => ({ ...prev, [key]: serverTarget }));
@@ -437,6 +486,16 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
                 if (next >= target) {
                   clearInterval(activeIntervalsRef.current[key]);
                   delete activeIntervalsRef.current[key];
+
+                  // Triumphant fanfare sound effect when entering finish (step 57)
+                  if (next === 57 || token.state === 'finished') {
+                    soundManager.playTokenFinish();
+                    setFinishCelebrate({
+                      color: player.color,
+                      id: Date.now(),
+                    });
+                    setTimeout(() => setFinishCelebrate(null), 2500);
+                  }
                 }
               } else {
                 clearInterval(activeIntervalsRef.current[key]);
@@ -944,6 +1003,54 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
               );
             });
           })()}
+
+          {/* Comic KAPOW Impact Burst Effect when our pawn knocks out opponent */}
+          {impactBurst && (
+            <motion.div
+              key={impactBurst.id}
+              initial={{ scale: 0.2, opacity: 1, rotate: -20 }}
+              animate={{ scale: [0.2, 1.35, 1.1], opacity: [1, 1, 0], rotate: [-20, 10, 0] }}
+              transition={{ duration: 0.65, ease: 'easeOut' }}
+              style={{
+                left: `${(impactBurst.coord[1] / 15) * 100}%`,
+                top: `${(impactBurst.coord[0] / 15) * 100}%`,
+              }}
+              className="absolute -translate-x-1/2 -translate-y-1/2 z-40 pointer-events-none flex flex-col items-center justify-center select-none"
+            >
+              <div className="relative flex items-center justify-center">
+                <span className="absolute w-12 h-12 rounded-full border-4 border-amber-400 bg-amber-400/30 animate-ping" />
+                <span className="relative text-3xl filter drop-shadow-[0_0_12px_rgba(239,68,68,1)]">
+                  💥
+                </span>
+                <span className="absolute -top-3.5 font-black text-[9px] tracking-widest text-amber-300 uppercase bg-slate-950/95 px-2 py-0.5 rounded-full border border-amber-400 shadow-xl">
+                  BONK!
+                </span>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Celebratory Finish Crown / Sparkles Burst when entering HOME */}
+          {finishCelebrate && (
+            <motion.div
+              key={finishCelebrate.id}
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: [0, 1.25, 1], opacity: [0, 1, 1, 0] }}
+              transition={{ duration: 2.3, ease: 'easeOut' }}
+              style={{
+                left: '50%',
+                top: '50%',
+              }}
+              className="absolute -translate-x-1/2 -translate-y-1/2 z-40 pointer-events-none flex flex-col items-center justify-center select-none"
+            >
+              <div className="relative flex flex-col items-center justify-center">
+                <span className="absolute w-24 h-24 rounded-full border-4 border-amber-400 bg-amber-400/25 animate-ping" />
+                <Sparkles className="w-12 h-12 text-amber-300 fill-amber-300 animate-spin filter drop-shadow-[0_0_20px_rgba(251,191,36,1)]" />
+                <span className="mt-1 font-black text-[11px] sm:text-xs text-amber-300 uppercase bg-slate-950/95 px-2.5 py-1 rounded-full border-2 border-amber-400 shadow-2xl tracking-wider animate-bounce">
+                  GOAL! HOME! 🎉
+                </span>
+              </div>
+            </motion.div>
+          )}
         </div>
       </div>
     </div>

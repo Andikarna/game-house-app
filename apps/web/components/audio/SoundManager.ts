@@ -474,6 +474,49 @@ class SoundManager {
     } catch {}
   }
 
+  public playTokenFinish() {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    try {
+      const now = this.ctx.currentTime;
+      // Celebratory ascending chime fanfare with sparkling harmonics (C5, E5, G5, B5, C6)
+      const notes = [523.25, 659.25, 783.99, 987.77, 1046.5];
+      notes.forEach((freq, idx) => {
+        const hitTime = now + idx * 0.08;
+        const osc = this.ctx!.createOscillator();
+        const gain = this.ctx!.createGain();
+
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, hitTime);
+
+        // Glockenspiel crystal harmonic (2x overtone)
+        const harm = this.ctx!.createOscillator();
+        const hGain = this.ctx!.createGain();
+        harm.type = 'sine';
+        harm.frequency.setValueAtTime(freq * 2.0, hitTime);
+
+        const vol = 0.28 * this.volume;
+        gain.gain.setValueAtTime(vol, hitTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, hitTime + 0.65);
+
+        hGain.gain.setValueAtTime(vol * 0.35, hitTime);
+        hGain.gain.exponentialRampToValueAtTime(0.001, hitTime + 0.45);
+
+        osc.connect(gain);
+        harm.connect(hGain);
+        gain.connect(this.sfxGain || this.ctx!.destination);
+        hGain.connect(this.sfxGain || this.ctx!.destination);
+
+        osc.start(hitTime);
+        harm.start(hitTime);
+        osc.stop(hitTime + 0.7);
+        harm.stop(hitTime + 0.5);
+      });
+    } catch {}
+  }
+
   public playClimb() {
     if (this.isMuted) return;
     this.initContext();

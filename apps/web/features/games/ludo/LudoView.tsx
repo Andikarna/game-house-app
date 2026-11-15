@@ -29,7 +29,7 @@ export const LudoView: React.FC = () => {
 
   // Tracking refs to detect dice roll and token captures for sound effects
   const prevDiceRef = useRef<number | null>(null);
-  const prevTokensStateRef = useRef<Record<string, Record<number, string>>>({});
+  const prevTokensStateRef = useRef<Record<string, Record<number, { state: string; stepCount: number }>>>({});
   const isFirstRender = useRef(true);
 
   // Auto-play party BGM during Ludo match
@@ -40,7 +40,7 @@ export const LudoView: React.FC = () => {
     });
   }, []);
 
-  // Reactive Sound Effects for Dice Roll and Knocking Opponents Back to Base
+  // Reactive Sound Effects for Dice Roll and Synchronized Toasts
   useEffect(() => {
     if (!gameState || gameState.gameId !== 'ludo') return;
     const ludo = gameState as LudoGameState;
@@ -53,34 +53,61 @@ export const LudoView: React.FC = () => {
       prevDiceRef.current = null;
     }
 
-    // 2. Token Capture Sound: Detect if any token transitioned from 'track'/'home-stretch' to 'base'
+    // 2. Token Capture Toast: Synchronized with the walking arrival
     if (!isFirstRender.current) {
       let capturedPlayerNickname: string | null = null;
+      let walkSteps = 0;
+
+      // Check if any token is walking forward to capture
+      Object.values(ludo.players).forEach((p) => {
+        p.tokens.forEach((t) => {
+          const prev = prevTokensStateRef.current[p.playerId]?.[t.id];
+          if (prev && t.state !== 'base' && t.stepCount > prev.stepCount) {
+            walkSteps = Math.max(walkSteps, t.stepCount - prev.stepCount);
+          }
+        });
+      });
 
       Object.values(ludo.players).forEach((p) => {
         p.tokens.forEach((t) => {
-          const prevState = prevTokensStateRef.current[p.playerId]?.[t.id];
-          if ((prevState === 'track' || prevState === 'home-stretch') && t.state === 'base') {
+          const prev = prevTokensStateRef.current[p.playerId]?.[t.id];
+          if (prev && (prev.state === 'track' || prev.state === 'home-stretch') && t.state === 'base') {
             capturedPlayerNickname = p.nickname;
           }
         });
       });
 
       if (capturedPlayerNickname) {
-        // Dramatic comic BONK + flying slide whistle sound effect!
-        soundManager.playTokenCapture();
-        addToast(`💥 Bidak ${capturedPlayerNickname} dipulangkan ke markas!`, 'warning');
+        const delay = walkSteps * 140;
+        setTimeout(() => {
+          addToast(`💥 Bidak ${capturedPlayerNickname} dipulangkan ke markas!`, 'warning');
+        }, delay);
+      }
+
+      // 3. Token Finish Toast
+      let finishedPlayerNickname: string | null = null;
+      Object.values(ludo.players).forEach((p) => {
+        p.tokens.forEach((t) => {
+          const prev = prevTokensStateRef.current[p.playerId]?.[t.id];
+          if (prev && prev.state !== 'finished' && t.state === 'finished') {
+            finishedPlayerNickname = p.nickname;
+          }
+        });
+      });
+
+      if (finishedPlayerNickname) {
+        addToast(`🎉 ${finishedPlayerNickname} berhasil memasukkan bidak ke HOME!`, 'success');
       }
     } else {
       isFirstRender.current = false;
     }
 
     // Update tokens cache
-    const currentTokensMap: Record<string, Record<number, string>> = {};
+    const currentTokensMap: Record<string, Record<number, { state: string; stepCount: number }>> = {};
     Object.values(ludo.players).forEach((p) => {
       currentTokensMap[p.playerId] = {};
       p.tokens.forEach((t) => {
-        currentTokensMap[p.playerId][t.id] = t.state;
+        currentTokensMap[p.playerId][t.id] = { state: t.state, stepCount: t.stepCount };
       });
     });
     prevTokensStateRef.current = currentTokensMap;
