@@ -644,6 +644,69 @@ class SoundManager {
     } catch {}
   }
 
+  public playDiceImpact() {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    try {
+      const now = this.ctx.currentTime;
+      // Solid table felt impact thud
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(180, now);
+      osc.frequency.exponentialRampToValueAtTime(45, now + 0.08);
+
+      gain.gain.setValueAtTime(0.25 * this.volume, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+
+      osc.connect(gain);
+      gain.connect(this.sfxGain || this.ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.1);
+    } catch {}
+  }
+
+  public playCriticalRoll() {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    try {
+      const now = this.ctx.currentTime;
+      // High-energy celebratory sparkling chime for a Critical 6 roll!
+      const chord = [523.25, 659.25, 783.99, 1046.5]; // C5, E5, G5, C6
+      chord.forEach((freq, idx) => {
+        const hit = now + idx * 0.05;
+        const osc = this.ctx!.createOscillator();
+        const harm = this.ctx!.createOscillator();
+        const gain = this.ctx!.createGain();
+
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, hit);
+
+        harm.type = 'sine';
+        harm.frequency.setValueAtTime(freq * 2, hit);
+
+        const vol = 0.22 * this.volume;
+        gain.gain.setValueAtTime(vol, hit);
+        gain.gain.exponentialRampToValueAtTime(0.001, hit + 0.5);
+
+        osc.connect(gain);
+        harm.connect(gain);
+        gain.connect(this.sfxGain || this.ctx!.destination);
+
+        osc.start(hit);
+        harm.start(hit);
+        osc.stop(hit + 0.55);
+        harm.stop(hit + 0.55);
+      });
+    } catch {}
+  }
+
   public playTokenCapture() {
     if (this.isMuted) return;
     this.initContext();
