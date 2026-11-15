@@ -49,6 +49,17 @@ export const LudoView: React.FC = () => {
     if (ludo.diceValue !== null && ludo.diceValue !== prevDiceRef.current) {
       soundManager.playDiceRoll();
       prevDiceRef.current = ludo.diceValue;
+
+      // Helpful notice if no valid moves (e.g. rolled < 6 while all in base)
+      if (ludo.validMoves.length === 0 && ludo.currentTurnPlayerId === playerId) {
+        const myP = ludo.players[playerId];
+        const allInBaseOrDone = myP?.tokens.every((t) => t.state === 'base' || t.state === 'finished');
+        if (allInBaseOrDone) {
+          addToast(`🎲 Dadu ${ludo.diceValue}: Butuh angka 6 untuk keluar dari markas!`, 'info');
+        } else {
+          addToast(`🎲 Dadu ${ludo.diceValue}: Tidak ada langkah yang valid.`, 'info');
+        }
+      }
     } else if (ludo.diceValue === null) {
       prevDiceRef.current = null;
     }

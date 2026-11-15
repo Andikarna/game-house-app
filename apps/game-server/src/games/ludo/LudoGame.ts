@@ -242,9 +242,15 @@ export class LudoGame implements GameModule {
     this.validMoves = this.calculateValidMoves(player, this.diceValue);
 
     if (this.validMoves.length === 0) {
-      this.lastMoveNotice = `${player.nickname} dapat ${this.diceValue}. Tidak ada langkah valid!`;
+      const hasBaseTokens = player.tokens.some((t) => t.state === 'base');
+      const allBaseOrDone = player.tokens.every((t) => t.state === 'base' || t.state === 'finished');
+      if (allBaseOrDone && hasBaseTokens) {
+        this.lastMoveNotice = `${player.nickname} dapat ${this.diceValue}. Butuh angka 6 untuk keluar markas!`;
+      } else {
+        this.lastMoveNotice = `${player.nickname} dapat ${this.diceValue}. Tidak ada langkah valid!`;
+      }
       this.broadcastState();
-      this.schedulePassTurn(1200);
+      this.schedulePassTurn(1500);
     } else {
       this.lastMoveNotice = `${player.nickname} dapat angka ${this.diceValue}! Pilih bidak yang ingin dijalankan.`;
       this.broadcastState();

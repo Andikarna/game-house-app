@@ -420,12 +420,13 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
             delete activeIntervalsRef.current[key];
           }
 
-          // If another token is walking towards it, delay capture until the capturer arrives!
-          if (maxWalkDuration > 0) {
-            if (captureTimeoutsRef.current[key]) {
-              clearTimeout(captureTimeoutsRef.current[key]);
-            }
+          if (captureTimeoutsRef.current[key]) {
+            // Already scheduled and awaiting capturer arrival! Do not reset.
+            return;
+          }
 
+          // If another token is currently walking to capture this token, delay return until it arrives!
+          if (maxWalkDuration > 0) {
             const capturedCoord = getTokenCoordinate(player.color, token.id, currentDisplayed, 'track');
             targetStepsRef.current[key] = 0;
 
@@ -442,36 +443,44 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
 
               // 3. Now send the captured token flying back to its base!
               displayedStepsRef.current[key] = 0;
+              targetStepsRef.current[key] = 0;
               setAnimatedSteps((prev) => ({ ...prev, [key]: 0 }));
               delete captureTimeoutsRef.current[key];
             }, maxWalkDuration);
             return;
           }
 
-          displayedStepsRef.current[key] = serverTarget;
-          targetStepsRef.current[key] = serverTarget;
-          setAnimatedSteps((prev) => ({ ...prev, [key]: serverTarget }));
+          displayedStepsRef.current[key] = 0;
+          targetStepsRef.current[key] = 0;
+          setAnimatedSteps((prev) => ({ ...prev, [key]: 0 }));
           return;
         }
 
         // 3. Token advanced forward
+        // Case A: Moving from base (0) directly to start tile (1)
+        if (token.state === 'track' && token.stepCount === 1) {
+          if (activeIntervalsRef.current[key]) {
+            clearInterval(activeIntervalsRef.current[key]);
+            delete activeIntervalsRef.current[key];
+          }
+          if (captureTimeoutsRef.current[key]) {
+            clearTimeout(captureTimeoutsRef.current[key]);
+            delete captureTimeoutsRef.current[key];
+          }
+          if (displayedStepsRef.current[key] !== 1) {
+            displayedStepsRef.current[key] = 1;
+            targetStepsRef.current[key] = 1;
+            setAnimatedSteps((prev) => ({ ...prev, [key]: 1 }));
+            soundManager.playTokenMove();
+          }
+          return;
+        }
+
+        // Case B: Advancing along track (walking tile by tile)
         const prevTarget = targetStepsRef.current[key] ?? currentDisplayed;
         if (serverTarget > prevTarget) {
           targetStepsRef.current[key] = serverTarget;
 
-          // If moving from base (0) directly to start tile (1)
-          if (currentDisplayed === 0 && serverTarget === 1) {
-            if (activeIntervalsRef.current[key]) {
-              clearInterval(activeIntervalsRef.current[key]);
-              delete activeIntervalsRef.current[key];
-            }
-            displayedStepsRef.current[key] = 1;
-            setAnimatedSteps((prev) => ({ ...prev, [key]: 1 }));
-            soundManager.playTokenMove();
-            return;
-          }
-
-          // If walking along track (e.g., 1 -> 5), walk tile by tile!
           if (!activeIntervalsRef.current[key]) {
             activeIntervalsRef.current[key] = setInterval(() => {
               const cur = displayedStepsRef.current[key] ?? 0;
@@ -523,12 +532,18 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
       const serverStep = token.state === 'base' ? 0 : token.stepCount;
       const animStep = animatedSteps[key];
 
-      // Safeguard: token on track or home-stretch must never fall back to base coordinates (0)
-      const currentStep = (serverStep > 0 && (animStep === undefined || animStep === 0))
-        ? serverStep
-        : (animStep ?? serverStep);
+      // If token is currently captured and waiting for capturer to arrive, keep displaying on track!
+      const isAwaitingCaptureArrival = captureTimeoutsRef.current[key] !== undefined;
 
-      const [r, c] = getTokenCoordinate(player.color, token.id, currentStep, token.state);
+      const currentStep = isAwaitingCaptureArrival
+        ? (animStep ?? serverStep)
+        : (token.state === 'base' ? 0 : (animStep ?? serverStep));
+
+      const effectiveState = (isAwaitingCaptureArrival && currentStep > 0)
+        ? 'track'
+        : token.state;
+
+      const [r, c] = getTokenCoordinate(player.color, token.id, currentStep, effectiveState);
 
       const isValid = isMyTurn && player.playerId === myPlayerId && validMoves.includes(token.id);
 
