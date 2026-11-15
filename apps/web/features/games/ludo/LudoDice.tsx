@@ -23,7 +23,7 @@ export const LudoDice: React.FC<LudoDiceProps> = ({
   const handleClick = () => {
     if (!canRoll || !isMyTurn || isAnimating) return;
     setIsAnimating(true);
-    soundManager.playClimb(); // SFX roll rattle
+    soundManager.playDiceRoll(); // Real tactile physical dice rolling SFX
 
     onRoll();
 

@@ -227,7 +227,7 @@ export class LudoGame implements GameModule {
     if (this.diceValue === 6) {
       this.consecutiveSixes++;
       if (this.consecutiveSixes === 3) {
-        this.lastMoveNotice = `${player.nickname} rolled three 6s in a row! Turn forfeited.`;
+        this.lastMoveNotice = `${player.nickname} dapat angka 6 tiga kali berturut-turut! Giliran dibatalkan.`;
         this.consecutiveSixes = 0;
         this.validMoves = [];
         this.broadcastState();
@@ -242,12 +242,12 @@ export class LudoGame implements GameModule {
     this.validMoves = this.calculateValidMoves(player, this.diceValue);
 
     if (this.validMoves.length === 0) {
-      this.lastMoveNotice = `${player.nickname} rolled a ${this.diceValue}. No valid moves!`;
+      this.lastMoveNotice = `${player.nickname} dapat ${this.diceValue}. Tidak ada langkah valid!`;
       this.broadcastState();
       this.schedulePassTurn(1200);
     } else if (this.validMoves.length === 1) {
       // Single valid move option
-      this.lastMoveNotice = `${player.nickname} rolled a ${this.diceValue}!`;
+      this.lastMoveNotice = `${player.nickname} dapat angka ${this.diceValue}!`;
       this.broadcastState();
       // Optional: Auto move after brief delay if only token in base, or wait for player tap
       const onlyMove = this.validMoves[0];
@@ -257,7 +257,7 @@ export class LudoGame implements GameModule {
         }, 900);
       }
     } else {
-      this.lastMoveNotice = `${player.nickname} rolled a ${this.diceValue}! Select a token to move.`;
+      this.lastMoveNotice = `${player.nickname} dapat angka ${this.diceValue}! Pilih bidak untuk melangkah.`;
       this.broadcastState();
     }
   }
@@ -303,7 +303,7 @@ export class LudoGame implements GameModule {
       token.state = 'track';
       token.stepCount = 1;
       token.trackPosition = LudoGame.START_TILES[player.color];
-      this.lastMoveNotice = `${player.nickname} moved a token out of base!`;
+      this.lastMoveNotice = `🎲 ${player.nickname} mengeluarkan bidak dari markas!`;
     } else {
       const newStep = token.stepCount + dice;
       if (newStep <= 51) {
@@ -311,13 +311,13 @@ export class LudoGame implements GameModule {
         token.state = 'track';
         token.stepCount = newStep;
         token.trackPosition = (LudoGame.START_TILES[player.color] + (newStep - 1)) % LudoGame.TRACK_LENGTH;
-        this.lastMoveNotice = `${player.nickname} moved ${dice} steps.`;
+        this.lastMoveNotice = `${player.nickname} melangkah ${dice} kotak.`;
       } else if (newStep >= 52 && newStep < 57) {
         // Entering or advancing inside private home stretch
         token.state = 'home-stretch';
         token.stepCount = newStep;
         token.trackPosition = -1; // off common track
-        this.lastMoveNotice = `${player.nickname} is on the home stretch!`;
+        this.lastMoveNotice = `${player.nickname} memasuki jalur home!`;
       } else if (newStep === 57) {
         // Reached HOME!
         token.state = 'finished';
@@ -326,7 +326,7 @@ export class LudoGame implements GameModule {
         player.finishedCount++;
         didFinishToken = true;
         grantBonusRoll = true;
-        this.lastMoveNotice = `🎉 ${player.nickname} moved a token HOME! Extra roll!`;
+        this.lastMoveNotice = `🎉 ${player.nickname} berhasil memasukkan bidak ke HOME! Lempar lagi!`;
       }
     }
 
@@ -342,7 +342,7 @@ export class LudoGame implements GameModule {
               otherToken.trackPosition = -1;
               didCapture = true;
               grantBonusRoll = true;
-              this.lastMoveNotice = `💥 ${player.nickname} captured ${otherPlayer.nickname}'s token! Extra roll!`;
+              this.lastMoveNotice = `💥 ${player.nickname} memulangkan bidak ${otherPlayer.nickname} ke markas! Lempar lagi!`;
             }
           });
         }
@@ -353,7 +353,7 @@ export class LudoGame implements GameModule {
     if (dice === 6) {
       grantBonusRoll = true;
       if (!didCapture && !didFinishToken) {
-        this.lastMoveNotice = `${player.nickname} rolled a 6! Extra roll granted.`;
+        this.lastMoveNotice = `🎲 ${player.nickname} dapat dadu 6! Dapat giliran lempar ekstra.`;
       }
     }
 

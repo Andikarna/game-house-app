@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useGameStore } from '../../../stores/useGameStore';
 import { LudoGameState } from '@gamehouse/shared';
 import { LudoBoard } from './LudoBoard';
@@ -6,7 +6,7 @@ import { LudoDice } from './LudoDice';
 import { LudoTurnHUD } from './LudoTurnHUD';
 import { LudoResultModal } from './LudoResultModal';
 import { soundManager } from '../../../components/audio/SoundManager';
-import { LogOut, Volume2, VolumeX, Dices, Trophy } from 'lucide-react';
+import { LogOut, Volume2, VolumeX, Dices, Trophy, Swords } from 'lucide-react';
 import Link from 'next/link';
 
 export const LudoView: React.FC = () => {
@@ -23,6 +23,11 @@ export const LudoView: React.FC = () => {
   const isHost = room?.hostId === playerId;
   const [isAudioMuted, setIsAudioMuted] = useState(soundManager.getIsMuted());
 
+  // Tracking refs to detect dice roll and token captures for sound effects
+  const prevDiceRef = useRef<number | null>(null);
+  const prevTokensStateRef = useRef<Record<string, Record<number, string>>>({});
+  const isFirstRender = useRef(true);
+
   // Auto-play party BGM during Ludo match
   useEffect(() => {
     soundManager.startBGM();
@@ -30,6 +35,52 @@ export const LudoView: React.FC = () => {
       setIsAudioMuted(!playing);
     });
   }, []);
+
+  // Reactive Sound Effects for Dice Roll and Knocking Opponents Back to Base
+  useEffect(() => {
+    if (!gameState || gameState.gameId !== 'ludo') return;
+    const ludo = gameState as LudoGameState;
+
+    // 1. Dice Roll Sound: Trigger when dice value is newly rolled
+    if (ludo.diceValue !== null && ludo.diceValue !== prevDiceRef.current) {
+      soundManager.playDiceRoll();
+      prevDiceRef.current = ludo.diceValue;
+    } else if (ludo.diceValue === null) {
+      prevDiceRef.current = null;
+    }
+
+    // 2. Token Capture Sound: Detect if any token transitioned from 'track'/'home-stretch' to 'base'
+    if (!isFirstRender.current) {
+      let capturedPlayerNickname: string | null = null;
+
+      Object.values(ludo.players).forEach((p) => {
+        p.tokens.forEach((t) => {
+          const prevState = prevTokensStateRef.current[p.playerId]?.[t.id];
+          if ((prevState === 'track' || prevState === 'home-stretch') && t.state === 'base') {
+            capturedPlayerNickname = p.nickname;
+          }
+        });
+      });
+
+      if (capturedPlayerNickname) {
+        // Dramatic comic BONK + flying slide whistle sound effect!
+        soundManager.playTokenCapture();
+        addToast(`💥 Bidak ${capturedPlayerNickname} dipulangkan ke markas!`, 'warning');
+      }
+    } else {
+      isFirstRender.current = false;
+    }
+
+    // Update tokens cache
+    const currentTokensMap: Record<string, Record<number, string>> = {};
+    Object.values(ludo.players).forEach((p) => {
+      currentTokensMap[p.playerId] = {};
+      p.tokens.forEach((t) => {
+        currentTokensMap[p.playerId][t.id] = t.state;
+      });
+    });
+    prevTokensStateRef.current = currentTokensMap;
+  }, [gameState, addToast]);
 
   const handleToggleAudio = () => {
     const isPlaying = soundManager.toggleMusic();

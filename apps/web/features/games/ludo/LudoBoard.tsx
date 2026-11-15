@@ -385,7 +385,7 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
 
   const handleTokenClick = (tokenIndex: number) => {
     if (!isMyTurn || !validMoves.includes(tokenIndex)) return;
-    soundManager.playClimb(); // SFX token hop
+    soundManager.playTokenMove(); // SFX token hop
     onSelectToken(tokenIndex);
   };
 

@@ -354,6 +354,126 @@ class SoundManager {
   // =========================================================================
   // 2. IN-GAME SOUND EFFECTS (SFX)
   // =========================================================================
+  public playDiceRoll() {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    try {
+      const now = this.ctx.currentTime;
+      // Tumbling dice rattle: series of realistic percussive impacts
+      const delays = [0, 0.065, 0.135, 0.21, 0.29, 0.38];
+      const freqs = [760, 620, 540, 480, 420, 360];
+
+      delays.forEach((delay, idx) => {
+        const hitTime = now + delay;
+        const osc = this.ctx!.createOscillator();
+        const gain = this.ctx!.createGain();
+
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freqs[idx] + (Math.random() * 30 - 15), hitTime);
+        osc.frequency.exponentialRampToValueAtTime(100, hitTime + 0.045);
+
+        const vol = (0.24 - idx * 0.032) * this.volume;
+        gain.gain.setValueAtTime(vol, hitTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, hitTime + 0.045);
+
+        osc.connect(gain);
+        gain.connect(this.sfxGain || this.ctx!.destination);
+
+        osc.start(hitTime);
+        osc.stop(hitTime + 0.05);
+      });
+    } catch {}
+  }
+
+  public playTokenCapture() {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    try {
+      const now = this.ctx.currentTime;
+
+      // 1. Heavy Comic Punch Impact ("BONK / KAPOW")
+      const punchOsc = this.ctx.createOscillator();
+      const punchGain = this.ctx.createGain();
+
+      punchOsc.type = 'square';
+      punchOsc.frequency.setValueAtTime(420, now);
+      punchOsc.frequency.exponentialRampToValueAtTime(70, now + 0.16);
+
+      punchGain.gain.setValueAtTime(0.35 * this.volume, now);
+      punchGain.gain.exponentialRampToValueAtTime(0.005, now + 0.18);
+
+      punchOsc.connect(punchGain);
+      punchGain.connect(this.sfxGain || this.ctx.destination);
+
+      punchOsc.start(now);
+      punchOsc.stop(now + 0.19);
+
+      // 2. Flying Slide Whistle ("WHEEE-OOUW" as token is booted back to base)
+      const slideOsc = this.ctx.createOscillator();
+      const slideGain = this.ctx.createGain();
+
+      slideOsc.type = 'sine';
+      slideOsc.frequency.setValueAtTime(980, now + 0.08);
+      slideOsc.frequency.exponentialRampToValueAtTime(180, now + 0.42);
+
+      slideGain.gain.setValueAtTime(0.001, now);
+      slideGain.gain.linearRampToValueAtTime(0.28 * this.volume, now + 0.12);
+      slideGain.gain.exponentialRampToValueAtTime(0.005, now + 0.42);
+
+      slideOsc.connect(slideGain);
+      slideGain.connect(this.sfxGain || this.ctx.destination);
+
+      slideOsc.start(now + 0.08);
+      slideOsc.stop(now + 0.45);
+
+      // 3. Splashdown / Thud when landing in corner base
+      const thudOsc = this.ctx.createOscillator();
+      const thudGain = this.ctx.createGain();
+
+      thudOsc.type = 'triangle';
+      thudOsc.frequency.setValueAtTime(140, now + 0.42);
+      thudOsc.frequency.exponentialRampToValueAtTime(50, now + 0.58);
+
+      thudGain.gain.setValueAtTime(0.3 * this.volume, now + 0.42);
+      thudGain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+
+      thudOsc.connect(thudGain);
+      thudGain.connect(this.sfxGain || this.ctx.destination);
+
+      thudOsc.start(now + 0.42);
+      thudOsc.stop(now + 0.62);
+    } catch {}
+  }
+
+  public playTokenMove() {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    try {
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(440, now);
+      osc.frequency.exponentialRampToValueAtTime(660, now + 0.07);
+
+      gain.gain.setValueAtTime(0.18 * this.volume, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
+
+      osc.connect(gain);
+      gain.connect(this.sfxGain || this.ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.08);
+    } catch {}
+  }
+
   public playClimb() {
     if (this.isMuted) return;
     this.initContext();
