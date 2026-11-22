@@ -20,6 +20,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'Nickname must be at least 2 characters.' }, { status: 400 });
     }
 
+    if (gameId === 'panjat-pinang') {
+      return NextResponse.json({ success: false, error: 'Game Panjat Pinang sedang dalam pemeliharaan (maintenance).' }, { status: 400 });
+    }
+
     let code = generateRoomCode();
     let isUnique = false;
     let attempts = 0;

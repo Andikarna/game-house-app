@@ -1,5 +1,5 @@
-export type GameId = 'panjat-pinang' | 'ludo' | 'obstacle-race' | 'card-battle' | 'mini-battle-arena';
-export type GameMode = 'classic-race' | 'survival-climb' | 'skill-battle' | 'classic' | 'quick';
+export type GameId = 'panjat-pinang' | 'ludo' | 'impostor-desa' | 'obstacle-race' | 'card-battle' | 'mini-battle-arena';
+export type GameMode = 'classic-race' | 'survival-climb' | 'skill-battle' | 'classic' | 'quick' | 'impostor-classic';
 export type RoomStatus = 'lobby' | 'countdown' | 'in-game' | 'finished';
 export type AvatarId = 'budi' | 'ujang' | 'rara' | 'koko' | 'jaya' | 'bayu' | 'siti' | 'jago' | 'climber-red' | 'climber-blue' | 'climber-green' | 'climber-yellow' | 'climber-purple' | 'climber-orange';
 export interface Player {
@@ -11,6 +11,8 @@ export interface Player {
     isReady: boolean;
     isConnected: boolean;
     joinedAt: number;
+    isBot?: boolean;
+    score?: number;
 }
 export interface RoomSettings {
     name: string;
@@ -19,6 +21,7 @@ export interface RoomSettings {
     maxPlayers: number;
     durationSeconds: number;
     isPrivate: boolean;
+    impostorCategories?: ImpostorCategory[];
 }
 export interface RoomInfo {
     id: string;
@@ -143,7 +146,11 @@ export interface LudoGameState {
     currentTurnColor: LudoColor;
     diceValue: number | null;
     isRolling: boolean;
+    hasRolled?: boolean;
     turnTimeRemaining: number;
+    turnStartedAt?: number | null;
+    passAt?: number | null;
+    consecutiveSixes?: number;
     players: Record<string, LudoPlayerState>;
     playerOrder: string[];
     validMoves: number[];
@@ -156,8 +163,124 @@ export type LudoInput = {
 } | {
     action: 'move-token';
     tokenIndex: number;
+} | {
+    action: 'pass-turn';
 };
-export type AnyGameState = PanjatPinangGameState | LudoGameState;
+export type ImpostorCategory = 'pertanian' | 'hewan' | 'pasar-desa' | 'kehidupan-desa' | 'makanan' | 'perkakas-alat' | 'alam-geografi' | 'permainan-tradisional' | 'kesenian-budaya' | 'transportasi-desa';
+export type ImpostorPhase = 'role-reveal' | 'clue' | 'discussion' | 'voting' | 'revote' | 'impostor-guess' | 'result';
+export type ImpostorPlayerRole = 'villager' | 'impostor';
+export interface ImpostorPlayerPublic {
+    id: string;
+    nickname: string;
+    avatar: AvatarId;
+    isConnected: boolean;
+    isReadyForRole: boolean;
+    hasGivenClue: boolean;
+    hasVoted: boolean;
+    isEliminated?: boolean;
+    isHost?: boolean;
+    isBot?: boolean;
+    score?: number;
+}
+export interface ImpostorClueEntry {
+    playerId: string;
+    nickname: string;
+    avatar: AvatarId;
+    clue: string;
+    turnNumber: number;
+}
+export interface ImpostorChatMessage {
+    id: string;
+    playerId: string;
+    nickname: string;
+    avatar: AvatarId;
+    message: string;
+    timestamp: number;
+}
+export interface ImpostorVoteSummary {
+    candidateId: string;
+    candidateNickname: string;
+    candidateAvatar: AvatarId;
+    voteCount: number;
+    voterIds: string[];
+}
+export interface ImpostorPrivateRoleData {
+    playerId: string;
+    role: ImpostorPlayerRole;
+    category: string;
+    categoryLabel: string;
+    secretWord?: string;
+    allCategories?: string[];
+    camouflageThemes?: string[];
+}
+export interface ImpostorLeaderboardEntry {
+    playerId: string;
+    nickname: string;
+    avatar: AvatarId;
+    role: ImpostorPlayerRole;
+    isWinner: boolean;
+    pointsAdded: number;
+    totalScore: number;
+}
+export interface ImpostorResultData {
+    winner: 'villagers' | 'impostor';
+    winReason: string;
+    impostorPlayerId: string;
+    impostorNickname: string;
+    impostorAvatar: AvatarId;
+    secretWord: string;
+    category: string;
+    categoryLabel: string;
+    votes: Record<string, string>;
+    voteSummaries: ImpostorVoteSummary[];
+    impostorGuess?: string | null;
+    guessIsCorrect?: boolean;
+    awardedScores?: Record<string, number>;
+    leaderboard?: ImpostorLeaderboardEntry[];
+}
+export interface ImpostorPublicGameState {
+    gameId: 'impostor-desa';
+    gameMode: GameMode;
+    status: RoomStatus;
+    phase: ImpostorPhase;
+    phaseTimeRemaining: number;
+    phaseTotalTime: number;
+    roundNumber: number;
+    category: ImpostorCategory;
+    categoryLabel: string;
+    players: Record<string, ImpostorPlayerPublic>;
+    playerOrder: string[];
+    currentClueTurnIndex: number;
+    currentTurnPlayerId: string | null;
+    clues: ImpostorClueEntry[];
+    eligibleCandidateIds: string[];
+    votedPlayerIds: string[];
+    chatMessages?: ImpostorChatMessage[];
+    caughtImpostorId: string | null;
+    impostorGuess?: string | null;
+    guessIsCorrect?: boolean;
+    winner: 'villagers' | 'impostor' | null;
+    winReason?: string;
+    resultData?: ImpostorResultData | null;
+}
+export type ImpostorInput = {
+    action: 'ready-role';
+} | {
+    action: 'submit-clue';
+    clue: string;
+} | {
+    action: 'start-voting';
+} | {
+    action: 'submit-vote';
+    targetPlayerId: string;
+} | {
+    action: 'submit-guess';
+    guessedWord: string;
+} | {
+    action: 'send-chat';
+    message: string;
+};
+export type AnyGameState = PanjatPinangGameState | LudoGameState | ImpostorPublicGameState;
 export type EmoteId = 'ggwp' | 'aaghh' | 'hahaha' | 'ez' | 'cepat' | 'otw' | 'santuy' | 'capekk' | 'trap' | 'sorry' | 'puyeng' | 'wush' | 'wow' | 'ampun' | 'jagoan' | 'licin' | 'merosot' | 'rip' | 'awas' | 'merdeka' | 'juara' | 'dakap' | 'tanya' | 'pelicin';
 export type EmoteCategory = 'all' | 'reaction' | 'taunt' | 'gameplay' | 'festival';
 export interface EmoteDefinition {

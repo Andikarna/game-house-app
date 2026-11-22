@@ -27,6 +27,7 @@ import { ClimberAvatarIcon, AvatarSelector } from '../../components/ui/AvatarSel
 import { GameHouseLogo } from '../../components/branding/GameHouseLogo';
 import { useSettingsStore } from '../../stores/useSettingsStore';
 import { Modal } from '../../components/ui/Modal';
+import { ImpostorLobbyScreen } from '../games/impostor-desa/components/ImpostorLobbyScreen';
 
 export const LobbyView: React.FC = () => {
   const { socket, room, playerId, setPlayerId, ping, addToast } = useGameStore();
@@ -60,9 +61,17 @@ export const LobbyView: React.FC = () => {
     room.hostId === playerId
   );
 
+  const isImpostorDesa = room.settings.gameId === 'impostor-desa';
+  const isPanjatPinang = room.settings.gameId === 'panjat-pinang';
+  if (isImpostorDesa) {
+    return <ImpostorLobbyScreen />;
+  }
+  const minPlayersRequired = isImpostorDesa ? 4 : (room.settings.gameId === 'ludo' ? 2 : 1);
+  const maxPlayersAllowed = isImpostorDesa ? 6 : (room.settings.gameId === 'ludo' ? 4 : 8);
+
   const nonHostPlayers = room.players.filter(p => !p.isHost && p.id !== room.hostId);
   const allReady = nonHostPlayers.length === 0 ? true : nonHostPlayers.every(p => p.isReady);
-  const canStart = isHost && room.players.length >= 1 && allReady;
+  const canStart = isHost && !isPanjatPinang && room.players.length >= minPlayersRequired && room.players.length <= maxPlayersAllowed && allReady;
 
   const handleCopyCode = () => {
     navigator.clipboard.writeText(room.code);
@@ -116,9 +125,20 @@ export const LobbyView: React.FC = () => {
     }
   };
 
-  const handleSwitchGame = (gameId: 'panjat-pinang' | 'ludo') => {
+  const handleSwitchGame = (gameId: 'panjat-pinang' | 'ludo' | 'impostor-desa') => {
+    if (gameId === 'panjat-pinang') {
+      addToast('Game Panjat Pinang sedang dalam pemeliharaan (maintenance).', 'error');
+      return;
+    }
     if (socket && isHost) {
-      if (gameId === 'ludo') {
+      if (gameId === 'impostor-desa') {
+        socket.emit('room:update-settings', {
+          gameId: 'impostor-desa',
+          gameMode: 'impostor-classic',
+          maxPlayers: 6,
+          durationSeconds: 240,
+        });
+      } else if (gameId === 'ludo') {
         socket.emit('room:update-settings', {
           gameId: 'ludo',
           gameMode: 'classic',
@@ -128,7 +148,7 @@ export const LobbyView: React.FC = () => {
         socket.emit('room:update-settings', {
           gameId: 'panjat-pinang',
           gameMode: 'classic-race',
-          maxPlayers: Math.max(room.settings.maxPlayers, 8),
+          maxPlayers: 8,
         });
       }
     }
@@ -170,7 +190,20 @@ export const LobbyView: React.FC = () => {
     },
   ];
 
-  const currentModes = room.settings.gameId === 'ludo' ? ludoModes : modes;
+  const impostorModes: { id: GameMode; title: string; desc: string; icon: string }[] = [
+    {
+      id: 'impostor-classic',
+      title: "Tebak I'amPostor",
+      desc: '1 Impostor bersembunyi di antara warga. Temukan lewat kata rahasia & petunjuk!',
+      icon: '🌾',
+    },
+  ];
+
+  const currentModes = room.settings.gameId === 'impostor-desa'
+    ? impostorModes
+    : room.settings.gameId === 'ludo'
+    ? ludoModes
+    : modes;
 
   return (
     <div className="min-h-screen bg-background text-white p-3 sm:p-8 pb-32 sm:pb-8 flex flex-col items-center justify-center relative overflow-hidden">
@@ -303,21 +336,23 @@ export const LobbyView: React.FC = () => {
                 </label>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <button
                   type="button"
-                  disabled={!isHost}
+                  disabled
                   onClick={() => handleSwitchGame('panjat-pinang')}
-                  className={`p-2.5 rounded-2xl border text-left transition-all flex items-center gap-2.5 ${
-                    room.settings.gameId === 'panjat-pinang'
-                      ? 'bg-orange-600/25 border-orange-500 shadow-glow-orange text-white'
-                      : 'bg-surface-elevated/60 border-slate-800 text-slate-400 hover:text-white'
-                  } ${!isHost ? 'cursor-default' : 'cursor-pointer'}`}
+                  className="p-2.5 rounded-2xl border text-left flex items-center gap-2.5 opacity-50 cursor-not-allowed bg-surface-elevated/40 border-slate-800 text-slate-500 relative"
+                  title="Game Panjat Pinang sedang dalam pemeliharaan (maintenance)"
                 >
-                  <span className="text-xl sm:text-2xl">🌴</span>
+                  <span className="text-xl sm:text-2xl grayscale">🌴</span>
                   <div>
-                    <h5 className="font-extrabold text-xs text-white">Panjat Pinang</h5>
-                    <p className="text-[10px] text-slate-400">2-8 Pemain</p>
+                    <div className="flex items-center gap-1">
+                      <h5 className="font-extrabold text-xs text-slate-400">Panjat Pinang</h5>
+                      <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 uppercase">
+                        Maint
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-slate-500">Maintenance</p>
                   </div>
                 </button>
 
@@ -334,7 +369,24 @@ export const LobbyView: React.FC = () => {
                   <span className="text-xl sm:text-2xl">🎲</span>
                   <div>
                     <h5 className="font-extrabold text-xs text-white">Ludo Party</h5>
-                    <p className="text-[10px] text-slate-400">2-4 Pemain (Board)</p>
+                    <p className="text-[10px] text-slate-400">2-4 Pemain</p>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={!isHost}
+                  onClick={() => handleSwitchGame('impostor-desa')}
+                  className={`p-2.5 rounded-2xl border text-left transition-all flex items-center gap-2.5 ${
+                    room.settings.gameId === 'impostor-desa'
+                      ? 'bg-emerald-600/25 border-emerald-500 shadow-glow-primary text-white'
+                      : 'bg-surface-elevated/60 border-slate-800 text-slate-400 hover:text-white'
+                  } ${!isHost ? 'cursor-default' : 'cursor-pointer'}`}
+                >
+                  <span className="text-xl sm:text-2xl">🌾</span>
+                  <div>
+                    <h5 className="font-extrabold text-xs text-white">I'amPostor</h5>
+                    <p className="text-[10px] text-slate-400">4-6 Pemain</p>
                   </div>
                 </button>
               </div>
@@ -410,12 +462,12 @@ export const LobbyView: React.FC = () => {
               <div className="flex items-center gap-2">
                 <Users className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-400" />
                 <h3 className="font-black text-base sm:text-lg text-white">
-                  Climbers in Lobby ({room.players.length}/{room.settings.maxPlayers})
+                  {isImpostorDesa ? 'Warga & Pemain' : 'Pemain'} ({room.players.length}/{room.settings.maxPlayers})
                 </h3>
               </div>
 
               <span className="text-[10px] sm:text-xs text-slate-400 font-semibold">
-                Min. 2 players to start
+                {isImpostorDesa ? 'Min. 4 pemain (maks. 6)' : 'Min. 2 players to start'}
               </span>
             </div>
 
@@ -501,17 +553,21 @@ export const LobbyView: React.FC = () => {
             {/* Desktop Bottom Actions */}
             <div className="hidden sm:flex pt-6 mt-4 border-t border-slate-800 items-center justify-between gap-4">
               <div className="text-xs text-slate-400">
-                {room.players.length === 1 ? (
-                  <span className="text-emerald-400 font-bold flex items-center gap-1.5">
-                    <Sparkles className="w-4 h-4" /> Ready to play! Host can start now!
+                {isPanjatPinang ? (
+                  <span className="text-amber-400 font-bold flex items-center gap-1.5">
+                    🛠️ Game Panjat Pinang sedang dalam pemeliharaan (maintenance). Silakan ganti permainan.
+                  </span>
+                ) : isImpostorDesa && room.players.length < 4 ? (
+                  <span className="text-amber-300 font-semibold">
+                    Butuh minimal 4 pemain untuk memulai I'amPostor (saat ini: {room.players.length}/6)...
                   </span>
                 ) : !allReady ? (
                   <span className="text-amber-300 font-semibold">
-                    Waiting for climbers to get ready...
+                    Menunggu semua pemain siap...
                   </span>
                 ) : (
                   <span className="text-emerald-400 font-bold flex items-center gap-1.5">
-                    <Sparkles className="w-4 h-4" /> All climbers ready! Host can start!
+                    <Sparkles className="w-4 h-4" /> Semua pemain siap! Host dapat memulai!
                   </span>
                 )}
               </div>

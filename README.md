@@ -47,6 +47,27 @@ The flagship first mini-game is **Panjat Pinang Battle** — an Indonesian 17 Au
   - Exact rolls required to reach the center finish triangle.
 - **Interactive Visuals:** 3D animated dice rolling, animated token movements, real-time turn countdown, and celebratory victory screen.
 
+### 4. Impostor Desa (Third Game — Social Deduction)
+- **Tema Pedesaan Indonesia (4–6 Pemain):** Suasana pedesaan yang cerah, ramah, dan sedikit jenaka berlatar sawah berundak, bukit hijau, dan rumah limasan.
+- **Loop Permainan & Fase Otoritatif:**
+  1. **Buat / Gabung Room:** Host membuat room (kapasitas 4–6 pemain), membagikan kode room atau invite link.
+  2. **Pembagian Peran (Role Reveal):** Server secara acak memilih 1 Impostor. Warga menerima role privat & kata rahasia; Impostor hanya menerima role privat tanpa kata rahasia. Event `impostor:private-role` dikirim secara privat ke socket masing-masing pemain.
+  3. **Giliran Petunjuk (Clue Phase):** Pemain bergiliran mengirim 1 petunjuk singkat (maks. 40 karakter) dengan timer giliran 20 detik. Dilarang menyebut kata rahasia secara langsung.
+  4. **Diskusi (Discussion Phase):** Timer 60 detik untuk membahas petunjuk yang mencurigakan, atau host/pemain dapat mempercepat langsung ke voting.
+  5. **Voting Rahasia & Revote:** Setiap pemain memilih 1 tersangka secara rahasia (tidak bisa memilih diri sendiri). Jika terjadi hasil seri suara terbanyak, diadakan revote khusus untuk kandidat yang seri. Jika revote masih seri, Impostor dinyatakan menang.
+  6. **Hasil & Tebakan Terakhir Impostor:**
+     - Jika Impostor terpilih dengan suara terbanyak, ia tertangkap namun mendapat **1 kesempatan terakhir menebak kata rahasia** dalam 30 detik.
+     - Jika tebakan benar: **Impostor Menang!**
+     - Jika tebakan salah: **Warga Desa Menang!**
+     - Jika warga salah menuduh warga desa lain: **Impostor Menang!**
+- **5 Kategori Kata Khas Pedesaan:**
+  - 🌾 **Pertanian:** Sawah, Padi, Cangkul, Traktor, Pupuk, Panen, Jagung, Ladang, Petani, Kerbau
+  - 🐄 **Hewan:** Ayam, Bebek, Kambing, Sapi, Kerbau, Kelinci, Kucing, Burung, Angsa, Kuda
+  - 🏪 **Pasar Desa:** Warung, Bakso, Sayur, Cabai, Beras, Tempe, Tahu, Kelapa, Pisang, Singkong
+  - 🏡 **Kehidupan Desa:** Pos ronda, Balai desa, Sumur, Kebun, Mushola, Sepeda, Sungai, Jembatan, Lapangan, Gardu
+  - 🍲 **Makanan:** Rendang, Pecel, Gudeg, Soto, Rawon, Nasi uduk, Gorengan, Klepon, Getuk, Serabi
+- **Visual Direction & Audio:** Mengikuti panduan GDD (#2F7D55 Village Green, #FFF8E8 Warm Cream, #F2A444 Harvest Yellow, #18352B Deep Forest, #E46B5D Tomato Red, #CBEA8B Leaf Lime) dengan karakter chibi berkostum pedesaan nusantara (sarung, blangkon, caping tani, kebaya, bandana).
+
 ---
 
 ## 🛠️ Technology Stack
@@ -183,6 +204,26 @@ To test real online multiplayer:
 6. In Browser 2, click **I'm Ready!**.
 7. In Browser 1 (Host), the **START BATTLE!** button will illuminate. Click it to begin the 3-second countdown!
 8. Use `W` or `Up Arrow` to climb, `A` / `D` to keep balance centered, and `Q`, `E`, `Space`, `R` for skills!
+
+---
+
+## 🌾 Testing Impostor Desa with 4–6 Browser Sessions
+
+To test the full 4–6 player social deduction game loop:
+1. Open **Browser 1 (Host)** at `http://localhost:3000`.
+2. Click **Buat Room**, select **Impostor Desa** (4–6 pemain), choose nickname and click **Create Room**.
+3. Copy the Room Code or invitation link (`/room/CODE`).
+4. Open **Browser 2, 3, and 4** (using Incognito tabs, guest profiles, or different browsers).
+5. Join with distinct nicknames (e.g., *Budi*, *Siti*, *Andi*, *Rina*).
+6. Non-host players toggle **I'm Ready!**. Notice that with less than 4 players, the start button is safely locked with the requirement message. Once 4–6 players are ready, the host clicks **START!**.
+7. **Fase 1 — Role Reveal:** Check each screen privately. 3 villagers receive the secret word (e.g., `SAWAH`), while 1 player is privately assigned `IMPOSTOR` without the secret word. Click **Saya Siap**.
+8. **Fase 2 — Ronde Petunjuk:** Watch the turn indicator and timer (20s). The active player types a clue (<= 40 characters) and hits Kirim.
+9. **Fase 3 — Diskusi:** 60s discussion timer reviews all clues. Click **Mulai Voting**.
+10. **Fase 4 — Voting Rahasia:** Each player selects a suspect card (cannot select self) and locks in their vote.
+11. **Fase 5 — Revote & Tebakan Impostor:**
+    - If there is a tie, only top tied candidates are revoted.
+    - If the Impostor is caught, the Impostor gets 30s to guess the secret word from the category to steal victory!
+12. **Fase 6 — Hasil:** Full reveal of the impostor identity, secret word, vote tally table, and rematch button.
 
 ---
 

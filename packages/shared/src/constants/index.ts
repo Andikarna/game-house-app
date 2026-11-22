@@ -1,4 +1,4 @@
-import { SkillDefinition, SkillType, AvatarId, EmoteDefinition, EmoteId, EmoteCategory } from '../types';
+import { SkillDefinition, SkillType, AvatarId, EmoteDefinition, EmoteId, EmoteCategory, ImpostorCategory } from '../types';
 
 export const SERVER_TICK_RATE = 20; // 20 ticks per second (50ms interval)
 export const CLIENT_INPUT_RATE = 20; // client sends input every 50ms
@@ -9,6 +9,7 @@ export const DEFAULT_GAME_DURATION: Record<string, number> = {
   'skill-battle': 150, // 2.5 minutes
   'classic': 600, // 10 minutes
   'quick': 300, // 5 minutes
+  'impostor-classic': 240, // 4 minutes
 };
 
 export interface AvatarOption {
@@ -290,3 +291,178 @@ export const EMOTE_LIST: EmoteDefinition[] = [
   { id: 'tanya', label: '?!', category: 'reaction', image: '/assets/emotes/tanya.png', description: 'Kaget tanda tanya dan tanda seru!' },
   { id: 'pelicin', label: 'PELICIN!', category: 'gameplay', image: '/assets/emotes/pelicin.png', description: 'Oli pelicin tumpah di tiang pinang!' },
 ];
+
+// =========================================================================
+// IMPOSTOR DESA GAME CONFIGURATION & DATASETS
+// =========================================================================
+
+export interface ImpostorCategoryConfig {
+  id: ImpostorCategory;
+  name: string;
+  icon: string;
+  badge: string;
+  description: string;
+  words: string[];
+}
+
+export const IMPOSTOR_CATEGORIES: Record<ImpostorCategory, ImpostorCategoryConfig> = {
+  'pertanian': {
+    id: 'pertanian',
+    name: 'Pertanian',
+    icon: '🌾',
+    badge: 'Sawah & Tani',
+    description: 'Sawah, alat tani, dan hasil panen pedesaan',
+    words: [
+      'Sawah', 'Padi', 'Cangkul', 'Traktor', 'Pupuk', 'Panen', 'Jagung', 'Ladang', 'Petani', 'Kerbau',
+      'Caping', 'Irigasi', 'Terasering', 'Lumbung', 'Pematang', 'Jerami', 'Orang-orangan sawah', 'Arit', 'Biji padi', 'Garpu tanah',
+      'Singkong', 'Ubi jalar', 'Kedelai', 'Kacang tanah', 'Bawang merah', 'Cabai rawit', 'Tembakau', 'Tebu', 'Semangka', 'Mentimun',
+      'Musim tanam', 'Bajak singkal', 'Saluran air', 'Hama tikus', 'Pondok sawah',
+    ],
+  },
+  'hewan': {
+    id: 'hewan',
+    name: 'Hewan Ternak',
+    icon: '🐄',
+    badge: 'Ternak & Satwa',
+    description: 'Hewan peliharaan dan ternak di pedesaan',
+    words: [
+      'Ayam', 'Bebek', 'Kambing', 'Sapi', 'Kerbau', 'Kelinci', 'Kucing', 'Burung', 'Angsa', 'Kuda',
+      'Entog', 'Kalkun', 'Merpati', 'Burung perkutut', 'Ikan lele', 'Ikan nila', 'Ikan mas', 'Belut', 'Kambing etawa', 'Ayam jago',
+      'Anjing kampung', 'Bunglon', 'Katak sawah', 'Capung', 'Jangkrik', 'Kunang-kunang', 'Kupu-kupu', 'Tupai', 'Musang', 'Kelelawar',
+      'Burung hantu', 'Belalang', 'Semut rangrang', 'Cacing tanah', 'Bebek manila',
+    ],
+  },
+  'pasar-desa': {
+    id: 'pasar-desa',
+    name: 'Pasar Desa',
+    icon: '🏪',
+    badge: 'Pasar & Niaga',
+    description: 'Komoditas, warung, dan bahan di pasar tradisional',
+    words: [
+      'Warung', 'Bakso', 'Sayur', 'Cabai', 'Beras', 'Tempe', 'Tahu', 'Kelapa', 'Pisang', 'Singkong',
+      'Timbangan bebek', 'Kantung kresek', 'Keranjang anyaman', 'Uang koin', 'Ikan asin', 'Garam kasar', 'Minyak goreng', 'Gula merah', 'Bawang putih', 'Bumbu dapur',
+      'Kangkung', 'Bayam', 'Terong', 'Tomat', 'Kacang panjang', 'Labu siam', 'Tauge', 'Krupuk kaleng', 'Es lilin', 'Jajanan pasar',
+      'Los pasar', 'Kios kelontong', 'Penjual jamu', 'Kupon undian', 'Becak pasar',
+    ],
+  },
+  'kehidupan-desa': {
+    id: 'kehidupan-desa',
+    name: 'Kehidupan Desa',
+    icon: '🏡',
+    badge: 'Warga & Lingkungan',
+    description: 'Tempat berkumpul, fasilitas desa, dan alam sekitar',
+    words: [
+      'Pos ronda', 'Balai desa', 'Sumur', 'Kebun', 'Mushola', 'Sepeda ontel', 'Sungai', 'Jembatan bambu', 'Lapangan desa', 'Gardu listrik',
+      'Rumah panggung', 'Lumbung desa', 'Pancuran air', 'Empang ikan', 'Gapura desa', 'Jalan setapak', 'Kandang ternak', 'Dapur pawon', 'Pagar bambu', 'Bale-bale',
+      'Kentongan', 'Ronda malam', 'Kerja bakti', 'Pengajian', 'Arisan warga', 'Kenduri', 'Kopdes', 'Rembuk warga', 'Gotong royong', 'Pondok pesantren',
+      'Kran umum', 'Kuburan desa', 'Beringin tua', 'Sungai berbatu', 'Warung kopi',
+    ],
+  },
+  'makanan': {
+    id: 'makanan',
+    name: 'Makanan Khas',
+    icon: '🍲',
+    badge: 'Kuliner Desa',
+    description: 'Kuliner tradisional khas desa yang lezat',
+    words: [
+      'Rendang', 'Pecel', 'Gudeg', 'Soto', 'Rawon', 'Nasi uduk', 'Gorengan', 'Klepon', 'Getuk', 'Serabi',
+      'Nasi liwet', 'Lontong sayur', 'Tahu tempe bacem', 'Sayur lodeh', 'Sayur asem', 'Sambal terasi', 'Ikan bakar', 'Ayam kremes', 'Pepes tahu', 'Urap sayur',
+      'Kue cucur', 'Lumpia', 'Lemper', 'Onde-onde', 'Nagasari', 'Tiwul', 'Cenil', 'Ketan serundeng', 'Bakwan jagung', 'Rempeyek',
+      'Es dawet', 'Wedang jahe', 'Bajigur', 'Kolak pisang', 'Bubur sumsum',
+    ],
+  },
+  'perkakas-alat': {
+    id: 'perkakas-alat',
+    name: 'Perkakas & Alat',
+    icon: '🔨',
+    badge: 'Alat & Perkakas',
+    description: 'Peralatan tukang kayu, tani, dan dapur tradisional',
+    words: [
+      'Cangkul', 'Arit', 'Golok', 'Palu', 'Gergaji kayu', 'Pahat', 'Parutan kelapa', 'Cobek batu', 'Ulekan', 'Tampah beras',
+      'Kukusan bambu', 'Centong nasi', 'Dandang nasi', 'Kuali tanah', 'Kendi air', 'Teko seng', 'Cangkir blirik', 'Senter ronda', 'Lampu petromak', 'Lilin malam',
+      'Tali tambang', 'Paku payung', 'Meteran gulung', 'Tang jepit', 'Obeng min', 'Kapak kayu', 'Sekop pasir', 'Ayakan pasir', 'Batu asahan', 'Pancing ikan',
+      'Jaring jala', 'Bubu bambu', 'Alu penumbuk', 'Lesung batu', 'Sapu lidi',
+    ],
+  },
+  'alam-geografi': {
+    id: 'alam-geografi',
+    name: 'Alam Pedesaan',
+    icon: '🏞️',
+    badge: 'Bentang Alam',
+    description: 'Sungai, perbukitan, hutan, dan bentang alam pedesaan',
+    words: [
+      'Sungai', 'Bukit', 'Gunung', 'Lembah', 'Hutan pinus', 'Mata air', 'Air terjun', 'Danau kecil', 'Rawa-rawa', 'Gua batu',
+      'Pematang sawah', 'Kebun teh', 'Hutan bambu', 'Jurang', 'Batu kali', 'Pasir kali', 'Muara sungai', 'Padang rumput', 'Lereng gunung', 'Puncak bukit',
+      'Kabut pagi', 'Hujan gerimis', 'Pelangi sore', 'Angin sepoi', 'Embun pagi', 'Matahari terbit', 'Senja jingga', 'Tanah merah', 'Bebatuan cadas', 'Semak belukar',
+      'Pohon beringin', 'Pohon randu', 'Rumpun bambu', 'Hulu sungai', 'Tebing curam',
+    ],
+  },
+  'permainan-tradisional': {
+    id: 'permainan-tradisional',
+    name: 'Permainan Tradisional',
+    icon: '🪁',
+    badge: 'Dolanan Rakyat',
+    description: 'Dolanan tradisional anak desa tempo dulu',
+    words: [
+      'Layangan', 'Gasing', 'Kelereng', 'Egrang', 'Congklak', 'Bakiak', 'Petak umpet', 'Gobak sodor', 'Lompat tali', 'Bentengan',
+      'Bekel', 'Engklek', 'Ular naga', 'Mobil bambu', 'Pletokan bambu', 'Ketapel', 'Gundu', 'Balap karung', 'Tarik tambang', 'Panjat pinang',
+      'Lari kelereng', 'Gatrik', 'Pocong-pocongan', 'Kite gelasan', 'Bedil bambu', 'Kapal otok-otok', 'Panggal kayu', 'Tepuk kartu', 'Hompimpa', 'Suten jari',
+      'Sepak tekong', 'Cublak suweng', 'Gundukan pasir', 'Kuda-kudaan kayu', 'Adu cupang',
+    ],
+  },
+  'kesenian-budaya': {
+    id: 'kesenian-budaya',
+    name: 'Kesenian & Budaya',
+    icon: '🎭',
+    badge: 'Seni & Tradisi',
+    description: 'Kesenian daerah, alat musik, dan upacara adat desa',
+    words: [
+      'Gamelan', 'Wayang kulit', 'Kendang', 'Suling bambu', 'Angklung', 'Reog', 'Kuda lumping', 'Tari piring', 'Tari jaipong', 'Batik tulis',
+      'Gong perunggu', 'Saron gamelan', 'Calung bambu', 'Rebana', 'Gambus', 'Bedug mushola', 'Topeng kayu', 'Keris pusaka', 'Blangkon', 'Sarung tenun',
+      'Kebaya encim', 'Udeng bali', 'Janur kuning', 'Tumpeng selamatan', 'Sesajen bunga', 'Bersih desa', 'Pentas ketoprak', 'Lakon wayang', 'Dalang wayang', 'Sindhen tari',
+      'Nyinden lagu', 'Kirab budaya', 'Sedekah bumi', 'Parade obor', 'Festival rakyat',
+    ],
+  },
+  'transportasi-desa': {
+    id: 'transportasi-desa',
+    name: 'Transportasi Desa',
+    icon: '🚲',
+    badge: 'Mobilitas Desa',
+    description: 'Kendaraan tradisional dan sarana transportasi pedesaan',
+    words: [
+      'Sepeda ontel', 'Becak', 'Delman', 'Andong', 'Gerobak dorong', 'Gerobak sapi', 'Perahu getek', 'Rakit bambu', 'Perahu dayung', 'Cidomo',
+      'Sepeda motor bebek', 'Odong-odong', 'Pick up sayur', 'Truk gabah', 'Angkot desa', 'Dokar kuda', 'Kereta kelinci', 'Perahu sampan', 'Bemo roda tiga', 'Kaisar roda tiga',
+      'Kereta mini', 'Sepeda jengki', 'Becak motor', 'Kuda beban', 'Sepeda mini keranjang', 'Perahu tambang', 'Pedati sapi', 'Truk pasir kali', 'Gerobak bakso', 'Gerobak cilok',
+      'Sepeda kumbang', 'Truk pupuk', 'Motor trail kebun', 'Ojek pangkalan', 'Stasiun desa kecil',
+    ],
+  },
+};
+
+export const IMPOSTOR_CAMOUFLAGE_THEMES: Record<ImpostorCategory, string[]> = {
+  'pertanian': ['Luar ruangan', 'Tanah subur', 'Musim & Cuaca', 'Alat kerja', 'Hasil bumi', 'Dikelola petani'],
+  'hewan': ['Makhluk hidup', 'Peliharaan/Ternak', 'Suara khas', 'Kandang/Alam', 'Bulu/Kulit', 'Pedesaan'],
+  'pasar-desa': ['Jual beli', 'Bahan masakan', 'Kios & Warung', 'Segar/Kering', 'Murah meriah', 'Kebutuhan warga'],
+  'kehidupan-desa': ['Fasilitas warga', 'Tempat kumpul', 'Rutinitas desa', 'Gotong royong', 'Suasana tenang', 'Bangunan desa'],
+  'makanan': ['Bumbu rempah', 'Cita rasa khas', 'Dimasak hangat', 'Kenyang nikmat', 'Kue tradisional', 'Lauk pauk'],
+  'perkakas-alat': ['Alat pertukangan', 'Bahan besi/kayu', 'Benda berguna', 'Dapur & Rumah', 'Butuh keterampilan', 'Alat manual'],
+  'alam-geografi': ['Bentang alam', 'Air & Bebatuan', 'Hutan & Bukit', 'Pemandangan asri', 'Udara pedesaan', 'Unsur alam'],
+  'permainan-tradisional': ['Dolanan anak', 'Dimainkan di luar', 'Gerak & Taktik', 'Alat sederhana', 'Kebersamaan sore', 'Gelak tawa'],
+  'kesenian-budaya': ['Warisan leluhur', 'Alat musik & Tari', 'Pentas hajatan', 'Suara merdu', 'Pakaian adat', 'Kesenian rakyat'],
+  'transportasi-desa': ['Alat transportasi', 'Roda & Tenaga', 'Jalan pedesaan', 'Mengangkut muatan', 'Perjalanan santai', 'Tanpa polusi'],
+};
+
+export const IMPOSTOR_PHASE_TIMERS = {
+  roleReveal: 12, // 12 seconds
+  clueTurn: 90, // 1 menit 30 detik (90 seconds)
+  discussion: 120, // 2 menit (120 seconds) discussion
+  voting: 25, // 25 seconds secret voting
+  revote: 20, // 20 seconds revote if tied
+  impostorGuess: 30, // 30 seconds for impostor to guess word
+  result: 30,
+};
+
+export const IMPOSTOR_PLAYER_LIMITS = {
+  minPlayers: 4,
+  maxPlayers: 6,
+};
+

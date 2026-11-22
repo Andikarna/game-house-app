@@ -1,4 +1,4 @@
-import { SkillDefinition, SkillType, AvatarId, EmoteDefinition, EmoteCategory } from '../types';
+import { SkillDefinition, SkillType, AvatarId, EmoteDefinition, EmoteCategory, ImpostorCategory } from '../types';
 export declare const SERVER_TICK_RATE = 20;
 export declare const CLIENT_INPUT_RATE = 20;
 export declare const DEFAULT_GAME_DURATION: Record<string, number>;
@@ -33,3 +33,26 @@ export declare const EMOTE_CATEGORIES: {
     badge: string;
 }[];
 export declare const EMOTE_LIST: EmoteDefinition[];
+export interface ImpostorCategoryConfig {
+    id: ImpostorCategory;
+    name: string;
+    icon: string;
+    badge: string;
+    description: string;
+    words: string[];
+}
+export declare const IMPOSTOR_CATEGORIES: Record<ImpostorCategory, ImpostorCategoryConfig>;
+export declare const IMPOSTOR_CAMOUFLAGE_THEMES: Record<ImpostorCategory, string[]>;
+export declare const IMPOSTOR_PHASE_TIMERS: {
+    roleReveal: number;
+    clueTurn: number;
+    discussion: number;
+    voting: number;
+    revote: number;
+    impostorGuess: number;
+    result: number;
+};
+export declare const IMPOSTOR_PLAYER_LIMITS: {
+    minPlayers: number;
+    maxPlayers: number;
+};

@@ -1,4 +1,4 @@
-import { RoomInfo, RoomSettings, Player, AnyGameState, ClimberInput, LudoInput, SkillType, GameResultData, AvatarId, EmoteId } from '../types';
+import { RoomInfo, RoomSettings, Player, ImpostorPublicGameState, ImpostorPrivateRoleData, ImpostorResultData, ImpostorInput, AnyGameState, ClimberInput, LudoInput, SkillType, GameResultData, AvatarId, EmoteId } from '../types';
 export interface ClientToServerEvents {
     'room:create': (payload: {
         nickname: string;
@@ -27,12 +27,32 @@ export interface ClientToServerEvents {
     'room:ready': (isReady: boolean) => void;
     'room:update-settings': (settings: Partial<RoomSettings>) => void;
     'room:kick-player': (targetPlayerId: string) => void;
+    'room:add-bot': () => void;
+    'room:remove-bot': (payload?: {
+        botId?: string;
+    }) => void;
+    'room:fill-bots': () => void;
+    'room:clear-bots': () => void;
     'game:start': () => void;
-    'game:input': (input: ClimberInput | LudoInput | any) => void;
+    'game:input': (input: ClimberInput | LudoInput | ImpostorInput | any) => void;
     'player:skill': (skill: SkillType) => void;
     'game:restart': () => void;
     'game:emote': (payload: {
         emoteId: EmoteId;
+    }) => void;
+    'impostor:ready-role': () => void;
+    'impostor:submit-clue': (payload: {
+        clue: string;
+    }) => void;
+    'impostor:start-voting': () => void;
+    'impostor:submit-vote': (payload: {
+        targetPlayerId: string;
+    }) => void;
+    'impostor:submit-guess': (payload: {
+        guessedWord: string;
+    }) => void;
+    'impostor:send-chat': (payload: {
+        message: string;
     }) => void;
     'ping:check': (clientTimestamp: number, callback: (clientTimestamp: number) => void) => void;
 }
@@ -50,7 +70,10 @@ export interface ServerToClientEvents {
     'game:countdown': (count: number) => void;
     'game:started': (initialState: AnyGameState | any) => void;
     'game:state': (state: AnyGameState | any) => void;
-    'game:finished': (results: GameResultData) => void;
+    'game:finished': (results: GameResultData | any) => void;
+    'impostor:private-role': (data: ImpostorPrivateRoleData) => void;
+    'impostor:state': (state: ImpostorPublicGameState) => void;
+    'impostor:result': (data: ImpostorResultData) => void;
     'player:skill-used': (data: {
         playerId: string;
         skill: SkillType;
