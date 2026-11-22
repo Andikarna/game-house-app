@@ -1,4 +1,4 @@
-import { RoomInfo, RoomSettings, Player, ImpostorPublicGameState, ImpostorPrivateRoleData, ImpostorResultData, ImpostorInput, AnyGameState, ClimberInput, LudoInput, SkillType, GameResultData, AvatarId, EmoteId, HiddenTeamActionPayload, HiddenTeamPublicGameState, HiddenTeamPlayerPrivate, HiddenTeamRoundResult, HiddenTeamMatchResult } from '../types';
+import { RoomInfo, RoomSettings, Player, ImpostorPublicGameState, ImpostorPrivateRoleData, ImpostorResultData, ImpostorInput, AnyGameState, ClimberInput, LudoInput, SkillType, GameResultData, AvatarId, EmoteId, HiddenTeamActionPayload, HiddenTeamPublicGameState, HiddenTeamPlayerPrivate, HiddenTeamRoundResult, HiddenTeamMatchResult, ChatMessage, VoteKickState } from '../types';
 export interface ClientToServerEvents {
     'room:create': (payload: {
         nickname: string;
@@ -64,6 +64,16 @@ export interface ClientToServerEvents {
     'hidden-team:inspect-decision': (payload: {
         decision: 'KEEP' | 'DISCARD';
     }) => void;
+    'game:chat': (payload: {
+        message: string;
+    }) => void;
+    'game:vote-kick-start': (payload: {
+        targetPlayerId: string;
+        reason?: string;
+    }) => void;
+    'game:vote-kick-vote': (payload: {
+        vote: 'yes' | 'no';
+    }) => void;
     'ping:check': (clientTimestamp: number, callback: (clientTimestamp: number) => void) => void;
 }
 export interface ServerToClientEvents {
@@ -78,8 +88,10 @@ export interface ServerToClientEvents {
     'room:closed': (reason: string) => void;
     'room:kicked': (reason: string) => void;
     'game:countdown': (count: number) => void;
+    'game:start': (initialState: AnyGameState | any) => void;
     'game:started': (initialState: AnyGameState | any) => void;
     'game:state': (state: AnyGameState | any) => void;
+    'game:ludo_state': (state: AnyGameState | any) => void;
     'game:finished': (results: GameResultData | any) => void;
     'impostor:private-role': (data: ImpostorPrivateRoleData) => void;
     'impostor:state': (state: ImpostorPublicGameState) => void;
@@ -113,6 +125,20 @@ export interface ServerToClientEvents {
         avatar: AvatarId;
         emoteId: EmoteId;
         timestamp: number;
+    }) => void;
+    'game:chat-message': (data: ChatMessage) => void;
+    'game:vote-kick-started': (data: VoteKickState) => void;
+    'game:vote-kick-updated': (data: {
+        targetPlayerId: string;
+        yesCount: number;
+        noCount: number;
+        requiredVotes: number;
+    }) => void;
+    'game:vote-kick-ended': (data: {
+        targetPlayerId: string;
+        targetNickname: string;
+        kicked: boolean;
+        reason: string;
     }) => void;
     'error:message': (message: string) => void;
 }

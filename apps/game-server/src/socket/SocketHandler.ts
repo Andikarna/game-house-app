@@ -405,6 +405,38 @@ export function setupSocketHandlers(
       });
     });
 
+    // Free Chat in Gameplay
+    socket.on('game:chat', ({ message }) => {
+      const mapping = roomManager.getPlayerMapping(socket.id);
+      if (!mapping) return;
+      const room = roomManager.getRoomById(mapping.roomId);
+      if (!room) return;
+      room.handleChat(mapping.playerId, message);
+    });
+
+    // Vote Kick in Gameplay (players > 2)
+    socket.on('game:vote-kick-start', ({ targetPlayerId, reason }) => {
+      const mapping = roomManager.getPlayerMapping(socket.id);
+      if (!mapping) return;
+      const room = roomManager.getRoomById(mapping.roomId);
+      if (!room) return;
+      const res = room.startVoteKick(mapping.playerId, targetPlayerId, reason);
+      if (!res.success && res.error) {
+        socket.emit('error:message', res.error);
+      }
+    });
+
+    socket.on('game:vote-kick-vote', ({ vote }) => {
+      const mapping = roomManager.getPlayerMapping(socket.id);
+      if (!mapping) return;
+      const room = roomManager.getRoomById(mapping.roomId);
+      if (!room) return;
+      const res = room.voteVoteKick(mapping.playerId, vote);
+      if (!res.success && res.error) {
+        socket.emit('error:message', res.error);
+      }
+    });
+
     // 10. Game Rematch / Restart (Host only)
     socket.on('game:restart', () => {
       const mapping = roomManager.getPlayerMapping(socket.id);

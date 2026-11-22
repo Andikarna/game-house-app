@@ -1,11 +1,12 @@
 import React from 'react';
 import { LudoGameState, LudoColor } from '@gamehouse/shared';
 import { ClimberAvatarIcon } from '../../../components/ui/AvatarSelector';
-import { Clock, Trophy, Crown, Sparkles } from 'lucide-react';
+import { Clock, Trophy, Crown, Sparkles, UserMinus } from 'lucide-react';
 
 interface LudoTurnHUDProps {
   gameState: LudoGameState;
   myPlayerId: string;
+  onTriggerVoteKick?: (targetPlayerId: string) => void;
 }
 
 const COLOR_TEXT: Record<LudoColor, { label: string; text: string; bg: string }> = {
@@ -18,6 +19,7 @@ const COLOR_TEXT: Record<LudoColor, { label: string; text: string; bg: string }>
 export const LudoTurnHUD: React.FC<LudoTurnHUDProps> = ({
   gameState,
   myPlayerId,
+  onTriggerVoteKick,
 }) => {
   const currentTurnPlayer = gameState.players[gameState.currentTurnPlayerId];
   const isMyTurn = gameState.currentTurnPlayerId === myPlayerId;
@@ -111,11 +113,27 @@ export const LudoTurnHUD: React.FC<LudoTurnHUDProps> = ({
                 )}
               </div>
 
-              <div className="flex items-center gap-1 text-[10px] font-black text-amber-400 shrink-0">
-                <Trophy className="w-3 h-3" />
-                <span>
-                  {p.finishedCount}/{targetWins}
-                </span>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <div className="flex items-center gap-1 text-[10px] font-black text-amber-400">
+                  <Trophy className="w-3 h-3" />
+                  <span>
+                    {p.finishedCount}/{targetWins}
+                  </span>
+                </div>
+
+                {!isMe && onTriggerVoteKick && gameState.playerOrder.length > 2 && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onTriggerVoteKick(pId);
+                    }}
+                    className="p-1 rounded-md text-slate-500 hover:text-rose-400 hover:bg-rose-950/60 transition-colors"
+                    title={`Vote Kick ${p.nickname} (AFK)`}
+                  >
+                    <UserMinus className="w-3 h-3" />
+                  </button>
+                )}
               </div>
             </div>
           );

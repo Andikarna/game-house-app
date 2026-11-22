@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   LudoGameState, 
   LudoColor, 
-  LudoToken 
+  LudoToken,
+  AvatarId
 } from '@gamehouse/shared';
 import { Star, Crown, ChevronDown, ChevronLeft, ChevronUp, ChevronRight, RotateCcw, Sparkles } from 'lucide-react';
 import { soundManager } from '../../../components/audio/SoundManager';
+import { useGameStore } from '../../../stores/useGameStore';
+import { ClimberAvatarIcon } from '../../../components/ui/AvatarSelector';
 
 interface LudoBoardProps {
   gameState: LudoGameState;
@@ -338,6 +341,65 @@ const HDTokenPawn: React.FC<HDTokenProps> = ({ color, isValid, stackCount }) => 
 };
 
 // ============================================================================
+// 2b. BASE SPEECH BUBBLE COMPONENT (Pops up at base corner square, upright)
+// ============================================================================
+
+interface ActiveBaseChat {
+  id: string;
+  message: string;
+  nickname: string;
+  avatar: AvatarId;
+  timestamp: number;
+}
+
+const BaseSpeechBubble: React.FC<{
+  chat: ActiveBaseChat | null;
+  color: LudoColor;
+  boardRotationDeg: number;
+}> = ({ chat, color, boardRotationDeg }) => {
+  if (!chat) return null;
+
+  const colorStyles: Record<LudoColor, { border: string; text: string; glow: string; tailBorder: string }> = {
+    red: { border: 'border-red-500', text: 'text-red-400', glow: 'shadow-red-500/40', tailBorder: 'border-red-500' },
+    blue: { border: 'border-blue-500', text: 'text-blue-400', glow: 'shadow-blue-500/40', tailBorder: 'border-blue-500' },
+    green: { border: 'border-emerald-500', text: 'text-emerald-400', glow: 'shadow-emerald-500/40', tailBorder: 'border-emerald-500' },
+    yellow: { border: 'border-amber-400', text: 'text-amber-400', glow: 'shadow-amber-400/40', tailBorder: 'border-amber-400' },
+  };
+
+  const style = colorStyles[color] || colorStyles.red;
+
+  return (
+    <div className="absolute inset-0 flex items-center justify-center z-50 pointer-events-none">
+      <AnimatePresence>
+        <motion.div
+          key={chat.id}
+          initial={{ scale: 0.3, opacity: 0, y: 15 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          exit={{ scale: 0.2, opacity: 0, y: -10 }}
+          transition={{ type: 'spring', stiffness: 500, damping: 25 }}
+          style={{ transform: `rotate(${-boardRotationDeg}deg)` }}
+          className="relative pointer-events-auto select-none"
+        >
+          <div className={`px-2.5 py-1.5 rounded-2xl bg-slate-950/95 border-2 ${style.border} shadow-2xl ${style.glow} backdrop-blur-md max-w-[145px] sm:max-w-[180px]`}>
+            <div className="flex items-center gap-1.5 mb-1">
+              <ClimberAvatarIcon avatar={chat.avatar} size={18} />
+              <span className={`text-[10px] font-black truncate ${style.text}`}>
+                {chat.nickname}
+              </span>
+            </div>
+            <p className="text-[11px] sm:text-xs font-bold text-white leading-tight break-words">
+              {chat.message}
+            </p>
+            {/* Comic Speech Bubble Tail */}
+            <div className={`absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-slate-950 border-r-2 border-b-2 ${style.tailBorder} rotate-45`} />
+          </div>
+        </motion.div>
+      </AnimatePresence>
+    </div>
+  );
+};
+
+// ============================================================================
 // 3. MAIN LUDO BOARD COMPONENT
 // ============================================================================
 
@@ -374,6 +436,54 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
   // Visual effects state
   const [impactBurst, setImpactBurst] = useState<{ coord: [number, number]; id: number } | null>(null);
   const [finishCelebrate, setFinishCelebrate] = useState<{ color: LudoColor; id: number } | null>(null);
+
+  // Base Speech Bubbles State
+  const { chatMessages } = useGameStore();
+  const [activeBaseChats, setActiveBaseChats] = useState<Record<LudoColor, ActiveBaseChat | null>>({
+    red: null,
+    blue: null,
+    green: null,
+    yellow: null,
+  });
+
+  useEffect(() => {
+    if (!chatMessages || chatMessages.length === 0) return;
+    const latestChat = chatMessages[chatMessages.length - 1];
+    if (!latestChat) return;
+
+    let targetColor: LudoColor | undefined = undefined;
+    if (latestChat.color && ['red', 'blue', 'green', 'yellow'].includes(latestChat.color as string)) {
+      targetColor = latestChat.color as LudoColor;
+    } else if (gameState.players[latestChat.playerId]?.color) {
+      targetColor = gameState.players[latestChat.playerId].color;
+    }
+
+    if (!targetColor) return;
+
+    const chatInfo: ActiveBaseChat = {
+      id: latestChat.id,
+      message: latestChat.message,
+      nickname: latestChat.nickname,
+      avatar: latestChat.avatar,
+      timestamp: latestChat.timestamp,
+    };
+
+    setActiveBaseChats((prev) => ({
+      ...prev,
+      [targetColor!]: chatInfo,
+    }));
+
+    const timer = setTimeout(() => {
+      setActiveBaseChats((prev) => {
+        if (prev[targetColor!]?.id === latestChat.id) {
+          return { ...prev, [targetColor!]: null };
+        }
+        return prev;
+      });
+    }, 5000);
+
+    return () => clearTimeout(timer);
+  }, [chatMessages, gameState.players]);
 
   // Cleanup on unmount ONLY
   useEffect(() => {
@@ -620,6 +730,8 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
                 );
               })}
             </div>
+            {/* Pop-up Speech Bubble at Blue Base */}
+            <BaseSpeechBubble chat={activeBaseChats.blue} color="blue" boardRotationDeg={boardRotationDeg} />
           </div>
 
           {/* ================================================================= */}
@@ -700,6 +812,8 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
                 );
               })}
             </div>
+            {/* Pop-up Speech Bubble at Green Base */}
+            <BaseSpeechBubble chat={activeBaseChats.green} color="green" boardRotationDeg={boardRotationDeg} />
           </div>
 
           {/* ================================================================= */}
@@ -857,6 +971,8 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
                 );
               })}
             </div>
+            {/* Pop-up Speech Bubble at Red Base */}
+            <BaseSpeechBubble chat={activeBaseChats.red} color="red" boardRotationDeg={boardRotationDeg} />
           </div>
 
           {/* ================================================================= */}
@@ -937,6 +1053,8 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
                 );
               })}
             </div>
+            {/* Pop-up Speech Bubble at Yellow Base */}
+            <BaseSpeechBubble chat={activeBaseChats.yellow} color="yellow" boardRotationDeg={boardRotationDeg} />
           </div>
 
           {/* =================================================================== */}

@@ -9,7 +9,9 @@ import {
   ClientToServerEvents,
   ServerToClientEvents,
   ImpostorPrivateRoleData,
-  HiddenTeamPlayerPrivate
+  HiddenTeamPlayerPrivate,
+  ChatMessage,
+  VoteKickState
 } from '@gamehouse/shared';
 import { soundManager } from '../components/audio/SoundManager';
 
@@ -31,6 +33,8 @@ interface GameStoreState {
   countdown: number | null;
   gameResults: GameResultData | null;
   toasts: ToastNotification[];
+  voteKickState: VoteKickState | null;
+  chatMessages: ChatMessage[];
 
   // Actions
   setSocket: (socket: Socket<ServerToClientEvents, ClientToServerEvents> | null) => void;
@@ -43,6 +47,8 @@ interface GameStoreState {
   setHiddenTeamPrivate: (state: HiddenTeamPlayerPrivate | null) => void;
   setCountdown: (count: number | null) => void;
   setGameResults: (results: GameResultData | null) => void;
+  setVoteKickState: (fnOrState: VoteKickState | null | ((prev: VoteKickState | null) => VoteKickState | null)) => void;
+  addChatMessage: (msg: ChatMessage) => void;
   addToast: (message: string, type?: ToastNotification['type']) => void;
   removeToast: (id: string) => void;
   resetGame: () => void;
@@ -76,6 +82,8 @@ export const useGameStore = create<GameStoreState>((set, get) => {
     countdown: null,
     gameResults: null,
     toasts: [],
+    voteKickState: null,
+    chatMessages: [],
 
     setSocket: (socket) => set({ socket }),
     setIsConnected: (isConnected) => set({ isConnected }),
@@ -98,6 +106,13 @@ export const useGameStore = create<GameStoreState>((set, get) => {
       }
       set({ countdown });
     },
+    setVoteKickState: (fnOrState) => set((state) => ({
+      voteKickState: typeof fnOrState === 'function' ? (fnOrState as any)(state.voteKickState) : fnOrState
+    })),
+    addChatMessage: (msg) => set((state) => ({
+      // Keep last 30 chat messages in history
+      chatMessages: [...state.chatMessages.slice(-29), msg]
+    })),
     setGameResults: (gameResults) => {
       if (gameResults) {
         soundManager.playVictory();
@@ -135,7 +150,9 @@ export const useGameStore = create<GameStoreState>((set, get) => {
       impostorRole: null,
       hiddenTeamPrivate: null,
       countdown: null,
-      gameResults: null
+      gameResults: null,
+      voteKickState: null,
+      chatMessages: [],
     }),
   };
 });

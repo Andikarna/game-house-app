@@ -19,7 +19,9 @@ import {
   HiddenTeamPublicGameState,
   HiddenTeamPlayerPrivate,
   HiddenTeamRoundResult,
-  HiddenTeamMatchResult
+  HiddenTeamMatchResult,
+  ChatMessage,
+  VoteKickState
 } from '../types';
 
 export interface ClientToServerEvents {
@@ -77,6 +79,13 @@ export interface ClientToServerEvents {
   'hidden-team:submit-votes': (payload: { cardIds: string[] }) => void;
   'hidden-team:inspect-decision': (payload: { decision: 'KEEP' | 'DISCARD' }) => void;
 
+  // Free Chat in Gameplay
+  'game:chat': (payload: { message: string }) => void;
+
+  // Vote Kick during Gameplay (Player > 2)
+  'game:vote-kick-start': (payload: { targetPlayerId: string; reason?: string }) => void;
+  'game:vote-kick-vote': (payload: { vote: 'yes' | 'no' }) => void;
+
   // Heartbeat / Sync
   'ping:check': (clientTimestamp: number, callback: (clientTimestamp: number) => void) => void;
 }
@@ -92,8 +101,10 @@ export interface ServerToClientEvents {
 
   // Game updates
   'game:countdown': (count: number) => void;
+  'game:start': (initialState: AnyGameState | any) => void;
   'game:started': (initialState: AnyGameState | any) => void;
   'game:state': (state: AnyGameState | any) => void;
+  'game:ludo_state': (state: AnyGameState | any) => void;
   'game:finished': (results: GameResultData | any) => void;
   
   // Impostor Desa Authoritative Private & State events
@@ -122,6 +133,14 @@ export interface ServerToClientEvents {
     emoteId: EmoteId; 
     timestamp: number; 
   }) => void;
+
+  // Free Chat Message Broadcast
+  'game:chat-message': (data: ChatMessage) => void;
+
+  // Vote Kick Broadcasts
+  'game:vote-kick-started': (data: VoteKickState) => void;
+  'game:vote-kick-updated': (data: { targetPlayerId: string; yesCount: number; noCount: number; requiredVotes: number }) => void;
+  'game:vote-kick-ended': (data: { targetPlayerId: string; targetNickname: string; kicked: boolean; reason: string }) => void;
 
   // Errors / notifications
   'error:message': (message: string) => void;

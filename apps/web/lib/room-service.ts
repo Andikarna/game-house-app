@@ -7,12 +7,16 @@ import {
   GameId,
   GameMode,
   AvatarId,
+  ChatMessage,
+  VoteKickState,
 } from '../shared';
 
 export interface RoomEntry {
   room: RoomInfo;
   gameState: any;
   gameResults: any;
+  activeVoteKick?: VoteKickState | null;
+  chatMessages?: ChatMessage[];
 }
 
 // In-memory room store using globalThis so it persists across Next.js API reloads
@@ -38,10 +42,19 @@ export function generateRoomCode(): string {
 export function saveMemoryRoom(
   room: RoomInfo,
   gameState: any = null,
-  gameResults: any = null
+  gameResults: any = null,
+  activeVoteKick?: VoteKickState | null,
+  chatMessages?: ChatMessage[]
 ): void {
   const cleanCode = (room.code || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
-  const entry: RoomEntry = { room, gameState, gameResults };
+  const existing = memoryRooms.get(cleanCode);
+  const entry: RoomEntry = { 
+    room, 
+    gameState, 
+    gameResults,
+    activeVoteKick: activeVoteKick !== undefined ? activeVoteKick : (existing?.activeVoteKick || null),
+    chatMessages: chatMessages !== undefined ? chatMessages : (existing?.chatMessages || [])
+  };
   memoryRooms.set(cleanCode, entry);
   if (room.id) {
     memoryRooms.set(room.id, entry);

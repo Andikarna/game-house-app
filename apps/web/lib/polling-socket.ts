@@ -14,7 +14,9 @@ class PollingSocket {
   private currentPlayerId: string | null = null;
   private lastGameStateStr: string = '';
   private lastRoomStateStr: string = '';
+  private lastVoteKickStr: string = '';
   private processedEmoteIds: Set<string> = new Set();
+  private processedChatIds: Set<string> = new Set();
 
   constructor() {
     this.id = `client_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
@@ -316,6 +318,67 @@ class PollingSocket {
         return;
       }
 
+      // 8b. CHAT
+      if (event === 'game:chat') {
+        const message = payload?.message || '';
+        const res = await fetch(`/api/rooms/${roomCode}/action`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'chat', playerId, message }),
+        });
+        const data = await res.json();
+        if (data.success && data.chatMessage) {
+          this.processedChatIds.add(data.chatMessage.id);
+          this.emitInternal('game:chat-message', data.chatMessage);
+        }
+        return;
+      }
+
+      // 8c. VOTE KICK START
+      if (event === 'game:vote-kick-start') {
+        const targetPlayerId = payload?.targetPlayerId;
+        const res = await fetch(`/api/rooms/${roomCode}/action`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'vote_kick_start', playerId, targetPlayerId }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          if (data.voteKick) {
+            this.lastVoteKickStr = JSON.stringify(data.voteKick);
+            this.emitInternal('game:vote-kick-started', data.voteKick);
+          }
+          await this.pollOnce(true);
+        } else if (data.error) {
+          this.emitInternal('error:message', data.error);
+        }
+        return;
+      }
+
+      // 8d. VOTE KICK VOTE
+      if (event === 'game:vote-kick-vote') {
+        const vote = payload?.vote;
+        const res = await fetch(`/api/rooms/${roomCode}/action`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'vote_kick_vote', playerId, vote }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          if (data.voteKick) {
+            this.lastVoteKickStr = JSON.stringify(data.voteKick);
+            this.emitInternal('game:vote-kick-updated', {
+              targetPlayerId: data.voteKick.targetPlayerId,
+              yesCount: data.voteKick.yesCount,
+              noCount: data.voteKick.noCount,
+              requiredVotes: data.voteKick.requiredVotes,
+            });
+          }
+          await this.pollOnce(true);
+        }
+        return;
+      }
+
       // 9. RESTART GAME
       if (event === 'game:restart') {
         await fetch(`/api/rooms/${roomCode}/action`, {
@@ -438,6 +501,41 @@ class PollingSocket {
               emoteId: em.emoteId,
               timestamp: em.timestamp,
             });
+          }
+        });
+      }
+
+      // Handle Vote Kick
+      const currentVoteKickStr = data.voteKick ? JSON.stringify(data.voteKick) : '';
+      if (currentVoteKickStr !== this.lastVoteKickStr) {
+        if (data.voteKick) {
+          if (!this.lastVoteKickStr) {
+            this.emitInternal('game:vote-kick-started', data.voteKick);
+          } else {
+            this.emitInternal('game:vote-kick-updated', {
+              targetPlayerId: data.voteKick.targetPlayerId,
+              yesCount: data.voteKick.yesCount,
+              noCount: data.voteKick.noCount,
+              requiredVotes: data.voteKick.requiredVotes,
+            });
+          }
+        } else if (this.lastVoteKickStr) {
+          this.emitInternal('game:vote-kick-ended', {
+            targetPlayerId: '',
+            targetNickname: '',
+            kicked: false,
+            reason: 'Vote kick telah berakhir.',
+          });
+        }
+        this.lastVoteKickStr = currentVoteKickStr;
+      }
+
+      // Handle Chats
+      if (Array.isArray(data.chats)) {
+        data.chats.forEach((chat: any) => {
+          if (!this.processedChatIds.has(chat.id)) {
+            this.processedChatIds.add(chat.id);
+            this.emitInternal('game:chat-message', chat);
           }
         });
       }

@@ -78,12 +78,21 @@ export async function GET(
       }
     }
 
+    if (roomData.activeVoteKick && Date.now() > roomData.activeVoteKick.expiresAt) {
+      roomData.activeVoteKick = null;
+      saveMemoryRoom(roomData.room, roomData.gameState, roomData.gameResults, null);
+    }
+
+    const recentChats = (roomData.chatMessages || []).filter((c) => now - c.timestamp < 15000);
+
     return NextResponse.json({
       success: true,
       room: roomData.room,
       gameState: roomData.gameState,
       gameResults: roomData.gameResults,
       emotes: emoteRows || [],
+      voteKick: roomData.activeVoteKick || null,
+      chats: recentChats,
     });
   } catch (error: any) {
     console.error('[API /api/rooms/[code] error]:', error);

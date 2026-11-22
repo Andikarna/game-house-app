@@ -438,3 +438,24 @@ export interface HiddenTeamPublicGameState {
     matchResult: HiddenTeamMatchResult | null;
     recentLogs: string[];
 }
+export interface ChatMessage {
+    id: string;
+    playerId: string;
+    nickname: string;
+    color?: LudoColor | string;
+    avatar: AvatarId;
+    message: string;
+    timestamp: number;
+}
+export interface VoteKickState {
+    targetPlayerId: string;
+    targetNickname: string;
+    targetColor?: string;
+    initiatedByPlayerId: string;
+    initiatedByNickname: string;
+    votes: Record<string, 'yes' | 'no'>;
+    yesCount: number;
+    noCount: number;
+    requiredVotes: number;
+    expiresAt: number;
+}

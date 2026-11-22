@@ -4,7 +4,9 @@ import {
   RoomSettings, 
   RoomStatus, 
   SERVER_TICK_RATE,
-  DEFAULT_GAME_DURATION
+  DEFAULT_GAME_DURATION,
+  ChatMessage,
+  VoteKickState
 } from '@gamehouse/shared';
 import { Server as SocketIOServer } from 'socket.io';
 import { GameModule } from '../core/GameModule';
@@ -24,6 +26,16 @@ export class Room {
   private gameLoopTimer: NodeJS.Timeout | null = null;
   private lastTickTime: number = 0;
   private onRoomEmptyCallback?: (roomId: string) => void;
+  private activeVoteKick: {
+    targetPlayerId: string;
+    targetNickname: string;
+    initiatedByPlayerId: string;
+    initiatedByNickname: string;
+    votes: Map<string, 'yes' | 'no'>;
+    requiredVotes: number;
+    expiresAt: number;
+    timeout?: NodeJS.Timeout;
+  } | null = null;
 
   constructor(
     id: string,
@@ -136,6 +148,14 @@ export class Room {
 
     const wasHost = player.isHost;
     this.players.delete(playerId);
+
+    if (this.activeVoteKick) {
+      if (this.activeVoteKick.targetPlayerId === playerId) {
+        this.endVoteKick(false, 'Target vote kick keluar dari room.');
+      } else if (this.players.size <= 2) {
+        this.endVoteKick(false, 'Vote kick dibatalkan karena jumlah pemain tersisa <= 2.');
+      }
+    }
 
     if (this.gameInstance) {
       this.gameInstance.handlePlayerDisconnect(playerId);
@@ -420,7 +440,190 @@ export class Room {
     return this.gameInstance;
   }
 
+  public handleChat(playerId: string, rawMessage: string): { success: boolean; error?: string } {
+    const player = this.players.get(playerId);
+    if (!player) {
+      return { success: false, error: 'Pemain tidak ditemukan di room.' };
+    }
+    const message = (rawMessage || '').trim();
+    if (!message || message.length > 60) {
+      return { success: false, error: 'Pesan chat harus antara 1 sampai 60 karakter.' };
+    }
+
+    let color: string | undefined = undefined;
+    if (this.gameInstance && typeof (this.gameInstance as any).getPlayerColor === 'function') {
+      color = (this.gameInstance as any).getPlayerColor(playerId);
+    }
+
+    const chatMessage: ChatMessage = {
+      id: `chat_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      playerId: player.id,
+      nickname: player.nickname,
+      color,
+      avatar: player.avatar,
+      message,
+      timestamp: Date.now(),
+    };
+
+    this.io.to(this.id).emit('game:chat-message', chatMessage);
+    return { success: true };
+  }
+
+  public startVoteKick(initiatorPlayerId: string, targetPlayerId: string, reason?: string): { success: boolean; error?: string } {
+    if (this.status !== 'in-game') {
+      return { success: false, error: 'Vote kick hanya bisa dilakukan saat gameplay berlangsung.' };
+    }
+    if (this.players.size <= 2) {
+      return { success: false, error: 'Vote kick hanya tersedia jika jumlah pemain lebih dari 2 orang.' };
+    }
+    if (this.activeVoteKick) {
+      return { success: false, error: 'Voting kick pemain lain sedang berjalan.' };
+    }
+
+    const initiator = this.players.get(initiatorPlayerId);
+    if (!initiator) {
+      return { success: false, error: 'Pemain pembuat vote tidak ditemukan.' };
+    }
+
+    const target = this.players.get(targetPlayerId);
+    if (!target) {
+      return { success: false, error: 'Pemain target kick tidak ditemukan.' };
+    }
+
+    if (initiatorPlayerId === targetPlayerId) {
+      return { success: false, error: 'Anda tidak dapat melakukan vote kick pada diri sendiri.' };
+    }
+
+    // Eligible voters are all players in the room except the target
+    const eligibleCount = this.players.size - 1;
+    const requiredVotes = Math.floor(eligibleCount / 2) + 1;
+
+    let targetColor: string | undefined;
+    if (this.gameInstance && typeof (this.gameInstance as any).getPlayerColor === 'function') {
+      targetColor = (this.gameInstance as any).getPlayerColor(targetPlayerId);
+    }
+
+    const expiresAt = Date.now() + 25000;
+    const votes = new Map<string, 'yes' | 'no'>();
+    // Initiator automatically votes yes
+    votes.set(initiatorPlayerId, 'yes');
+
+    const timeout = setTimeout(() => {
+      this.endVoteKick(false, 'Waktu voting berakhir (tidak mencapai kuorum).');
+    }, 25000);
+
+    this.activeVoteKick = {
+      targetPlayerId: target.id,
+      targetNickname: target.nickname,
+      initiatedByPlayerId: initiator.id,
+      initiatedByNickname: initiator.nickname,
+      votes,
+      requiredVotes,
+      expiresAt,
+      timeout,
+    };
+
+    const voteState: VoteKickState = {
+      targetPlayerId: target.id,
+      targetNickname: target.nickname,
+      targetColor,
+      initiatedByPlayerId: initiator.id,
+      initiatedByNickname: initiator.nickname,
+      votes: { [initiatorPlayerId]: 'yes' },
+      yesCount: 1,
+      noCount: 0,
+      requiredVotes,
+      expiresAt,
+    };
+
+    this.io.to(this.id).emit('game:vote-kick-started', voteState);
+
+    if (votes.size >= requiredVotes) {
+      this.endVoteKick(true, 'Vote kick disetujui oleh mayoritas pemain.');
+    }
+
+    return { success: true };
+  }
+
+  public voteVoteKick(voterPlayerId: string, vote: 'yes' | 'no'): { success: boolean; error?: string } {
+    if (!this.activeVoteKick) {
+      return { success: false, error: 'Tidak ada voting kick yang sedang aktif.' };
+    }
+
+    if (voterPlayerId === this.activeVoteKick.targetPlayerId) {
+      return { success: false, error: 'Pemain yang menjadi target kick tidak dapat memberikan vote.' };
+    }
+
+    if (!this.players.has(voterPlayerId)) {
+      return { success: false, error: 'Pemain tidak ditemukan di dalam room.' };
+    }
+
+    this.activeVoteKick.votes.set(voterPlayerId, vote);
+
+    let yesCount = 0;
+    let noCount = 0;
+    for (const v of this.activeVoteKick.votes.values()) {
+      if (v === 'yes') yesCount++;
+      if (v === 'no') noCount++;
+    }
+
+    this.io.to(this.id).emit('game:vote-kick-updated', {
+      targetPlayerId: this.activeVoteKick.targetPlayerId,
+      yesCount,
+      noCount,
+      requiredVotes: this.activeVoteKick.requiredVotes,
+    });
+
+    if (yesCount >= this.activeVoteKick.requiredVotes) {
+      this.endVoteKick(true, 'Vote kick disetujui oleh mayoritas pemain.');
+      return { success: true };
+    }
+
+    const eligibleCount = this.players.size - 1;
+    const maxPossibleYes = eligibleCount - noCount;
+    if (maxPossibleYes < this.activeVoteKick.requiredVotes) {
+      this.endVoteKick(false, 'Vote kick ditolak (tidak mencapai suara mayoritas).');
+      return { success: true };
+    }
+
+    return { success: true };
+  }
+
+  private endVoteKick(passed: boolean, reason: string): void {
+    if (!this.activeVoteKick) return;
+
+    if (this.activeVoteKick.timeout) {
+      clearTimeout(this.activeVoteKick.timeout);
+      this.activeVoteKick.timeout = undefined;
+    }
+
+    const targetId = this.activeVoteKick.targetPlayerId;
+    const targetNick = this.activeVoteKick.targetNickname;
+    this.activeVoteKick = null;
+
+    this.io.to(this.id).emit('game:vote-kick-ended', {
+      targetPlayerId: targetId,
+      targetNickname: targetNick,
+      kicked: passed,
+      reason,
+    });
+
+    if (passed) {
+      // Remove token and state from game engine if game is Ludo
+      if (this.gameInstance && typeof (this.gameInstance as any).removePlayer === 'function') {
+        (this.gameInstance as any).removePlayer(targetId);
+        this.io.to(this.id).emit('game:ludo_state', this.gameInstance.getState());
+      }
+      this.removePlayer(targetId);
+      this.io.to(this.id).emit('room:updated', this.getInfo());
+    }
+  }
+
   public cleanup(): void {
+    if (this.activeVoteKick?.timeout) {
+      clearTimeout(this.activeVoteKick.timeout);
+      this.activeVoteKick = null;
+    }
     if (this.gameLoopTimer) {
       clearInterval(this.gameLoopTimer);
       this.gameLoopTimer = null;

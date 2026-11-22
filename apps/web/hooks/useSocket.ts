@@ -26,6 +26,8 @@ export function useSocket() {
     setHiddenTeamPrivate,
     setCountdown,
     setGameResults,
+    setVoteKickState,
+    addChatMessage,
     addToast,
     resetGame,
     playerId,
@@ -189,6 +191,40 @@ export function useSocket() {
 
       targetSocket.on('error:message', (msg: string) => {
         addToast(msg, 'error');
+      });
+
+      // Free Chat Messages
+      targetSocket.on('game:chat-message', (chatMsg: any) => {
+        addChatMessage(chatMsg);
+        soundManager.playPop?.();
+      });
+
+      // Vote Kick Events
+      targetSocket.on('game:vote-kick-started', (voteState: any) => {
+        setVoteKickState(voteState);
+        addToast(`Vote kick dimulai untuk ${voteState.targetNickname}!`, 'warning');
+      });
+
+      targetSocket.on('game:vote-kick-updated', (updateData: any) => {
+        setVoteKickState((prev: any) =>
+          prev
+            ? {
+                ...prev,
+                yesCount: updateData.yesCount,
+                noCount: updateData.noCount,
+                requiredVotes: updateData.requiredVotes,
+              }
+            : null
+        );
+      });
+
+      targetSocket.on('game:vote-kick-ended', (result: any) => {
+        setVoteKickState(null);
+        if (result.kicked) {
+          addToast(`${result.targetNickname} telah di-kick dari permainan!`, 'error');
+        } else {
+          addToast(`Vote kick untuk ${result.targetNickname} berakhir: ${result.reason}`, 'info');
+        }
       });
     };
 

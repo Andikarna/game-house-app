@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { safeDbQuery } from '../../../../../lib/db';
 import { getRoomByCode, saveMemoryRoom } from '../../../../../lib/room-service';
-import { createInitialGameState, processLudoAction, processPanjatAction } from '../../../../../lib/game-runner';
+import { createInitialGameState, processLudoAction, processPanjatAction, removeLudoPlayer } from '../../../../../lib/game-runner';
+import { ChatMessage, VoteKickState } from '../../../../../shared';
 
 export const dynamic = 'force-dynamic';
 
@@ -276,6 +277,146 @@ export async function POST(
       ).catch(() => {});
 
       return NextResponse.json({ success: true });
+    }
+
+    // 5b. CHAT ACTION
+    if (action === 'chat') {
+      const player = room.players.find((p) => p.id === playerId);
+      if (!player) {
+        return NextResponse.json({ success: false, error: 'Player not found.' }, { status: 404 });
+      }
+      const rawMessage = (body.message || '').trim();
+      if (!rawMessage || rawMessage.length > 60) {
+        return NextResponse.json({ success: false, error: 'Pesan chat harus antara 1-60 karakter.' }, { status: 400 });
+      }
+
+      let color = body.color;
+      if (!color && gameState && gameState.players && gameState.players[playerId]) {
+        color = gameState.players[playerId].color;
+      }
+
+      const chatMessage: ChatMessage = {
+        id: `chat_${now}_${Math.random().toString(36).substring(2, 7)}`,
+        playerId,
+        nickname: player.nickname,
+        color,
+        avatar: player.avatar,
+        message: rawMessage,
+        timestamp: now,
+      };
+
+      const existingChats = (roomData.chatMessages || []).filter((c) => now - c.timestamp < 15000);
+      existingChats.push(chatMessage);
+      saveMemoryRoom(room, gameState, roomData.gameResults, roomData.activeVoteKick, existingChats);
+
+      return NextResponse.json({ success: true, chatMessage });
+    }
+
+    // 5c. VOTE KICK START ACTION
+    if (action === 'vote_kick_start') {
+      if (room.status !== 'in-game') {
+        return NextResponse.json({ success: false, error: 'Vote kick hanya bisa dilakukan saat game berjalan.' }, { status: 400 });
+      }
+      if (room.players.length <= 2) {
+        return NextResponse.json({ success: false, error: 'Vote kick membutuhkan lebih dari 2 pemain.' }, { status: 400 });
+      }
+      if (roomData.activeVoteKick && Date.now() < roomData.activeVoteKick.expiresAt) {
+        return NextResponse.json({ success: false, error: 'Vote kick sedang berlangsung.' }, { status: 400 });
+      }
+
+      const initiator = room.players.find((p) => p.id === playerId);
+      const targetId = body.targetPlayerId;
+      const target = room.players.find((p) => p.id === targetId);
+
+      if (!initiator || !target) {
+        return NextResponse.json({ success: false, error: 'Pemain tidak ditemukan.' }, { status: 404 });
+      }
+      if (initiator.id === target.id) {
+        return NextResponse.json({ success: false, error: 'Tidak bisa vote kick diri sendiri.' }, { status: 400 });
+      }
+
+      const eligibleCount = room.players.length - 1;
+      const requiredVotes = Math.floor(eligibleCount / 2) + 1;
+      let targetColor: string | undefined;
+      if (gameState && gameState.players && gameState.players[targetId]) {
+        targetColor = gameState.players[targetId].color;
+      }
+
+      const voteState: VoteKickState = {
+        targetPlayerId: target.id,
+        targetNickname: target.nickname,
+        targetColor,
+        initiatedByPlayerId: initiator.id,
+        initiatedByNickname: initiator.nickname,
+        votes: { [initiator.id]: 'yes' },
+        yesCount: 1,
+        noCount: 0,
+        requiredVotes,
+        expiresAt: now + 25000,
+      };
+
+      if (voteState.yesCount >= requiredVotes) {
+        if (room.settings.gameId === 'ludo' && gameState) {
+          const updatedState = removeLudoPlayer(room, gameState, target.id);
+          room.players = room.players.filter((p) => p.id !== target.id);
+          saveMemoryRoom(room, updatedState, roomData.gameResults, null);
+          return NextResponse.json({ success: true, kicked: true, room, gameState: updatedState });
+        } else {
+          room.players = room.players.filter((p) => p.id !== target.id);
+          saveMemoryRoom(room, gameState, roomData.gameResults, null);
+          return NextResponse.json({ success: true, kicked: true, room });
+        }
+      }
+
+      saveMemoryRoom(room, gameState, roomData.gameResults, voteState);
+      return NextResponse.json({ success: true, voteKick: voteState });
+    }
+
+    // 5d. VOTE KICK VOTE ACTION
+    if (action === 'vote_kick_vote') {
+      const activeVote = roomData.activeVoteKick;
+      if (!activeVote || Date.now() > activeVote.expiresAt) {
+        return NextResponse.json({ success: false, error: 'Tidak ada vote kick aktif.' }, { status: 400 });
+      }
+      if (playerId === activeVote.targetPlayerId) {
+        return NextResponse.json({ success: false, error: 'Target tidak bisa memberi vote.' }, { status: 400 });
+      }
+      const vote = body.vote === 'no' ? 'no' : 'yes';
+      activeVote.votes[playerId] = vote;
+
+      let yesCount = 0;
+      let noCount = 0;
+      Object.values(activeVote.votes).forEach((v) => {
+        if (v === 'yes') yesCount++;
+        if (v === 'no') noCount++;
+      });
+      activeVote.yesCount = yesCount;
+      activeVote.noCount = noCount;
+
+      const targetId = activeVote.targetPlayerId;
+
+      if (yesCount >= activeVote.requiredVotes) {
+        if (room.settings.gameId === 'ludo' && gameState) {
+          const updatedState = removeLudoPlayer(room, gameState, targetId);
+          room.players = room.players.filter((p) => p.id !== targetId);
+          saveMemoryRoom(room, updatedState, roomData.gameResults, null);
+          return NextResponse.json({ success: true, kicked: true, room, gameState: updatedState });
+        } else {
+          room.players = room.players.filter((p) => p.id !== targetId);
+          saveMemoryRoom(room, gameState, roomData.gameResults, null);
+          return NextResponse.json({ success: true, kicked: true, room });
+        }
+      }
+
+      const eligibleCount = room.players.length - 1;
+      const maxPossibleYes = eligibleCount - noCount;
+      if (maxPossibleYes < activeVote.requiredVotes) {
+        saveMemoryRoom(room, gameState, roomData.gameResults, null);
+        return NextResponse.json({ success: true, kicked: false, voteKick: null });
+      }
+
+      saveMemoryRoom(room, gameState, roomData.gameResults, activeVote);
+      return NextResponse.json({ success: true, voteKick: activeVote });
     }
 
     // 6. LEAVE ACTION

@@ -670,6 +670,31 @@ class SoundManager {
     } catch {}
   }
 
+  public playPop() {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    try {
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(400, now);
+      osc.frequency.exponentialRampToValueAtTime(800, now + 0.05);
+
+      gain.gain.setValueAtTime(0.18 * this.volume, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+
+      osc.connect(gain);
+      gain.connect(this.sfxGain || this.ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.09);
+    } catch {}
+  }
+
   public playCriticalRoll() {
     if (this.isMuted) return;
     this.initContext();

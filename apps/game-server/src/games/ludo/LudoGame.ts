@@ -195,8 +195,57 @@ export class LudoGame implements GameModule {
     }
   }
 
+  public removePlayer(playerId: string): void {
+    if (!this.players.has(playerId)) return;
+    const player = this.players.get(playerId);
+    if (!player) return;
+
+    // Reset tokens to base
+    player.tokens.forEach((t) => {
+      t.state = 'base';
+      t.stepCount = 0;
+      t.trackPosition = -1;
+    });
+
+    const isCurrentTurn = this.playerOrder[this.currentTurnIndex] === playerId;
+    this.players.delete(playerId);
+    this.playerOrder = this.playerOrder.filter((id) => id !== playerId);
+
+    if (this.playerOrder.length <= 1) {
+      this.endGame();
+      return;
+    }
+
+    if (isCurrentTurn) {
+      if (this.currentTurnIndex >= this.playerOrder.length) {
+        this.currentTurnIndex = 0;
+      }
+      this.hasRolled = false;
+      this.diceValue = null;
+      this.validMoves = [];
+      this.resetTurnTimer();
+      const nextPlayer = this.players.get(this.playerOrder[this.currentTurnIndex]);
+      if (nextPlayer) {
+        nextPlayer.canRoll = true;
+        this.lastMoveNotice = `${player.nickname} dikeluarkan (AFK). Giliran ${nextPlayer.nickname}!`;
+      }
+    } else {
+      const curId = this.playerOrder[this.currentTurnIndex];
+      const newIdx = this.playerOrder.indexOf(curId);
+      if (newIdx !== -1) {
+        this.currentTurnIndex = newIdx;
+      }
+    }
+
+    this.broadcastState();
+  }
+
   public isFinished(): boolean {
     return this.finished;
+  }
+
+  public getPlayerColor(playerId: string): LudoColor | undefined {
+    return this.players.get(playerId)?.color;
   }
 
   public getState(): LudoGameState {
