@@ -4,6 +4,10 @@ import {
   Player, 
   PanjatPinangGameState, 
   LudoGameState,
+  ImpostorPublicGameState,
+  ImpostorPrivateRoleData,
+  ImpostorResultData,
+  ImpostorInput,
   AnyGameState,
   ClimberInput, 
   LudoInput,
@@ -42,13 +46,25 @@ export interface ClientToServerEvents {
   'room:ready': (isReady: boolean) => void;
   'room:update-settings': (settings: Partial<RoomSettings>) => void;
   'room:kick-player': (targetPlayerId: string) => void;
+  'room:add-bot': () => void;
+  'room:remove-bot': (payload?: { botId?: string }) => void;
+  'room:fill-bots': () => void;
+  'room:clear-bots': () => void;
 
   // Game Lifecycle
   'game:start': () => void;
-  'game:input': (input: ClimberInput | LudoInput | any) => void;
+  'game:input': (input: ClimberInput | LudoInput | ImpostorInput | any) => void;
   'player:skill': (skill: SkillType) => void;
   'game:restart': () => void; // Host triggers back to lobby for rematch
   'game:emote': (payload: { emoteId: EmoteId }) => void;
+
+  // Impostor Desa specific client actions
+  'impostor:ready-role': () => void;
+  'impostor:submit-clue': (payload: { clue: string }) => void;
+  'impostor:start-voting': () => void;
+  'impostor:submit-vote': (payload: { targetPlayerId: string }) => void;
+  'impostor:submit-guess': (payload: { guessedWord: string }) => void;
+  'impostor:send-chat': (payload: { message: string }) => void;
 
   // Heartbeat / Sync
   'ping:check': (clientTimestamp: number, callback: (clientTimestamp: number) => void) => void;
@@ -67,8 +83,13 @@ export interface ServerToClientEvents {
   'game:countdown': (count: number) => void;
   'game:started': (initialState: AnyGameState | any) => void;
   'game:state': (state: AnyGameState | any) => void;
-  'game:finished': (results: GameResultData) => void;
+  'game:finished': (results: GameResultData | any) => void;
   
+  // Impostor Desa Authoritative Private & State events
+  'impostor:private-role': (data: ImpostorPrivateRoleData) => void;
+  'impostor:state': (state: ImpostorPublicGameState) => void;
+  'impostor:result': (data: ImpostorResultData) => void;
+
   // Game events
   'player:skill-used': (data: { playerId: string; skill: SkillType; nickname: string }) => void;
   'player:fallen': (data: { playerId: string; heightDropped: number; nickname: string }) => void;

@@ -7,6 +7,7 @@ import { useSocket } from '../../hooks/useSocket';
 import { LobbyView } from '../lobby/LobbyView';
 import { PanjatPinangView } from '../games/panjat-pinang/PanjatPinangView';
 import { LudoView } from '../games/ludo/LudoView';
+import { ImpostorDesaView } from '../games/impostor-desa/ImpostorDesaView';
 import { Button } from '../../components/ui/Button';
 import { AvatarSelector } from '../../components/ui/AvatarSelector';
 import { GameHouseLogo } from '../../components/branding/GameHouseLogo';
@@ -145,6 +146,14 @@ export const RoomContainer: React.FC<RoomContainerProps> = ({ roomCode }) => {
 
   // If in game, render Arena based on selected game
   if (room.status === 'in-game' || room.status === 'countdown' || room.status === 'finished') {
+    if (room.settings.gameId === 'impostor-desa') {
+      return (
+        <>
+          <ImpostorDesaView />
+          <ToastContainer />
+        </>
+      );
+    }
     if (room.settings.gameId === 'ludo') {
       return (
         <>

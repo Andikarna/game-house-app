@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { KeyRound, Users, Dices, Trophy, Zap, Shield, HelpCircle } from 'lucide-react';
 
 export const HowToPlay: React.FC = () => {
-  const [guideTab, setGuideTab] = useState<'general' | 'panjat-pinang' | 'ludo'>('general');
+  const [guideTab, setGuideTab] = useState<'general' | 'panjat-pinang' | 'ludo' | 'impostor-desa'>('general');
 
   const generalSteps = [
     {
@@ -69,6 +69,29 @@ export const HowToPlay: React.FC = () => {
     },
   ];
 
+  const impostorTips = [
+    {
+      key: '1. Pembagian Peran',
+      action: 'Lihat Role Rahasia',
+      tip: 'Warga menerima kata rahasia yang sama (contoh: "Sawah"). 1 Impostor yang terpilih acak tidak tahu kata tersebut!',
+    },
+    {
+      key: '2. Giliran Petunjuk',
+      action: 'Kirim 1 Petunjuk Singkat',
+      tip: 'Pemain bergiliran mengirim 1 petunjuk (maks 40 huruf). Jangan sebut kata rahasia langsung agar tidak disontek Impostor!',
+    },
+    {
+      key: '3. Diskusi & Voting',
+      action: 'Tuduh Siapa Impostor',
+      tip: 'Bahas petunjuk mencurigakan dan lakukan voting rahasia. Jika seri, kandidat tertinggi masuk fase revote!',
+    },
+    {
+      key: '4. Kesempatan Impostor',
+      action: 'Tebak Kata Rahasia',
+      tip: 'Jika Impostor tertangkap, ia diberi 1 kesempatan menebak kata rahasia desa. Jika benar, Impostor Menang!',
+    },
+  ];
+
   return (
     <section className="w-full py-12 sm:py-20 px-3 sm:px-8 max-w-7xl mx-auto">
       {/* Header */}
@@ -85,7 +108,7 @@ export const HowToPlay: React.FC = () => {
         </p>
 
         {/* Guide Switcher Tabs */}
-        <div className="inline-flex p-1 bg-surface-elevated/80 border border-slate-700/80 rounded-2xl backdrop-blur-md mt-6">
+        <div className="inline-flex p-1 bg-surface-elevated/80 border border-slate-700/80 rounded-2xl backdrop-blur-md mt-6 flex-wrap">
           <button
             onClick={() => setGuideTab('general')}
             className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
@@ -115,6 +138,16 @@ export const HowToPlay: React.FC = () => {
             }`}
           >
             Tips Ludo Party
+          </button>
+          <button
+            onClick={() => setGuideTab('impostor-desa')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+              guideTab === 'impostor-desa'
+                ? 'bg-emerald-600 text-white shadow-glow-primary'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            Tips I'amPostor
           </button>
         </div>
       </div>
@@ -182,6 +215,26 @@ export const HowToPlay: React.FC = () => {
                 </div>
                 <h4 className="text-lg font-black text-white mb-2">{tip.action}</h4>
                 <p className="text-xs text-slate-300 leading-relaxed">{tip.tip}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Tab: Impostor Desa Tips */}
+      {guideTab === 'impostor-desa' && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6">
+          {impostorTips.map((tip, idx) => (
+            <div
+              key={idx}
+              className="p-6 rounded-3xl bg-[#FFF8E8] text-[#18352B] border-2 border-[#2F7D55]/30 shadow-xl flex flex-col justify-between"
+            >
+              <div>
+                <div className="inline-block px-3 py-1 rounded-xl bg-[#2F7D55] text-white text-xs font-black mb-3 shadow-sm">
+                  {tip.key}
+                </div>
+                <h4 className="text-base sm:text-lg font-black text-[#18352B] mb-2">{tip.action}</h4>
+                <p className="text-xs text-[#18352B]/80 font-medium leading-relaxed">{tip.tip}</p>
               </div>
             </div>
           ))}

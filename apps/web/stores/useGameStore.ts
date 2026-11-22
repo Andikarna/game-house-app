@@ -7,7 +7,8 @@ import {
   Player, 
   SkillType,
   ClientToServerEvents,
-  ServerToClientEvents 
+  ServerToClientEvents,
+  ImpostorPrivateRoleData
 } from '@gamehouse/shared';
 import { soundManager } from '../components/audio/SoundManager';
 
@@ -24,6 +25,7 @@ interface GameStoreState {
   playerId: string;
   room: RoomInfo | null;
   gameState: any | null;
+  impostorRole: ImpostorPrivateRoleData | null;
   countdown: number | null;
   gameResults: GameResultData | null;
   toasts: ToastNotification[];
@@ -35,6 +37,7 @@ interface GameStoreState {
   setPlayerId: (id: string) => void;
   setRoom: (room: RoomInfo | null) => void;
   setGameState: (state: any) => void;
+  setImpostorRole: (role: ImpostorPrivateRoleData | null) => void;
   setCountdown: (count: number | null) => void;
   setGameResults: (results: GameResultData | null) => void;
   addToast: (message: string, type?: ToastNotification['type']) => void;
@@ -58,6 +61,7 @@ export const useGameStore = create<GameStoreState>((set, get) => {
     playerId: storedPlayerId,
     room: null,
     gameState: null,
+    impostorRole: null,
     countdown: null,
     gameResults: null,
     toasts: [],
@@ -73,6 +77,7 @@ export const useGameStore = create<GameStoreState>((set, get) => {
     },
     setRoom: (room) => set({ room }),
     setGameState: (gameState) => set({ gameState }),
+    setImpostorRole: (impostorRole) => set({ impostorRole }),
     setCountdown: (countdown) => {
       if (countdown !== null) {
         soundManager.playCountdown(countdown);
@@ -113,6 +118,7 @@ export const useGameStore = create<GameStoreState>((set, get) => {
     },
     resetGame: () => set({
       gameState: null,
+      impostorRole: null,
       countdown: null,
       gameResults: null
     }),

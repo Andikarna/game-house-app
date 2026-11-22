@@ -20,18 +20,27 @@ export function setupSocketHandlers(
     // 1. Room Creation
     socket.on('room:create', ({ nickname, avatar, roomName, gameId, gameMode, maxPlayers, playerId }, callback) => {
       try {
+        if ((gameId as GameId) === 'panjat-pinang') {
+          return callback({ success: false, error: 'Game Panjat Pinang sedang dalam pemeliharaan (maintenance).' });
+        }
+
         const cleanNickname = (nickname || 'Climber').trim().substring(0, 18);
         if (!cleanNickname || cleanNickname.length < 2) {
           return callback({ success: false, error: 'Nickname must be at least 2 characters.' });
         }
 
         const validAvatar: AvatarId = avatar || 'budi';
+        const isImpostorGame = (gameId as GameId) === 'impostor-desa';
+        const targetMaxPlayers = isImpostorGame
+          ? Math.min(6, Math.max(4, maxPlayers || 6))
+          : Math.min(8, Math.max(2, maxPlayers || 8));
+
         const settings: RoomSettings = {
-          name: (roomName || `${cleanNickname}'s Party`).trim().substring(0, 30),
+          name: (roomName || (isImpostorGame ? `${cleanNickname}'s Desa` : `${cleanNickname}'s Party`)).trim().substring(0, 30),
           gameId: (gameId as GameId) || 'panjat-pinang',
-          gameMode: (gameMode as GameMode) || 'classic-race',
-          maxPlayers: Math.min(8, Math.max(2, maxPlayers || 8)),
-          durationSeconds: 180,
+          gameMode: (gameMode as GameMode) || (isImpostorGame ? 'impostor-classic' : 'classic-race'),
+          maxPlayers: targetMaxPlayers,
+          durationSeconds: isImpostorGame ? 240 : 180,
           isPrivate: false,
         };
 
@@ -111,6 +120,11 @@ export function setupSocketHandlers(
       const room = roomManager.getRoomById(mapping.roomId);
       if (!room) return;
 
+      if (newSettings.gameId === 'panjat-pinang') {
+        socket.emit('error:message', 'Game Panjat Pinang sedang dalam pemeliharaan (maintenance).');
+        return;
+      }
+
       const success = room.updateSettings(newSettings, mapping.playerId);
       if (success) {
         io.to(room.id).emit('room:updated', room.getInfo());
@@ -134,6 +148,59 @@ export function setupSocketHandlers(
 
       const success = room.kickPlayer(targetPlayerId, mapping.playerId);
       if (success) {
+        io.to(room.id).emit('room:updated', room.getInfo());
+      }
+    });
+
+    // 6b. Bot Management (Host only - Practice Mode)
+    socket.on('room:add-bot', () => {
+      const mapping = roomManager.getPlayerMapping(socket.id);
+      if (!mapping) return;
+      const room = roomManager.getRoomById(mapping.roomId);
+      if (!room || room.hostId !== mapping.playerId) return;
+
+      const result = room.addBot();
+      if (result.success) {
+        io.to(room.id).emit('room:updated', room.getInfo());
+      } else if (result.error) {
+        socket.emit('error:message', result.error);
+      }
+    });
+
+    socket.on('room:remove-bot', (payload?: { botId?: string }) => {
+      const mapping = roomManager.getPlayerMapping(socket.id);
+      if (!mapping) return;
+      const room = roomManager.getRoomById(mapping.roomId);
+      if (!room || room.hostId !== mapping.playerId) return;
+
+      const result = room.removeBot(payload?.botId);
+      if (result.success) {
+        io.to(room.id).emit('room:updated', room.getInfo());
+      } else if (result.error) {
+        socket.emit('error:message', result.error);
+      }
+    });
+
+    socket.on('room:fill-bots', () => {
+      const mapping = roomManager.getPlayerMapping(socket.id);
+      if (!mapping) return;
+      const room = roomManager.getRoomById(mapping.roomId);
+      if (!room || room.hostId !== mapping.playerId) return;
+
+      const result = room.fillBots();
+      if (result.added > 0) {
+        io.to(room.id).emit('room:updated', room.getInfo());
+      }
+    });
+
+    socket.on('room:clear-bots', () => {
+      const mapping = roomManager.getPlayerMapping(socket.id);
+      if (!mapping) return;
+      const room = roomManager.getRoomById(mapping.roomId);
+      if (!room || room.hostId !== mapping.playerId) return;
+
+      const result = room.clearBots();
+      if (result.removed > 0) {
         io.to(room.id).emit('room:updated', room.getInfo());
       }
     });
@@ -173,7 +240,7 @@ export function setupSocketHandlers(
       }, 1000);
     });
 
-    // 8. Player Game Input (Climber movement or Ludo dice / token moves)
+    // 8. Player Game Input (Climber movement, Ludo, or Impostor Desa actions)
     socket.on('game:input', (input: any) => {
       const mapping = roomManager.getPlayerMapping(socket.id);
       if (!mapping) return;
@@ -185,6 +252,55 @@ export function setupSocketHandlers(
       if (gameInstance) {
         gameInstance.handleInput(mapping.playerId, input);
       }
+    });
+
+    // 8b. Impostor Desa Specific Socket Events
+    socket.on('impostor:ready-role', () => {
+      const mapping = roomManager.getPlayerMapping(socket.id);
+      if (!mapping) return;
+      const room = roomManager.getRoomById(mapping.roomId);
+      if (!room || room.status !== 'in-game') return;
+      room.getGameInstance()?.handleInput(mapping.playerId, { action: 'ready-role' });
+    });
+
+    socket.on('impostor:submit-clue', ({ clue }: { clue: string }) => {
+      const mapping = roomManager.getPlayerMapping(socket.id);
+      if (!mapping) return;
+      const room = roomManager.getRoomById(mapping.roomId);
+      if (!room || room.status !== 'in-game') return;
+      room.getGameInstance()?.handleInput(mapping.playerId, { action: 'submit-clue', clue });
+    });
+
+    socket.on('impostor:start-voting', () => {
+      const mapping = roomManager.getPlayerMapping(socket.id);
+      if (!mapping) return;
+      const room = roomManager.getRoomById(mapping.roomId);
+      if (!room || room.status !== 'in-game') return;
+      room.getGameInstance()?.handleInput(mapping.playerId, { action: 'start-voting' });
+    });
+
+    socket.on('impostor:submit-vote', ({ targetPlayerId }: { targetPlayerId: string }) => {
+      const mapping = roomManager.getPlayerMapping(socket.id);
+      if (!mapping) return;
+      const room = roomManager.getRoomById(mapping.roomId);
+      if (!room || room.status !== 'in-game') return;
+      room.getGameInstance()?.handleInput(mapping.playerId, { action: 'submit-vote', targetPlayerId });
+    });
+
+    socket.on('impostor:submit-guess', ({ guessedWord }: { guessedWord: string }) => {
+      const mapping = roomManager.getPlayerMapping(socket.id);
+      if (!mapping) return;
+      const room = roomManager.getRoomById(mapping.roomId);
+      if (!room || room.status !== 'in-game') return;
+      room.getGameInstance()?.handleInput(mapping.playerId, { action: 'submit-guess', guessedWord });
+    });
+
+    socket.on('impostor:send-chat', ({ message }: { message: string }) => {
+      const mapping = roomManager.getPlayerMapping(socket.id);
+      if (!mapping) return;
+      const room = roomManager.getRoomById(mapping.roomId);
+      if (!room || room.status !== 'in-game') return;
+      room.getGameInstance()?.handleInput(mapping.playerId, { action: 'send-chat', message });
     });
 
     // 9. Player Skill Trigger

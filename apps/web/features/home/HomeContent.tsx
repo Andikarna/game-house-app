@@ -23,7 +23,7 @@ export const HomeContent: React.FC = () => {
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isJoinOpen, setIsJoinOpen] = useState(false);
-  const [selectedGameForModal, setSelectedGameForModal] = useState<GameId>('panjat-pinang');
+  const [selectedGameForModal, setSelectedGameForModal] = useState<GameId>('ludo');
   const [stats, setStats] = useState({ onlinePlayers: 18, activeRooms: 4 });
 
   // Auto-play default party background music on enter
