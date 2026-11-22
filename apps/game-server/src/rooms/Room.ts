@@ -61,6 +61,10 @@ export class Room {
     };
   }
 
+  public getGameState(): any {
+    return this.gameInstance?.getState() || null;
+  }
+
   public addPlayer(player: Player): { success: boolean; error?: string } {
     // Check if player is rejoining
     const existing = this.players.get(player.id);

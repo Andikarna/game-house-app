@@ -30,6 +30,7 @@ import { GameHouseLogo } from '../../components/branding/GameHouseLogo';
 import { useSettingsStore } from '../../stores/useSettingsStore';
 import { Modal } from '../../components/ui/Modal';
 import { ImpostorLobbyScreen } from '../games/impostor-desa/components/ImpostorLobbyScreen';
+import { getGlobalSocket } from '../../hooks/useSocket';
 
 export const LobbyView: React.FC = () => {
   const { socket, room, playerId, setPlayerId, ping, addToast } = useGameStore();
@@ -72,9 +73,11 @@ export const LobbyView: React.FC = () => {
   const minPlayersRequired = isHiddenTeam ? 6 : (isImpostorDesa ? 4 : (room.settings.gameId === 'ludo' ? 2 : 1));
   const maxPlayersAllowed = (isHiddenTeam || isImpostorDesa) ? 6 : (room.settings.gameId === 'ludo' ? 4 : 8);
 
-  const nonHostPlayers = room.players.filter(p => !p.isHost && p.id !== room.hostId);
+  const nonHostPlayers = room.players.filter(p => !p.isHost && p.id !== room.hostId && !p.isBot);
   const allReady = nonHostPlayers.length === 0 ? true : nonHostPlayers.every(p => p.isReady);
   const canStart = isHost && !isPanjatPinang && room.players.length >= minPlayersRequired && room.players.length <= maxPlayersAllowed && allReady;
+
+  const activeSocket = socket || getGlobalSocket();
 
   const handleCopyCode = () => {
     navigator.clipboard.writeText(room.code);
@@ -92,67 +95,67 @@ export const LobbyView: React.FC = () => {
   };
 
   const handleToggleReady = () => {
-    if (socket && !isHost) {
-      socket.emit('room:ready', !myPlayer?.isReady);
+    if (activeSocket && !isHost) {
+      activeSocket.emit('room:ready', !myPlayer?.isReady);
     }
   };
 
   const handleUpdateMode = (gameMode: GameMode) => {
-    if (socket && isHost) {
-      socket.emit('room:update-settings', { gameMode });
+    if (activeSocket && isHost) {
+      activeSocket.emit('room:update-settings', { gameMode });
     }
   };
 
   const handleUpdateDuration = (durationSeconds: number) => {
-    if (socket && isHost) {
-      socket.emit('room:update-settings', { durationSeconds });
+    if (activeSocket && isHost) {
+      activeSocket.emit('room:update-settings', { durationSeconds });
     }
   };
 
   const handleKick = (targetId: string) => {
-    if (socket && isHost) {
-      socket.emit('room:kick-player', targetId);
+    if (activeSocket && isHost) {
+      activeSocket.emit('room:kick-player', targetId);
     }
   };
 
   // Bot Practice Mode Actions
   const handleAddBot = () => {
-    if (socket && isHost) {
-      socket.emit('room:add-bot');
+    if (activeSocket && isHost) {
+      activeSocket.emit('room:add-bot');
       addToast('Bot berhasil ditambahkan ke room.', 'info');
     }
   };
 
   const handleFillBots = () => {
-    if (socket && isHost) {
-      socket.emit('room:fill-bots');
+    if (activeSocket && isHost) {
+      activeSocket.emit('room:fill-bots');
       addToast('Slot terisi penuh dengan Bot AI! Siap bermain sendiri.', 'success');
     }
   };
 
   const handleRemoveBot = (botId?: string) => {
-    if (socket && isHost) {
-      socket.emit('room:remove-bot', { botId });
+    if (activeSocket && isHost) {
+      activeSocket.emit('room:remove-bot', { botId });
       addToast('Bot dikeluarkan dari room.', 'info');
     }
   };
 
   const handleClearBots = () => {
-    if (socket && isHost) {
-      socket.emit('room:clear-bots');
+    if (activeSocket && isHost) {
+      activeSocket.emit('room:clear-bots');
       addToast('Semua bot telah dikeluarkan.', 'info');
     }
   };
 
   const handleStartGame = () => {
-    if (socket && canStart) {
-      socket.emit('game:start');
+    if (activeSocket && canStart) {
+      activeSocket.emit('game:start');
     }
   };
 
   const handleLeaveRoom = () => {
-    if (socket) {
-      socket.emit('room:leave');
+    if (activeSocket) {
+      activeSocket.emit('room:leave');
       window.location.href = '/';
     }
   };

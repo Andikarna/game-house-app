@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import pool from '../../../../lib/db';
-import { getRoomByCode } from '../../../../lib/room-service';
-import { AvatarId } from '../../../../shared';
+import { safeDbQuery } from '../../../../lib/db';
+import { getRoomByCode, addPlayerToMemoryRoom, saveMemoryRoom } from '../../../../lib/room-service';
+import { AvatarId, Player } from '../../../../shared';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,7 +11,7 @@ export async function POST(req: Request) {
     const rawCode = (body.code || body.roomCode || '')?.toString().trim().toUpperCase();
     const cleanCode = rawCode.replace(/[^A-Za-z0-9]/g, '');
     const nickname = (body.nickname || 'Player').trim();
-    const avatar = body.avatar || 'budi';
+    const avatar: AvatarId = body.avatar || 'budi';
 
     if (!cleanCode) {
       return NextResponse.json({ success: false, error: 'Room code is required.' }, { status: 400 });
@@ -28,24 +28,31 @@ export async function POST(req: Request) {
     }
 
     if (!roomData) {
-      return NextResponse.json({ success: false, error: `Room ${cleanCode} not found. Please check the code.` }, { status: 404 });
+      return NextResponse.json(
+        { success: false, error: `Room ${cleanCode} not found. Please check the code.` },
+        { status: 404 }
+      );
     }
 
     const { room } = roomData;
+    const now = Date.now();
 
     // 1. Check if this exact player is already in room (reconnection)
     if (body.playerId) {
       const existingPlayer = room.players.find((p) => p.id === body.playerId);
       if (existingPlayer) {
-        const now = Date.now();
-        await pool.query(
+        existingPlayer.avatar = avatar;
+        existingPlayer.isConnected = true;
+        saveMemoryRoom(room, roomData.gameState, roomData.gameResults);
+
+        safeDbQuery(
           'UPDATE gh_players SET avatar = ?, is_connected = 1, last_seen_at = ? WHERE id = ?',
           [avatar, now, existingPlayer.id]
-        );
-        const updated = await getRoomByCode(room.code);
+        ).catch(() => {});
+
         return NextResponse.json({
           success: true,
-          room: updated?.room || room,
+          room,
           playerId: existingPlayer.id,
         });
       }
@@ -60,8 +67,8 @@ export async function POST(req: Request) {
     const isSixPlayerGame = room.settings.gameId === 'impostor-desa' || room.settings.gameId === 'hidden-team';
     const maxCapacity = isSixPlayerGame ? 6 : (room.settings.maxPlayers || 4);
 
-    const botPlayer = room.players.find((p) => (p as any).is_bot || p.isBot);
-    if (room.players.length >= maxCapacity && !botPlayer) {
+    const botIndex = room.players.findIndex((p) => (p as any).is_bot || p.isBot);
+    if (room.players.length >= maxCapacity && botIndex < 0) {
       return NextResponse.json({
         success: false,
         error: isSixPlayerGame
@@ -70,50 +77,53 @@ export async function POST(req: Request) {
       }, { status: 400 });
     }
 
-    if (room.players.length >= maxCapacity && botPlayer) {
-      // Free up space by replacing the bot
-      await pool.query('DELETE FROM gh_players WHERE id = ?', [botPlayer.id]);
+    if (room.players.length >= maxCapacity && botIndex >= 0) {
+      const botPlayer = room.players[botIndex];
+      room.players.splice(botIndex, 1);
+      safeDbQuery('DELETE FROM gh_players WHERE id = ?', [botPlayer.id]).catch(() => {});
     }
 
     // 4. Nickname deduplication (e.g. "Player (2)")
     let finalNickname = nickname;
     let suffix = 2;
-    const existingNicknames = room.players
-      .filter((p) => p.id !== botPlayer?.id)
-      .map((p) => p.nickname.toLowerCase());
-
+    const existingNicknames = room.players.map((p) => p.nickname.toLowerCase());
     while (existingNicknames.includes(finalNickname.toLowerCase())) {
       finalNickname = `${nickname} (${suffix})`;
       suffix++;
     }
 
-    const playerId = body.playerId || `p_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-    const now = Date.now();
+    // 5. Generate player and add to room
+    const newPlayerId = body.playerId || `p_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    const newPlayer: Player = {
+      id: newPlayerId,
+      socketId: newPlayerId,
+      nickname: finalNickname,
+      avatar,
+      isHost: room.players.length === 0,
+      isReady: room.players.length === 0,
+      isConnected: true,
+      joinedAt: now,
+    };
 
-    await pool.query(
+    const updatedRoom = addPlayerToMemoryRoom(room.code, newPlayer) || room;
+
+    safeDbQuery(
       `INSERT INTO gh_players 
         (id, room_code, nickname, avatar, is_host, is_ready, is_connected, last_seen_at, joined_at)
-       VALUES (?, ?, ?, ?, 0, 0, 1, ?, ?)
-       ON DUPLICATE KEY UPDATE
-        room_code = VALUES(room_code),
-        nickname = VALUES(nickname),
-        avatar = VALUES(avatar),
-        is_host = 0,
-        is_ready = 0,
-        is_connected = 1,
-        last_seen_at = VALUES(last_seen_at)`,
-      [playerId, room.code, finalNickname, avatar, now, now]
-    );
-
-    const updatedRoomData = await getRoomByCode(room.code);
+       VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+      [newPlayerId, room.code, finalNickname, avatar, newPlayer.isHost ? 1 : 0, newPlayer.isReady ? 1 : 0, now, now]
+    ).catch(() => {});
 
     return NextResponse.json({
       success: true,
-      room: updatedRoomData?.room || room,
-      playerId,
+      room: updatedRoom,
+      playerId: newPlayerId,
     });
-  } catch (error: any) {
-    console.error('[API join room error]:', error);
-    return NextResponse.json({ success: false, error: error.message || 'Failed to join room.' }, { status: 500 });
+  } catch (err: any) {
+    console.error('[API /api/rooms/join error]:', err);
+    return NextResponse.json(
+      { success: false, error: err?.message || 'Failed to join room' },
+      { status: 500 }
+    );
   }
 }

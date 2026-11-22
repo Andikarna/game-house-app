@@ -48,7 +48,33 @@ app.get('/api/rooms/:code', (req, res) => {
   if (!room) {
     return res.status(404).json({ error: 'Room not found' });
   }
-  return res.json({ room: room.getInfo() });
+  return res.json({ 
+    room: room.getInfo(),
+    gameState: room.getGameState()
+  });
+});
+
+// API endpoint to join room via HTTP
+app.post('/api/rooms/join', (req, res) => {
+  const { roomCode, code, nickname, avatar, playerId } = req.body || {};
+  const targetCode = roomCode || code;
+  const socketId = `http_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+  const result = roomManager.joinRoom(
+    socketId,
+    targetCode,
+    { nickname: nickname || 'Player', avatar: avatar || 'budi', playerId }
+  );
+  if (!result.success || !result.room || !result.player) {
+    return res.status(404).json({ success: false, error: result.error || 'Room not found' });
+  }
+  const roomInfo = result.room.getInfo();
+  io.to(result.room.id).emit('room:updated', roomInfo);
+  return res.json({
+    success: true,
+    room: roomInfo,
+    player: result.player,
+    playerId: result.player.id,
+  });
 });
 
 // Setup Socket.IO handlers

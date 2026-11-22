@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import pool from '../../../../lib/db';
-import { getRoomByCode } from '../../../../lib/room-service';
+import { safeDbQuery } from '../../../../lib/db';
+import { getRoomByCode, saveMemoryRoom } from '../../../../lib/room-service';
 import { checkLudoTimeout } from '../../../../lib/game-runner';
 
 export const dynamic = 'force-dynamic';
@@ -13,7 +13,8 @@ export async function GET(
   { params }: { params: { code: string } }
 ) {
   try {
-    const code = params.code?.toUpperCase();
+    const rawCode = params.code?.toUpperCase() || '';
+    const code = rawCode.replace(/[^A-Za-z0-9]/g, '');
     if (!code) {
       return NextResponse.json({ success: false, error: 'Code is required.' }, { status: 400 });
     }
@@ -28,12 +29,10 @@ export async function GET(
       if (now - lastSeen > 15000) {
         lastHeartbeatMap.set(playerId, now);
         // Non-blocking background heartbeat update
-        pool.query(
+        safeDbQuery(
           'UPDATE gh_players SET last_seen_at = ?, is_connected = 1 WHERE id = ? AND room_code = ?',
           [now, playerId, code]
-        ).catch((err) => {
-          console.error('[Heartbeat error]:', err);
-        });
+        ).catch(() => {});
       }
     }
 
@@ -41,7 +40,7 @@ export async function GET(
     const tenSecondsAgo = now - 10000;
     const [roomData, [emoteRows]] = await Promise.all([
       getRoomByCode(code),
-      pool.query<any[]>(
+      safeDbQuery<any[]>(
         'SELECT id, player_id as playerId, nickname, emote_id as emoteId, timestamp FROM gh_emotes WHERE room_code = ? AND timestamp > ? ORDER BY timestamp ASC',
         [code, tenSecondsAgo]
       ),
@@ -68,35 +67,29 @@ export async function GET(
           roomData.room.status = 'finished';
         }
         const newStatus = results ? 'finished' : 'in-game';
-        pool.query(
+        const resultsJson = results ? JSON.stringify(results) : null;
+
+        saveMemoryRoom(roomData.room, updatedState, results);
+
+        safeDbQuery(
           'UPDATE gh_rooms SET game_state_json = ?, game_results_json = ?, status = ?, updated_at = ? WHERE code = ?',
-          [
-            JSON.stringify(updatedState),
-            results ? JSON.stringify(results) : null,
-            newStatus,
-            now,
-            code,
-          ]
-        ).catch((err) => console.error('[Ludo auto-timeout update error]:', err));
+          [JSON.stringify(updatedState), resultsJson, newStatus, now, code]
+        ).catch(() => {});
       }
     }
 
-    return NextResponse.json(
-      {
-        success: true,
-        room: roomData.room,
-        gameState: roomData.gameState,
-        gameResults: roomData.gameResults,
-        emotes: emoteRows || [],
-      },
-      {
-        headers: {
-          'Cache-Control': 'no-store, no-cache, must-revalidate',
-        },
-      }
-    );
+    return NextResponse.json({
+      success: true,
+      room: roomData.room,
+      gameState: roomData.gameState,
+      gameResults: roomData.gameResults,
+      emotes: emoteRows || [],
+    });
   } catch (error: any) {
-    console.error('[API get room error]:', error);
-    return NextResponse.json({ success: false, error: error.message || 'Failed to fetch room.' }, { status: 500 });
+    console.error('[API /api/rooms/[code] error]:', error);
+    return NextResponse.json(
+      { success: false, error: error?.message || 'Server error' },
+      { status: 500 }
+    );
   }
 }

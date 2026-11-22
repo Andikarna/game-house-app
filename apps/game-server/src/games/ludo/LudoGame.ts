@@ -687,5 +687,6 @@ export class LudoGame implements GameModule {
   private broadcastState(): void {
     const state = this.getState();
     this.io.to(this.roomId).emit('game:state', state);
+    this.io.to(this.roomId).emit('game:ludo_state', state);
   }
 }

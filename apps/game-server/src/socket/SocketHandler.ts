@@ -252,6 +252,16 @@ export function setupSocketHandlers(
           const started = room.startGame();
           if (!started) {
             socket.emit('error:message', 'Failed to start game module.');
+          } else {
+            io.to(room.id).emit('room:updated', room.getInfo());
+            const initialState = room.getGameInstance()?.getState();
+            io.to(room.id).emit('game:countdown', 0);
+            io.to(room.id).emit('game:start', initialState);
+            io.to(room.id).emit('game:started', initialState);
+            io.to(room.id).emit('game:state', initialState);
+            if (room.settings.gameId === 'ludo') {
+              io.to(room.id).emit('game:ludo_state', initialState);
+            }
           }
         }
       }, 1000);

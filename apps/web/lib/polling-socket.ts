@@ -111,8 +111,16 @@ class PollingSocket {
       }
 
       // Determine active context
-      const roomCode = this.currentRoomCode || payload?.roomCode || payload?.code;
-      const playerId = this.currentPlayerId || payload?.playerId;
+      let roomCode = this.currentRoomCode || payload?.roomCode || payload?.code;
+      let playerId = this.currentPlayerId || payload?.playerId;
+
+      if (typeof window !== 'undefined' && (!roomCode || !playerId)) {
+        try {
+          const store = (window as any).__gh_game_store || require('../stores/useGameStore').useGameStore?.getState?.();
+          if (!roomCode && store?.room?.code) roomCode = store.room.code;
+          if (!playerId && store?.playerId) playerId = store.playerId;
+        } catch {}
+      }
 
       if (!roomCode) return;
 
@@ -163,6 +171,63 @@ class PollingSocket {
         return;
       }
 
+      // 3e. BOT MANAGEMENT
+      if (event === 'room:add-bot') {
+        const res = await fetch(`/api/rooms/${roomCode}/action`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'add_bot', playerId }),
+        });
+        const data = await res.json();
+        if (data.success && data.room) {
+          this.emitInternal('room:updated', data.room);
+          await this.pollOnce(true);
+        }
+        return;
+      }
+
+      if (event === 'room:fill-bots') {
+        const res = await fetch(`/api/rooms/${roomCode}/action`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'fill_bots', playerId }),
+        });
+        const data = await res.json();
+        if (data.success && data.room) {
+          this.emitInternal('room:updated', data.room);
+          await this.pollOnce(true);
+        }
+        return;
+      }
+
+      if (event === 'room:remove-bot') {
+        const res = await fetch(`/api/rooms/${roomCode}/action`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'remove_bot', playerId }),
+        });
+        const data = await res.json();
+        if (data.success && data.room) {
+          this.emitInternal('room:updated', data.room);
+          await this.pollOnce(true);
+        }
+        return;
+      }
+
+      if (event === 'room:clear-bots') {
+        const res = await fetch(`/api/rooms/${roomCode}/action`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'clear_bots', playerId }),
+        });
+        const data = await res.json();
+        if (data.success && data.room) {
+          this.emitInternal('room:updated', data.room);
+          await this.pollOnce(true);
+        }
+        return;
+      }
+
       // 4. START GAME (Both 'room:start' and 'game:start')
       if (event === 'room:start' || event === 'game:start') {
         const res = await fetch(`/api/rooms/${roomCode}/action`, {
@@ -172,7 +237,12 @@ class PollingSocket {
         });
         const data = await res.json();
         if (data.success && data.gameState) {
+          if (data.room) {
+            this.emitInternal('room:updated', data.room);
+          }
+          this.emitInternal('game:countdown', 0);
           this.emitInternal('game:start', data.gameState);
+          this.emitInternal('game:started', data.gameState);
           this.emitInternal('game:state', data.gameState);
           this.emitInternal('game:ludo_state', data.gameState);
           await this.pollOnce(true);
@@ -377,12 +447,14 @@ class PollingSocket {
       }
     } finally {
       this.isCurrentlyFetching = false;
-      // Sequential scheduling: Only queue the next poll AFTER the previous one finishes!
+      // Sequential scheduling: 400ms when game is active for realtime smoothness, 800ms in lobby
       if (this.isPollingActive && this.currentRoomCode) {
         if (this.pollTimer) clearTimeout(this.pollTimer);
+        const isGameActive = this.lastRoomStateStr.includes('"in-game"') || this.lastRoomStateStr.includes('"countdown"');
+        const delay = isGameActive ? 400 : 800;
         this.pollTimer = setTimeout(() => {
           this.pollOnce();
-        }, 800);
+        }, delay);
       }
     }
   }

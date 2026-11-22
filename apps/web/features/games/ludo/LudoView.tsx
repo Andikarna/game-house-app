@@ -10,6 +10,7 @@ import { LudoResultModal } from './LudoResultModal';
 import { EmotePicker } from '../../../components/emotes/EmotePicker';
 import { FloatingEmoteLayer } from '../../../components/emotes/FloatingEmoteLayer';
 import { soundManager } from '../../../components/audio/SoundManager';
+import { getGlobalSocket } from '../../../hooks/useSocket';
 import { LogOut, Volume2, VolumeX, Dices, Trophy, Swords } from 'lucide-react';
 import Link from 'next/link';
 
@@ -141,37 +142,40 @@ export const LudoView: React.FC = () => {
       ludo.validMoves.length === 0 &&
       ludo.status !== 'finished'
     ) {
+      const activeSocket = socket || getGlobalSocket();
       const timer = setTimeout(() => {
-        if (socket && socket.connected) {
-          socket.emit('game:input', { action: 'pass-turn' });
+        if (activeSocket) {
+          activeSocket.emit('game:input', { action: 'pass-turn' });
         }
       }, 1400);
       return () => clearTimeout(timer);
     }
   }, [gameState, playerId, socket]);
 
+  const activeSocket = socket || getGlobalSocket();
+
   const handleRollDice = () => {
-    if (socket && socket.connected) {
-      socket.emit('game:input', { action: 'roll-dice' });
+    if (activeSocket) {
+      activeSocket.emit('game:input', { action: 'roll-dice' });
     }
   };
 
   const handleSelectToken = (tokenIndex: number) => {
-    if (socket && socket.connected) {
-      socket.emit('game:input', { action: 'move-token', tokenIndex });
+    if (activeSocket) {
+      activeSocket.emit('game:input', { action: 'move-token', tokenIndex });
     }
   };
 
   const handlePlayAgain = () => {
-    if (socket && socket.connected && isHost) {
-      socket.emit('game:restart');
+    if (activeSocket && isHost) {
+      activeSocket.emit('game:restart');
       setGameResults(null);
     }
   };
 
   const handleLeaveRoom = () => {
-    if (socket && socket.connected) {
-      socket.emit('room:leave');
+    if (activeSocket) {
+      activeSocket.emit('room:leave');
       window.location.href = '/';
     }
   };

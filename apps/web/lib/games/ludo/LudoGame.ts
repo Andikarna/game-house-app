@@ -509,6 +509,24 @@ export class LudoGame implements GameModule {
       return true;
     }
 
+    const currentPlayerId = this.playerOrder[this.currentTurnIndex];
+    const player = this.players.get(currentPlayerId);
+    if (player && player.isBot) {
+      if (!this.hasRolled && player.canRoll) {
+        this.handleRollDice(player);
+        return true;
+      }
+      if (this.hasRolled && this.validMoves.length > 0) {
+        const bestMove = this.chooseBestBotMove(player, this.validMoves, this.diceValue || 1);
+        this.handleMoveToken(player, bestMove);
+        return true;
+      }
+      if (this.hasRolled && this.validMoves.length === 0) {
+        this.passToNextPlayer();
+        return true;
+      }
+    }
+
     if (now - (this.turnStartedAt || now) >= 20000) {
       this.handleTurnTimeout();
       return true;

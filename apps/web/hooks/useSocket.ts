@@ -9,7 +9,7 @@ let globalSocket: any = null;
 const registeredSockets = new WeakSet<any>();
 
 export function getGlobalSocket() {
-  if (globalSocket && (globalSocket === globalPollingSocket || globalSocket.connected)) {
+  if (globalSocket) {
     return globalSocket;
   }
   return (globalPollingSocket as any);
@@ -209,8 +209,14 @@ export function useSocket() {
       }
     };
 
-    const isLocal = typeof window !== 'undefined' &&
-      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+    const isLocal =
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname.startsWith('192.168.') ||
+      hostname.startsWith('10.') ||
+      hostname.startsWith('172.') ||
+      hostname.endsWith('.local');
     const configuredServerUrl = process.env.NEXT_PUBLIC_GAME_SERVER_URL;
 
     // In production without standalone server URL, default directly to polling socket
@@ -225,7 +231,7 @@ export function useSocket() {
       return;
     }
 
-    const serverUrl = configuredServerUrl || `http://${window.location.hostname || 'localhost'}:4000`;
+    const serverUrl = configuredServerUrl || `http://${hostname || 'localhost'}:4000`;
 
     if (!globalSocket) {
       try {
@@ -233,7 +239,7 @@ export function useSocket() {
           transports: ['websocket', 'polling'],
           reconnectionAttempts: 3,
           reconnectionDelay: 1000,
-          timeout: 2500,
+          timeout: 3500,
           autoConnect: true,
         });
 
@@ -243,7 +249,7 @@ export function useSocket() {
             console.warn('[useSocket] Standalone socket timed out, falling back to polling socket');
             switchToPolling();
           }
-        }, 2000);
+        }, 3500);
 
         globalSocket.on('connect', () => {
           clearTimeout(connectTimeout);
@@ -273,5 +279,5 @@ export function useSocket() {
     }
   }, [room?.code, playerId]);
 
-  return (globalSocket && globalSocket.connected ? globalSocket : globalPollingSocket) as any;
+  return (globalSocket || globalPollingSocket) as any;
 }
