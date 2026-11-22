@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { KeyRound, Users, Dices, Trophy, Zap, Shield, HelpCircle } from 'lucide-react';
 
 export const HowToPlay: React.FC = () => {
-  const [guideTab, setGuideTab] = useState<'general' | 'panjat-pinang' | 'ludo' | 'impostor-desa'>('general');
+  const [guideTab, setGuideTab] = useState<'general' | 'panjat-pinang' | 'ludo' | 'impostor-desa' | 'hidden-team'>('general');
 
   const generalSteps = [
     {
@@ -92,6 +92,29 @@ export const HowToPlay: React.FC = () => {
     },
   ];
 
+  const hiddenTeamTips = [
+    {
+      key: '1. Tiga Faksi Rahasia',
+      action: 'Ketahui Tujuan Tim',
+      tip: 'RED ingin memenangkan kubu Merah, BLUE ingin kubu Biru menang, dan NEUTRAL memiliki misi rahasia independen!',
+    },
+    {
+      key: '2. Enam Role Spesial',
+      action: 'Gunakan Skill Role',
+      tip: 'Setiap peran (Agent, Assassin, Oracle, dll) memiliki kekuatan taktis untuk melihat atau menukar informasi dewan.',
+    },
+    {
+      key: '3. Tukar Peran & Kartu',
+      action: 'Manipulasi Dewan',
+      tip: 'Aksi giliran memungkinkan pertukaran kartu peran dan kartu meja. Curigai siapapun yang mengubah susunan kartu!',
+    },
+    {
+      key: '4. Voting Kotak Suara',
+      action: 'Tentukan Pemenang',
+      tip: 'Di fase akhir, satukan suara untuk menentukan kartu utama yang lolos dan menangkan faksi rahasiamu!',
+    },
+  ];
+
   return (
     <section className="w-full py-12 sm:py-20 px-3 sm:px-8 max-w-7xl mx-auto">
       {/* Header */}
@@ -148,6 +171,16 @@ export const HowToPlay: React.FC = () => {
             }`}
           >
             Tips I'amPostor
+          </button>
+          <button
+            onClick={() => setGuideTab('hidden-team')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+              guideTab === 'hidden-team'
+                ? 'bg-rose-600 text-white shadow-glow-orange'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            Tips Hidden Team
           </button>
         </div>
       </div>
@@ -227,14 +260,34 @@ export const HowToPlay: React.FC = () => {
           {impostorTips.map((tip, idx) => (
             <div
               key={idx}
-              className="p-6 rounded-3xl bg-[#FFF8E8] text-[#18352B] border-2 border-[#2F7D55]/30 shadow-xl flex flex-col justify-between"
+              className="p-6 rounded-3xl bg-surface border border-emerald-500/30 shadow-xl flex flex-col justify-between"
             >
               <div>
-                <div className="inline-block px-3 py-1 rounded-xl bg-[#2F7D55] text-white text-xs font-black mb-3 shadow-sm">
+                <div className="inline-block px-3 py-1 rounded-xl bg-emerald-600/20 text-emerald-300 border border-emerald-500/40 text-xs font-black mb-3 shadow-sm">
                   {tip.key}
                 </div>
-                <h4 className="text-base sm:text-lg font-black text-[#18352B] mb-2">{tip.action}</h4>
-                <p className="text-xs text-[#18352B]/80 font-medium leading-relaxed">{tip.tip}</p>
+                <h4 className="text-base sm:text-lg font-black text-white mb-2">{tip.action}</h4>
+                <p className="text-xs text-slate-300 font-medium leading-relaxed">{tip.tip}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Tab: Hidden Team Tips */}
+      {guideTab === 'hidden-team' && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6">
+          {hiddenTeamTips.map((tip, idx) => (
+            <div
+              key={idx}
+              className="p-6 rounded-3xl bg-surface border border-rose-500/30 shadow-xl flex flex-col justify-between"
+            >
+              <div>
+                <div className="inline-block px-3 py-1 rounded-xl bg-rose-600/20 text-rose-300 border border-rose-500/40 text-xs font-black mb-3 shadow-sm">
+                  {tip.key}
+                </div>
+                <h4 className="text-base sm:text-lg font-black text-white mb-2">{tip.action}</h4>
+                <p className="text-xs text-slate-300 font-medium leading-relaxed">{tip.tip}</p>
               </div>
             </div>
           ))}

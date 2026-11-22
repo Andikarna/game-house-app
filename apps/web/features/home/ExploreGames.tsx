@@ -52,6 +52,16 @@ export const ExploreGames: React.FC<ExploreProps> = ({ onSelectGame }) => {
       tagColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
       highlights: ['Kata Rahasia Desa', 'Voting Rahasia', 'Tebakan Impostor'],
     },
+    {
+      id: 'hidden-team',
+      title: 'Hidden Team: Secret Role',
+      description: 'Social deduction strategis 6 pemain dengan dewan rahasia! Tiga faksi tersembunyi (Red, Blue, Neutral), manipulasi voting kartu utama, dan pertukaran peran rahasia.',
+      emoji: '🕵️',
+      players: 'Tepat 6 Pemain',
+      category: 'Strategic / Secret Role',
+      tagColor: 'bg-rose-500/20 text-rose-300 border-rose-500/40',
+      highlights: ['3 Tim Tersembunyi', '6 Role Taktis', 'Swap & Voting'],
+    },
   ];
 
   const upcomingGames: {
@@ -109,11 +119,11 @@ export const ExploreGames: React.FC<ExploreProps> = ({ onSelectGame }) => {
         <div className="flex items-center gap-2 mb-4">
           <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
           <h3 className="text-sm sm:text-base font-black text-white uppercase tracking-wider">
-            Game Yang Siap Dimainkan Sekarang (3)
+            Game Yang Siap Dimainkan Sekarang ({readyGames.length})
           </h3>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6">
           {readyGames.map((game) => (
             <div
               key={game.id}

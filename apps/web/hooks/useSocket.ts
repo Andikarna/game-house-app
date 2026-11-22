@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { io as ioClient, Socket } from 'socket.io-client';
 import { useGameStore } from '../stores/useGameStore';
 import { useEmoteStore } from '../stores/useEmoteStore';
@@ -6,10 +6,13 @@ import { soundManager } from '../components/audio/SoundManager';
 import { globalPollingSocket } from '../lib/polling-socket';
 
 let globalSocket: any = null;
-let isSocketInitialized = false;
+const registeredSockets = new WeakSet<any>();
 
 export function getGlobalSocket() {
-  return globalSocket || (globalPollingSocket as any);
+  if (globalSocket && (globalSocket === globalPollingSocket || globalSocket.connected)) {
+    return globalSocket;
+  }
+  return (globalPollingSocket as any);
 }
 
 export function useSocket() {
@@ -20,6 +23,7 @@ export function useSocket() {
     setRoom,
     setGameState,
     setImpostorRole,
+    setHiddenTeamPrivate,
     setCountdown,
     setGameResults,
     addToast,
@@ -34,56 +38,21 @@ export function useSocket() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    // Determine target Socket.IO URL
-    let serverUrl = process.env.NEXT_PUBLIC_GAME_SERVER_URL;
-    if (!serverUrl) {
-      const hostname = window.location.hostname || 'localhost';
-      serverUrl = `http://${hostname}:4000`;
-    }
+    const attachSocketListeners = (targetSocket: any) => {
+      if (!targetSocket || registeredSockets.has(targetSocket)) return;
+      registeredSockets.add(targetSocket);
 
-    if (!globalSocket) {
-      try {
-        globalSocket = ioClient(serverUrl, {
-          transports: ['websocket', 'polling'],
-          reconnectionAttempts: 10,
-          reconnectionDelay: 1000,
-          timeout: 4000,
-          autoConnect: true,
-        });
-      } catch (err) {
-        console.warn('Could not initialize direct Socket.IO client, falling back to polling socket', err);
-        globalSocket = globalPollingSocket as any;
-      }
-    }
-
-    const socket = globalSocket;
-    setSocket(socket);
-
-    if (room?.code && playerId && globalPollingSocket.setContext) {
-      globalPollingSocket.setContext(room.code, playerId);
-    }
-
-    if (!isSocketInitialized && socket) {
-      isSocketInitialized = true;
-
-      socket.on('connect', () => {
+      targetSocket.on('connect', () => {
         setIsConnected(true);
         addToast('Connected to GameHouse server', 'success');
       });
 
-      socket.on('disconnect', () => {
+      targetSocket.on('disconnect', () => {
         setIsConnected(false);
       });
 
-      socket.on('connect_error', () => {
-        // If standalone socket server fails to connect, fallback to polling socket
-        if (socket !== globalPollingSocket) {
-          console.warn('Socket.IO connection failed, switching to polling fallback');
-        }
-      });
-
       // Room Events
-      socket.on('room:updated', (updatedRoom: any) => {
+      targetSocket.on('room:updated', (updatedRoom: any) => {
         setRoom(updatedRoom);
         if (updatedRoom.status === 'lobby') {
           resetGame();
@@ -91,31 +60,31 @@ export function useSocket() {
         }
       });
 
-      socket.on('room:player-joined', (newPlayer: any) => {
+      targetSocket.on('room:player-joined', (newPlayer: any) => {
         addToast(`${newPlayer.nickname} joined the room!`, 'info');
       });
 
-      socket.on('room:player-left', ({ nickname, newHostId }: any) => {
+      targetSocket.on('room:player-left', ({ nickname, newHostId }: any) => {
         addToast(`${nickname} left the room.`, 'info');
         if (newHostId && newHostId === playerId) {
           addToast('You are now the room Host!', 'success');
         }
       });
 
-      socket.on('room:kicked', (reason: string) => {
+      targetSocket.on('room:kicked', (reason: string) => {
         setRoom(null);
         resetGame();
         addToast(reason || 'You have been kicked from the room.', 'error');
       });
 
-      socket.on('room:closed', (reason: string) => {
+      targetSocket.on('room:closed', (reason: string) => {
         setRoom(null);
         resetGame();
         addToast(reason || 'Room closed by host.', 'warning');
       });
 
       // Game Countdown & Start Events
-      socket.on('game:countdown', (count: number) => {
+      targetSocket.on('game:countdown', (count: number) => {
         setCountdown(count);
         if (count === 3) {
           setGameResults(null);
@@ -127,40 +96,40 @@ export function useSocket() {
         }
       });
 
-      socket.on('game:start', (initialState: any) => {
+      targetSocket.on('game:start', (initialState: any) => {
         setCountdown(null);
         setGameState(initialState);
         soundManager.playCountdown(0);
       });
 
-      socket.on('game:started', (initialState: any) => {
+      targetSocket.on('game:started', (initialState: any) => {
         setCountdown(null);
         setGameState(initialState);
       });
 
-      socket.on('game:state', (state: any) => {
+      targetSocket.on('game:state', (state: any) => {
         setGameState(state);
       });
 
-      socket.on('game:ludo_state', (state: any) => {
+      targetSocket.on('game:ludo_state', (state: any) => {
         setGameState(state);
       });
 
-      socket.on('game:finished', (results: any) => {
+      targetSocket.on('game:finished', (results: any) => {
         setGameResults(results);
         soundManager.playVictory();
       });
 
       // Impostor Desa Specific Events
-      socket.on('impostor:private-role', (roleData: any) => {
+      targetSocket.on('impostor:private-role', (roleData: any) => {
         setImpostorRole(roleData);
       });
 
-      socket.on('impostor:state', (state: any) => {
+      targetSocket.on('impostor:state', (state: any) => {
         setGameState(state);
       });
 
-      socket.on('impostor:result', (resultData: any) => {
+      targetSocket.on('impostor:result', (resultData: any) => {
         setGameState((prev: any) => ({
           ...(prev || {}),
           phase: 'result',
@@ -170,34 +139,139 @@ export function useSocket() {
         }));
       });
 
-      socket.on('emote:received', (emoteEvent: any) => {
+      // Hidden Team: Secret Role Specific Events
+      targetSocket.on('hidden-team:private-state', (privateState: any) => {
+        setHiddenTeamPrivate(privateState);
+      });
+
+      targetSocket.on('hidden-team:state', (state: any) => {
+        setGameState(state);
+      });
+
+      targetSocket.on('hidden-team:round-result', (roundResult: any) => {
+        setGameState((prev: any) => ({
+          ...(prev || {}),
+          phase: 'ROUND_RESOLUTION',
+          currentRoundResult: roundResult,
+        }));
+      });
+
+      targetSocket.on('hidden-team:match-result', (matchResult: any) => {
+        setGameState((prev: any) => ({
+          ...(prev || {}),
+          phase: 'MATCH_FINISHED',
+          matchResult,
+        }));
+      });
+
+      targetSocket.on('emote:received', (emoteEvent: any) => {
         triggerEmote(emoteEvent);
       });
 
-      socket.on('game:emote', (emoteEvent: any) => {
+      targetSocket.on('game:emote', (emoteEvent: any) => {
         triggerEmote(emoteEvent);
       });
 
-      socket.on('player:skill-used', ({ nickname, skill }: any) => {
+      targetSocket.on('player:skill-used', ({ nickname, skill }: any) => {
         addToast(`${nickname} used skill: ${skill}!`, 'warning');
         soundManager.playSkill(skill);
       });
 
-      socket.on('player:fallen', ({ nickname }: any) => {
+      targetSocket.on('player:fallen', ({ nickname }: any) => {
         addToast(`${nickname} slipped down the pole!`, 'warning');
         soundManager.playSlip();
       });
 
-      socket.on('player:recovered', ({ nickname }: any) => {
+      targetSocket.on('player:recovered', ({ nickname }: any) => {
         addToast(`${nickname} recovered balance!`, 'info');
         soundManager.playRecovery();
       });
 
-      socket.on('error:message', (msg: string) => {
+      targetSocket.on('error:message', (msg: string) => {
         addToast(msg, 'error');
       });
+    };
+
+    const switchToPolling = () => {
+      if (globalSocket === globalPollingSocket) return;
+      console.log('[useSocket] Switching to globalPollingSocket fallback');
+      try {
+        if (globalSocket && typeof globalSocket.close === 'function') {
+          globalSocket.close();
+        }
+      } catch {}
+      globalSocket = globalPollingSocket;
+      attachSocketListeners(globalPollingSocket);
+      setSocket(globalPollingSocket as any);
+      setIsConnected(true);
+      if (room?.code && playerId && globalPollingSocket.setContext) {
+        globalPollingSocket.setContext(room.code, playerId);
+      }
+    };
+
+    const isLocal = typeof window !== 'undefined' &&
+      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    const configuredServerUrl = process.env.NEXT_PUBLIC_GAME_SERVER_URL;
+
+    // In production without standalone server URL, default directly to polling socket
+    if (!isLocal && !configuredServerUrl) {
+      if (globalSocket !== globalPollingSocket) {
+        switchToPolling();
+      } else {
+        attachSocketListeners(globalPollingSocket);
+        setSocket(globalPollingSocket as any);
+        setIsConnected(true);
+      }
+      return;
+    }
+
+    const serverUrl = configuredServerUrl || `http://${window.location.hostname || 'localhost'}:4000`;
+
+    if (!globalSocket) {
+      try {
+        globalSocket = ioClient(serverUrl, {
+          transports: ['websocket', 'polling'],
+          reconnectionAttempts: 3,
+          reconnectionDelay: 1000,
+          timeout: 2500,
+          autoConnect: true,
+        });
+
+        // Timeout fallback if standalone server is not reachable
+        const connectTimeout = setTimeout(() => {
+          if (globalSocket && !globalSocket.connected && globalSocket !== globalPollingSocket) {
+            console.warn('[useSocket] Standalone socket timed out, falling back to polling socket');
+            switchToPolling();
+          }
+        }, 2000);
+
+        globalSocket.on('connect', () => {
+          clearTimeout(connectTimeout);
+          setIsConnected(true);
+        });
+
+        globalSocket.on('connect_error', () => {
+          clearTimeout(connectTimeout);
+          switchToPolling();
+        });
+      } catch (err) {
+        console.warn('[useSocket] Could not initialize direct Socket.IO client, falling back to polling socket', err);
+        switchToPolling();
+      }
+    }
+
+    const active = globalSocket || globalPollingSocket;
+    attachSocketListeners(active);
+    setSocket(active as any);
+
+    if (active.connected) {
+      setIsConnected(true);
+    }
+
+    if (room?.code && playerId && globalPollingSocket.setContext) {
+      globalPollingSocket.setContext(room.code, playerId);
     }
   }, [room?.code, playerId]);
 
-  return (globalSocket || globalPollingSocket) as any;
+  return (globalSocket && globalSocket.connected ? globalSocket : globalPollingSocket) as any;
 }

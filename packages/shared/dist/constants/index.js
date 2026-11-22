@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.IMPOSTOR_PLAYER_LIMITS = exports.IMPOSTOR_PHASE_TIMERS = exports.IMPOSTOR_CAMOUFLAGE_THEMES = exports.IMPOSTOR_CATEGORIES = exports.EMOTE_LIST = exports.EMOTE_CATEGORIES = exports.PHYSICS_CONFIG = exports.SKILL_DEFINITIONS = exports.AVATAR_OPTIONS = exports.PRIMARY_AVATARS = exports.DEFAULT_GAME_DURATION = exports.CLIENT_INPUT_RATE = exports.SERVER_TICK_RATE = void 0;
+exports.MAIN_CARDS_DECK = exports.HIDDEN_TEAM_PHASE_TIMERS = exports.HIDDEN_TEAM_ROLES_INFO = exports.HIDDEN_TEAM_CONFIG = exports.IMPOSTOR_PLAYER_LIMITS = exports.IMPOSTOR_PHASE_TIMERS = exports.IMPOSTOR_CAMOUFLAGE_THEMES = exports.IMPOSTOR_CATEGORIES = exports.EMOTE_LIST = exports.EMOTE_CATEGORIES = exports.PHYSICS_CONFIG = exports.SKILL_DEFINITIONS = exports.AVATAR_OPTIONS = exports.PRIMARY_AVATARS = exports.DEFAULT_GAME_DURATION = exports.CLIENT_INPUT_RATE = exports.SERVER_TICK_RATE = void 0;
 exports.normalizeAvatarId = normalizeAvatarId;
 exports.SERVER_TICK_RATE = 20; // 20 ticks per second (50ms interval)
 exports.CLIENT_INPUT_RATE = 20; // client sends input every 50ms
@@ -11,6 +11,10 @@ exports.DEFAULT_GAME_DURATION = {
     'classic': 600, // 10 minutes
     'quick': 300, // 5 minutes
     'impostor-classic': 240, // 4 minutes
+    'hidden-team-standard': 600, // 10 minutes
+    'hidden-team-4r': 480, // 8 minutes
+    'hidden-team-5r': 600, // 10 minutes
+    'hidden-team-6r': 720, // 12 minutes
 };
 exports.PRIMARY_AVATARS = [
     'budi',
@@ -435,3 +439,231 @@ exports.IMPOSTOR_PLAYER_LIMITS = {
     minPlayers: 4,
     maxPlayers: 6,
 };
+// ==========================================
+// HIDDEN TEAM: SECRET ROLE CONSTANTS
+// ==========================================
+exports.HIDDEN_TEAM_CONFIG = {
+    playerCount: 6,
+    minPlayers: 6,
+    maxPlayers: 6,
+    defaultRounds: 5,
+    allowedRounds: [4, 5, 6],
+    defaultRole2VoteProbability: 0.5,
+    defaultRole3BonusWeight: 1,
+    voteCardsPerRound: 3,
+    defaultTeamDistribution: {
+        RED: 2,
+        BLUE: 2,
+        NEUTRAL: 2,
+    },
+};
+exports.HIDDEN_TEAM_ROLES_INFO = {
+    ROLE_1_SWAPPER: {
+        id: 'ROLE_1_SWAPPER',
+        number: 1,
+        name: 'Role Ability Swapper',
+        tagline: 'Sang Penukar Peran Rahasia',
+        description: 'Tukar ability peran antara dua pemain secara rahasia. Urutan slot giliran pemain tidak akan berubah.',
+        badge: '🔄 Swap Role',
+        icon: 'Shuffle',
+        color: '#8B5CF6',
+    },
+    ROLE_2_ROLLER: {
+        id: 'ROLE_2_ROLLER',
+        number: 2,
+        name: 'Voting Eligibility Roller',
+        tagline: 'Penentu Hak Suara Ronde',
+        description: 'Server mengundi status voting pemilik di ronde ini (50% BISA VOTE / 50% TIDAK BISA VOTE). Hasilnya rahasia.',
+        badge: '🎲 Eligibility',
+        icon: 'Dice6',
+        color: '#10B981',
+    },
+    ROLE_3_MULTIPLIER: {
+        id: 'ROLE_3_MULTIPLIER',
+        number: 3,
+        name: 'Vote Multiplier',
+        tagline: 'Pengganda Bobot Suara',
+        description: 'Pilih satu pemain target untuk memberikan bonus +1 suara per kartu yang dikirimkannya pada ronde ini.',
+        badge: '✨ Multiplier',
+        icon: 'Sparkles',
+        color: '#F59E0B',
+    },
+    ROLE_4_INSPECTOR: {
+        id: 'ROLE_4_INSPECTOR',
+        number: 4,
+        name: 'Vote Inspector',
+        tagline: 'Inspektur Kotak Suara',
+        description: 'Setelah pengumpulan suara, server memilih acak 1 kartu yang diserahkan. Pemilik dapat memilih KEEP atau DISCARD kartu tersebut.',
+        badge: '👁️ Inspector',
+        icon: 'Eye',
+        color: '#EC4899',
+    },
+    ROLE_5_SELECTOR: {
+        id: 'ROLE_5_SELECTOR',
+        number: 5,
+        name: 'Main Card Selector',
+        tagline: 'Pemilih Kartu Takdir',
+        description: 'Pilih salah satu dari 2 Kartu Utama sebelum ronde dimulai. Team Flag kartu yang terpilih dirahasiakan hingga akhir ronde.',
+        badge: '👑 Selector',
+        icon: 'Crown',
+        color: '#3B82F6',
+    },
+    ROLE_6_CARD_SWAPPER: {
+        id: 'ROLE_6_CARD_SWAPPER',
+        number: 6,
+        name: 'Full Vote Card Swapper',
+        tagline: 'Penukar Tangan Kartu',
+        description: 'Tukar seluruh set 3 kartu vote antara dua pemain sebelum voting diserahkan secara atomik dan rahasia.',
+        badge: '🎴 Card Swap',
+        icon: 'Repeat',
+        color: '#EF4444',
+    },
+};
+exports.HIDDEN_TEAM_PHASE_TIMERS = {
+    mainCardSelection: 25, // 25 seconds for Role 5 to pick
+    actionPhaseSlot: 22, // 22 seconds per fixed slot
+    votingSubmission: 25, // 25 seconds to submit 3 vote cards
+    voteManipulation: 22, // 22 seconds for Role 4 inspection
+    roundResolution: 12, // 12 seconds to review round votes & winner
+    matchFinished: 60, // 60 seconds on final podium & role reveal
+};
+exports.MAIN_CARDS_DECK = [
+    // RED TEAM FLAG CARDS
+    {
+        id: 'mc_red_01',
+        title: 'Operasi Perbatasan Bara',
+        scenario: 'Dewan militer menggelar ekspedisi rahasia ke zona terlarang.',
+        teamFlag: 'RED',
+        description: 'Jika faksi Merah memenangkan suara dominan, pos komando terdepan berhasil dikuasai.',
+        illustration: '⚔️',
+        roundObjective: 'Menangkan suara faksi RED melebihi Blue dan Neutral.',
+    },
+    {
+        id: 'mc_red_02',
+        title: 'Dekrit Darurat Fajar',
+        scenario: 'Kekaisaran menetapkan mobilisasi armada utama demi stabilitas benua.',
+        teamFlag: 'RED',
+        description: 'Dukungan penuh kepada panji Merah akan mengamankan supremasi takhta.',
+        illustration: '🔥',
+        roundObjective: 'Menangkan suara faksi RED melebihi Blue dan Neutral.',
+    },
+    {
+        id: 'mc_red_03',
+        title: 'Peleburan Inti Mahkota',
+        scenario: 'Sebuah artefak purba berelemen magma ditemukan di kawah suci.',
+        teamFlag: 'RED',
+        description: 'Hanya faksi Merah yang mampu mengendalikan energi tak terkendali ini.',
+        illustration: '🌋',
+        roundObjective: 'Menangkan suara faksi RED melebihi Blue dan Neutral.',
+    },
+    {
+        id: 'mc_red_04',
+        title: 'Pakta Benteng Merah',
+        scenario: 'Persekutuan serikat besi menyerukan sumpah setia di bawah bendera merah.',
+        teamFlag: 'RED',
+        description: 'Kemenangan faksi Merah akan memperkokoh pertahanan kota dari invasi.',
+        illustration: '🛡️',
+        roundObjective: 'Menangkan suara faksi RED melebihi Blue dan Neutral.',
+    },
+    {
+        id: 'mc_red_05',
+        title: 'Serangan Sayap Senja',
+        scenario: 'Serangan mendadak diluncurkan ke markas logistik musuh.',
+        teamFlag: 'RED',
+        description: 'Panji merah berkibar tinggi jika misi taktis ini disahkan oleh suara dewan.',
+        illustration: '🦅',
+        roundObjective: 'Menangkan suara faksi RED melebihi Blue dan Neutral.',
+    },
+    // BLUE TEAM FLAG CARDS
+    {
+        id: 'mc_blue_01',
+        title: 'Perjanjian Samudera Dingin',
+        scenario: 'Armada navigasi Biru merintis jalur maritim lintas samudra terdalam.',
+        teamFlag: 'BLUE',
+        description: 'Dominasi faksi Biru memastikan hegemoni perdagangan laut dan intelijen.',
+        illustration: '🌊',
+        roundObjective: 'Menangkan suara faksi BLUE melebihi Red dan Neutral.',
+    },
+    {
+        id: 'mc_blue_02',
+        title: 'Protokol Kristal Azure',
+        scenario: 'Reaktor energi magis langit memerlukan kalibrasi dari para cendekiawan.',
+        teamFlag: 'BLUE',
+        description: 'Pemberian mandat ke faksi Biru menyalakan perisai kristal pelindung ibukota.',
+        illustration: '💎',
+        roundObjective: 'Menangkan suara faksi BLUE melebihi Red dan Neutral.',
+    },
+    {
+        id: 'mc_blue_03',
+        title: 'Konvensi Intelijen Kubah',
+        scenario: 'Jaringan spionase bayangan mengumpulkan bukti konspirasi rahasia dewan.',
+        teamFlag: 'BLUE',
+        description: 'Jika faksi Biru memegang mayoritas mutlak, seluruh arsip gelap dibuka.',
+        illustration: '🗝️',
+        roundObjective: 'Menangkan suara faksi BLUE melebihi Red dan Neutral.',
+    },
+    {
+        id: 'mc_blue_04',
+        title: 'Misi Observatorium Langit',
+        scenario: 'Bintang komet melintas di atas puncak menara astronomi kekaisaran.',
+        teamFlag: 'BLUE',
+        description: 'Para peramal faksi Biru menguraikan nubuat kemenangan bila disokong suara terbanyak.',
+        illustration: '🔭',
+        roundObjective: 'Menangkan suara faksi BLUE melebihi Red dan Neutral.',
+    },
+    {
+        id: 'mc_blue_05',
+        title: 'Restorasi Menara Safir',
+        scenario: 'Monumen leluhur pelindung bangsa dipulihkan setelah seabad terbengkalai.',
+        teamFlag: 'BLUE',
+        description: 'Kemenangan faksi Biru membangkitkan kembali kekuatan pelindung kuno.',
+        illustration: '🏛️',
+        roundObjective: 'Menangkan suara faksi BLUE melebihi Red dan Neutral.',
+    },
+    // NEUTRAL TEAM FLAG CARDS
+    {
+        id: 'mc_neu_01',
+        title: 'Keseimbangan Timbangan Perak',
+        scenario: 'Serikat pedagang bebas dan hakim netral menuntut gencatan senjata total.',
+        teamFlag: 'NEUTRAL',
+        description: 'Dominasi faksi Netral membatalkan ambisi perang dan menstabilkan kas kekaisaran.',
+        illustration: '⚖️',
+        roundObjective: 'Menangkan suara faksi NEUTRAL melebihi Red dan Blue.',
+    },
+    {
+        id: 'mc_neu_02',
+        title: 'Sabotase Kabut Senyap',
+        scenario: 'Kelompok sindikat independen melancarkan operasi pengaburan jejak.',
+        teamFlag: 'NEUTRAL',
+        description: 'Bila faksi Netral mendominasi kotak suara, keuntungan besar jatuh ke tangan pihak ketiga.',
+        illustration: '🌫️',
+        roundObjective: 'Menangkan suara faksi NEUTRAL melebihi Red dan Blue.',
+    },
+    {
+        id: 'mc_neu_03',
+        title: 'Lelang Pasar Gelap Bayangan',
+        scenario: 'Relik kekuatan tertinggi dilelang tanpa memihak kubu kerajaan manapun.',
+        teamFlag: 'NEUTRAL',
+        description: 'Faksi Netral yang independen akan merebut kendali penuh atas relik ini.',
+        illustration: '🪙',
+        roundObjective: 'Menangkan suara faksi NEUTRAL melebihi Red dan Blue.',
+    },
+    {
+        id: 'mc_neu_04',
+        title: 'Perjanjian Hutan Berkabut',
+        scenario: 'Klan rimba purba menolak campur tangan dari faksi Merah maupun Biru.',
+        teamFlag: 'NEUTRAL',
+        description: 'Suara faksi Netral menegakkan kedaulatan independen wilayah tak bertuan.',
+        illustration: '🌲',
+        roundObjective: 'Menangkan suara faksi NEUTRAL melebihi Red dan Blue.',
+    },
+    {
+        id: 'mc_neu_05',
+        title: 'Deklarasi Otonomi Bebas',
+        scenario: 'Aliansi kota pelabuhan merdeka mendeklarasikan kedaulatan netral.',
+        teamFlag: 'NEUTRAL',
+        description: 'Kemenangan suara Netral membuktikan kekuatan faksi independen tak terbendung.',
+        illustration: '🕊️',
+        roundObjective: 'Menangkan suara faksi NEUTRAL melebihi Red dan Blue.',
+    },
+];

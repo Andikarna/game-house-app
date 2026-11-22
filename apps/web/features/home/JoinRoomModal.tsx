@@ -7,6 +7,7 @@ import { Button } from '../../components/ui/Button';
 import { AvatarSelector } from '../../components/ui/AvatarSelector';
 import { useSettingsStore } from '../../stores/useSettingsStore';
 import { useGameStore } from '../../stores/useGameStore';
+import { getGlobalSocket } from '../../hooks/useSocket';
 import { LogIn } from 'lucide-react';
 
 interface JoinRoomModalProps {
@@ -42,13 +43,14 @@ export const JoinRoomModal: React.FC<JoinRoomModalProps> = ({
       return;
     }
 
-    if (!socket || !socket.connected) {
+    const activeSocket = socket?.connected ? socket : getGlobalSocket();
+    if (!activeSocket || !activeSocket.connected) {
       addToast('Connecting to game server...', 'info');
       return;
     }
 
     setIsLoading(true);
-    socket.emit(
+    activeSocket.emit(
       'room:join',
       {
         roomCode: cleanCode,
@@ -56,13 +58,15 @@ export const JoinRoomModal: React.FC<JoinRoomModalProps> = ({
         avatar,
         playerId,
       },
-      (res) => {
+      (res: any) => {
         setIsLoading(false);
         if (res.success && res.room) {
           setRoom(res.room);
-          const me = res.room.players.find(p => p.socketId === socket.id || p.id === playerId);
+          const me = res.room.players?.find((p: any) => p.socketId === activeSocket.id || p.id === (res.playerId || playerId));
           if (me) {
             setPlayerId(me.id);
+          } else if (res.playerId) {
+            setPlayerId(res.playerId);
           }
           onClose();
           router.push(`/room/${res.room.code}`);

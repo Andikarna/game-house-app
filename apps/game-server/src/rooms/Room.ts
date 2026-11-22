@@ -62,26 +62,6 @@ export class Room {
   }
 
   public addPlayer(player: Player): { success: boolean; error?: string } {
-    if (this.status !== 'lobby') {
-      return { success: false, error: 'Game is already in progress or finished.' };
-    }
-
-    const maxCapacity = this.settings.gameId === 'impostor-desa' ? 6 : this.settings.maxPlayers;
-    if (this.players.size >= maxCapacity) {
-      // Check if there is an automated bot that can be replaced by the incoming human player
-      const botPlayer = Array.from(this.players.values()).find(p => p.isBot);
-      if (botPlayer) {
-        this.players.delete(botPlayer.id);
-      } else {
-        return { 
-          success: false, 
-          error: this.settings.gameId === 'impostor-desa' 
-            ? 'Room sudah penuh (maksimal 6 pemain untuk Impostor Desa).' 
-            : 'Room is full.' 
-        };
-      }
-    }
-
     // Check if player is rejoining
     const existing = this.players.get(player.id);
     if (existing) {
@@ -95,6 +75,39 @@ export class Room {
       }
       return { success: true };
     }
+
+    if (this.status !== 'lobby') {
+      return { success: false, error: 'Game is already in progress or finished.' };
+    }
+
+    const isSixPlayerGame = this.settings.gameId === 'impostor-desa' || this.settings.gameId === 'hidden-team';
+    const maxCapacity = isSixPlayerGame ? 6 : this.settings.maxPlayers;
+    if (this.players.size >= maxCapacity) {
+      // Check if there is an automated bot that can be replaced by the incoming human player
+      const botPlayer = Array.from(this.players.values()).find(p => p.isBot);
+      if (botPlayer) {
+        this.players.delete(botPlayer.id);
+      } else {
+        return { 
+          success: false, 
+          error: isSixPlayerGame 
+            ? `Room sudah penuh (maksimal 6 pemain untuk ${this.settings.gameId === 'hidden-team' ? 'Hidden Team' : 'Impostor Desa'}).` 
+            : 'Room is full.' 
+        };
+      }
+    }
+
+    // Deduplicate nickname if another player in room already has it
+    let finalNickname = player.nickname;
+    let suffix = 2;
+    const existingNicknames = Array.from(this.players.values())
+      .filter(p => p.id !== player.id)
+      .map(p => p.nickname.toLowerCase());
+    while (existingNicknames.includes(finalNickname.toLowerCase())) {
+      finalNickname = `${player.nickname} (${suffix})`;
+      suffix++;
+    }
+    player.nickname = finalNickname;
 
     const isHostPlayer = this.hostId === player.id || this.players.size === 0;
     if (isHostPlayer) {
@@ -185,7 +198,8 @@ export class Room {
       return { success: false, error: 'Cannot add bot while game is in progress.' };
     }
 
-    const maxAllowed = this.settings.gameId === 'impostor-desa' ? 6 : this.settings.maxPlayers;
+    const isSixPlayerGame = this.settings.gameId === 'impostor-desa' || this.settings.gameId === 'hidden-team';
+    const maxAllowed = isSixPlayerGame ? 6 : this.settings.maxPlayers;
     if (this.players.size >= maxAllowed) {
       return { success: false, error: `Room sudah penuh (maksimal ${maxAllowed} pemain).` };
     }
@@ -247,8 +261,8 @@ export class Room {
 
   public fillBots(targetCount?: number): { added: number } {
     if (this.status !== 'lobby') return { added: 0 };
-    const minTarget = this.settings.gameId === 'impostor-desa' ? 4 : 2;
-    const maxTarget = this.settings.gameId === 'impostor-desa' ? 6 : this.settings.maxPlayers;
+    const minTarget = this.settings.gameId === 'hidden-team' ? 6 : (this.settings.gameId === 'impostor-desa' ? 4 : 2);
+    const maxTarget = (this.settings.gameId === 'impostor-desa' || this.settings.gameId === 'hidden-team') ? 6 : this.settings.maxPlayers;
     const desired = Math.min(Math.max(targetCount || minTarget, minTarget), maxTarget);
 
     let addedCount = 0;
@@ -281,7 +295,14 @@ export class Room {
       return { canStart: false, reason: 'Only the room host can start the game.' };
     }
 
-    if (this.settings.gameId === 'impostor-desa') {
+    if (this.settings.gameId === 'hidden-team') {
+      if (this.players.size !== 6) {
+        return {
+          canStart: false,
+          reason: `Hidden Team: Secret Role membutuhkan tepat 6 pemain (saat ini ${this.players.size}/6). Host dapat menambahkan bot latihan.`
+        };
+      }
+    } else if (this.settings.gameId === 'impostor-desa') {
       if (this.players.size < 4) {
         return { canStart: false, reason: 'Impostor Desa membutuhkan minimal 4 pemain untuk memulai.' };
       }

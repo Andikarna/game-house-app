@@ -64,8 +64,7 @@ describe('End-to-End Multiplayer Socket Flow', () => {
     });
     assert.strictEqual(client2.connected, true);
 
-    // 3. Client 1 creates a room
-    let roomCode = '';
+    // 3a. Verify maintenance restriction for panjat-pinang
     await new Promise<void>((resolve) => {
       client1.emit('room:create', {
         nickname: 'AndiHost',
@@ -73,6 +72,23 @@ describe('End-to-End Multiplayer Socket Flow', () => {
         roomName: 'Pesta Merdeka',
         gameId: 'panjat-pinang',
         gameMode: 'classic-race',
+        maxPlayers: 4,
+      }, (res) => {
+        assert.strictEqual(res.success, false);
+        assert.match(res.error || '', /maintenance/i);
+        resolve();
+      });
+    });
+
+    // 3b. Client 1 creates a playable Ludo Party room
+    let roomCode = '';
+    await new Promise<void>((resolve) => {
+      client1.emit('room:create', {
+        nickname: 'AndiHost',
+        avatar: 'climber-red',
+        roomName: 'Ludo Party Room',
+        gameId: 'ludo',
+        gameMode: 'classic',
         maxPlayers: 4,
       }, (res) => {
         assert.strictEqual(res.success, true);
@@ -125,16 +141,9 @@ describe('End-to-End Multiplayer Socket Flow', () => {
 
     // 7. Verify game input sync
     client1.emit('game:input', {
-      up: true,
-      down: false,
-      left: false,
-      right: false,
-      recovery: false,
+      action: 'roll-dice',
       timestamp: Date.now(),
     });
-
-    // 8. Test skill trigger
-    client1.emit('player:skill', 'iron_grip');
 
     // 9. Host leaves, verify host migration to Client 2
     client1.disconnect();

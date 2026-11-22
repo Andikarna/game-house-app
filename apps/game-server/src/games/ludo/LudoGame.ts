@@ -39,6 +39,10 @@ export class LudoGame implements GameModule {
   private finished: boolean = false;
   private lastMoveNotice: string = '';
 
+  // Bot Automation Control
+  private botTimer: number = 0;
+  private botState: 'idle' | 'waiting-roll' | 'waiting-move' | 'waiting-pass' = 'idle';
+
   // Standard Ludo Board Constants
   private static readonly TRACK_LENGTH = 52;
   private static readonly START_TILES: Record<LudoColor, number> = {
@@ -104,22 +108,47 @@ export class LudoGame implements GameModule {
         canRoll: idx === 0,
         consecutiveSixes: 0,
         isConnected: p.isConnected,
+        isBot: Boolean(p.isBot),
       });
 
       this.playerOrder.push(p.id);
     });
 
     this.currentTurnIndex = 0;
+    const firstPlayer = this.players.get(this.playerOrder[0]);
+    if (firstPlayer && firstPlayer.isBot) {
+      this.botState = 'waiting-roll';
+      this.botTimer = 1.0;
+    } else {
+      this.botState = 'idle';
+      this.botTimer = 0;
+    }
     this.resetTurnTimer();
   }
 
   public start(): void {
+    const firstPlayer = this.players.get(this.playerOrder[this.currentTurnIndex]);
+    if (firstPlayer && firstPlayer.isBot) {
+      this.botState = 'waiting-roll';
+      this.botTimer = 1.0;
+    }
     this.broadcastState();
   }
 
   public update(deltaTime: number): void {
     if (this.finished) return;
 
+    const currentPlayerId = this.playerOrder[this.currentTurnIndex];
+    const currentPlayer = this.players.get(currentPlayerId);
+    if (!currentPlayer) return;
+
+    // Dedicated Bot Automation Loop
+    if (currentPlayer.isBot) {
+      this.updateBot(deltaTime, currentPlayer);
+      return;
+    }
+
+    // Human AFK turn timeout
     this.turnTimeRemaining -= deltaTime;
     if (this.turnTimeRemaining <= 0) {
       this.handleTurnTimeout();
@@ -139,6 +168,10 @@ export class LudoGame implements GameModule {
       this.handleRollDice(player);
     } else if (input.action === 'move-token') {
       this.handleMoveToken(player, input.tokenIndex);
+    } else if (input.action === 'pass-turn') {
+      if (this.hasRolled && this.validMoves.length === 0) {
+        this.passToNextPlayer();
+      }
     }
   }
 
@@ -183,6 +216,8 @@ export class LudoGame implements GameModule {
       currentTurnColor: currentPlayer?.color || 'red',
       diceValue: this.diceValue,
       isRolling: this.isRolling,
+      hasRolled: this.hasRolled,
+      consecutiveSixes: this.consecutiveSixes,
       turnTimeRemaining: Math.max(0, Math.ceil(this.turnTimeRemaining)),
       players: playersRecord,
       playerOrder: this.playerOrder,
@@ -208,6 +243,8 @@ export class LudoGame implements GameModule {
       clearTimeout(this.autoTurnTimeout);
       this.autoTurnTimeout = null;
     }
+    this.botState = 'idle';
+    this.botTimer = 0;
   }
 
   // =========================================================================
@@ -396,6 +433,10 @@ export class LudoGame implements GameModule {
       player.canRoll = true;
       player.hasRolled = false;
       this.resetTurnTimer();
+      if (player.isBot) {
+        this.botState = 'waiting-roll';
+        this.botTimer = 1.2;
+      }
       this.broadcastState();
     } else {
       // Pass turn to next player
@@ -429,10 +470,21 @@ export class LudoGame implements GameModule {
     this.validMoves = [];
     this.consecutiveSixes = 0;
 
+    const nextCurrentPlayerId = this.playerOrder[this.currentTurnIndex];
+    const nextCurrentPlayer = this.players.get(nextCurrentPlayerId);
+
     this.players.forEach((p, pId) => {
-      p.canRoll = pId === this.playerOrder[this.currentTurnIndex];
+      p.canRoll = pId === nextCurrentPlayerId;
       p.hasRolled = false;
     });
+
+    if (nextCurrentPlayer && nextCurrentPlayer.isBot) {
+      this.botState = 'waiting-roll';
+      this.botTimer = 1.0;
+    } else {
+      this.botState = 'idle';
+      this.botTimer = 0;
+    }
 
     this.resetTurnTimer();
     this.broadcastState();
@@ -441,8 +493,12 @@ export class LudoGame implements GameModule {
   private schedulePassTurn(delayMs: number): void {
     if (this.autoTurnTimeout) {
       clearTimeout(this.autoTurnTimeout);
+      this.autoTurnTimeout = null;
     }
+    // Prevent AFK turn timeout from firing while auto turn pass is pending
+    this.turnTimeRemaining = (delayMs / 1000) + 2;
     this.autoTurnTimeout = setTimeout(() => {
+      this.autoTurnTimeout = null;
       this.passToNextPlayer();
     }, delayMs);
   }
@@ -455,12 +511,142 @@ export class LudoGame implements GameModule {
     if (!this.hasRolled) {
       // Auto-roll for AFK player
       this.handleRollDice(player);
+      // Reset turn timer to 5s window so auto-move does not trigger 0ms later in next tick
+      this.turnTimeRemaining = 5;
     } else if (this.validMoves.length > 0) {
       // Auto-move first available token
       this.handleMoveToken(player, this.validMoves[0]);
     } else {
       this.passToNextPlayer();
     }
+  }
+
+  // =========================================================================
+  // BOT AUTOMATION & INTELLIGENCE
+  // =========================================================================
+
+  private updateBot(deltaTime: number, botPlayer: LudoPlayerState): void {
+    if (this.finished) return;
+
+    if (this.botState === 'idle') {
+      this.botState = 'waiting-roll';
+      this.botTimer = 1.0;
+      return;
+    }
+
+    this.botTimer -= deltaTime;
+    if (this.botTimer > 0) return;
+
+    if (this.botState === 'waiting-roll') {
+      if (!this.hasRolled && botPlayer.canRoll) {
+        this.handleRollDice(botPlayer);
+
+        if (this.validMoves.length === 0) {
+          this.botState = 'waiting-pass';
+          this.botTimer = 1.6; // Allow human players to see the rolled number
+        } else {
+          this.botState = 'waiting-move';
+          this.botTimer = 1.2; // Natural delay before moving token
+        }
+      } else {
+        this.botState = 'waiting-pass';
+        this.botTimer = 1.0;
+      }
+    } else if (this.botState === 'waiting-move') {
+      if (this.validMoves.length > 0 && this.diceValue !== null) {
+        const chosenToken = this.chooseBestBotMove(botPlayer, this.validMoves, this.diceValue);
+        this.handleMoveToken(botPlayer, chosenToken);
+      } else {
+        this.botState = 'waiting-pass';
+        this.botTimer = 1.0;
+      }
+    } else if (this.botState === 'waiting-pass') {
+      this.botState = 'idle';
+      this.passToNextPlayer();
+    }
+  }
+
+  private chooseBestBotMove(bot: LudoPlayerState, validMoves: number[], dice: number): number {
+    if (validMoves.length === 1) {
+      return validMoves[0];
+    }
+
+    // Priority 1: Move that reaches HOME (step 57)
+    for (const tokenIdx of validMoves) {
+      const token = bot.tokens[tokenIdx];
+      if (token.stepCount + dice === 57) {
+        return tokenIdx;
+      }
+    }
+
+    // Priority 2: Move that captures an opponent's token
+    for (const tokenIdx of validMoves) {
+      const token = bot.tokens[tokenIdx];
+      let targetTrackPos: number = -1;
+
+      if (token.state === 'base' && dice === 6) {
+        targetTrackPos = LudoGame.START_TILES[bot.color];
+      } else if (token.state === 'track') {
+        const newStep = token.stepCount + dice;
+        if (newStep <= 51) {
+          targetTrackPos = (LudoGame.START_TILES[bot.color] + (newStep - 1)) % LudoGame.TRACK_LENGTH;
+        }
+      }
+
+      if (targetTrackPos !== -1 && !LudoGame.SAFE_TILES.has(targetTrackPos)) {
+        for (const [otherId, otherPlayer] of Array.from(this.players.entries())) {
+          if (otherId !== bot.playerId) {
+            const hasOpponent = otherPlayer.tokens.some(
+              (ot) => ot.state === 'track' && ot.trackPosition === targetTrackPos
+            );
+            if (hasOpponent) {
+              return tokenIdx; // CAPTURE!
+            }
+          }
+        }
+      }
+    }
+
+    // Priority 3: If rolled a 6 and has tokens in base, bring a token out of base!
+    if (dice === 6) {
+      const baseToken = validMoves.find((idx) => bot.tokens[idx].state === 'base');
+      if (baseToken !== undefined) {
+        return baseToken;
+      }
+    }
+
+    // Priority 4: Move onto a SAFE square (star or start tile)
+    for (const tokenIdx of validMoves) {
+      const token = bot.tokens[tokenIdx];
+      if (token.state === 'track') {
+        const newStep = token.stepCount + dice;
+        if (newStep <= 51) {
+          const targetTrackPos = (LudoGame.START_TILES[bot.color] + (newStep - 1)) % LudoGame.TRACK_LENGTH;
+          if (LudoGame.SAFE_TILES.has(targetTrackPos)) {
+            return tokenIdx;
+          }
+        }
+      }
+    }
+
+    // Priority 5: Advance token in home stretch
+    const homeStretchToken = validMoves.find((idx) => bot.tokens[idx].state === 'home-stretch');
+    if (homeStretchToken !== undefined) {
+      return homeStretchToken;
+    }
+
+    // Priority 6: Move furthest advanced token
+    let bestTokenIdx = validMoves[0];
+    let maxSteps = -1;
+    for (const tokenIdx of validMoves) {
+      const token = bot.tokens[tokenIdx];
+      if (token.stepCount > maxSteps) {
+        maxSteps = token.stepCount;
+        bestTokenIdx = tokenIdx;
+      }
+    }
+
+    return bestTokenIdx;
   }
 
   private resetTurnTimer(): void {

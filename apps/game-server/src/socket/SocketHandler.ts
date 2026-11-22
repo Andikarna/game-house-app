@@ -31,16 +31,33 @@ export function setupSocketHandlers(
 
         const validAvatar: AvatarId = avatar || 'budi';
         const isImpostorGame = (gameId as GameId) === 'impostor-desa';
-        const targetMaxPlayers = isImpostorGame
+        const isHiddenTeamGame = (gameId as GameId) === 'hidden-team';
+        const targetMaxPlayers = isHiddenTeamGame
+          ? 6
+          : isImpostorGame
           ? Math.min(6, Math.max(4, maxPlayers || 6))
           : Math.min(8, Math.max(2, maxPlayers || 8));
 
+        const defaultRoomName = isHiddenTeamGame
+          ? `${cleanNickname}'s Secret Council`
+          : isImpostorGame
+          ? `${cleanNickname}'s Desa`
+          : `${cleanNickname}'s Party`;
+
+        const defaultGameMode = isHiddenTeamGame
+          ? 'hidden-team-standard'
+          : isImpostorGame
+          ? 'impostor-classic'
+          : 'classic-race';
+
+        const defaultDuration = isHiddenTeamGame ? 600 : isImpostorGame ? 240 : 180;
+
         const settings: RoomSettings = {
-          name: (roomName || (isImpostorGame ? `${cleanNickname}'s Desa` : `${cleanNickname}'s Party`)).trim().substring(0, 30),
+          name: (roomName || defaultRoomName).trim().substring(0, 30),
           gameId: (gameId as GameId) || 'panjat-pinang',
-          gameMode: (gameMode as GameMode) || (isImpostorGame ? 'impostor-classic' : 'classic-race'),
+          gameMode: (gameMode as GameMode) || defaultGameMode,
           maxPlayers: targetMaxPlayers,
-          durationSeconds: isImpostorGame ? 240 : 180,
+          durationSeconds: defaultDuration,
           isPrivate: false,
         };
 
@@ -301,6 +318,39 @@ export function setupSocketHandlers(
       const room = roomManager.getRoomById(mapping.roomId);
       if (!room || room.status !== 'in-game') return;
       room.getGameInstance()?.handleInput(mapping.playerId, { action: 'send-chat', message });
+    });
+
+    // 8c. Hidden Team: Secret Role Specific Socket Events
+    socket.on('hidden-team:select-main-card', ({ cardId }: { cardId: string }) => {
+      const mapping = roomManager.getPlayerMapping(socket.id);
+      if (!mapping) return;
+      const room = roomManager.getRoomById(mapping.roomId);
+      if (!room || room.status !== 'in-game') return;
+      room.getGameInstance()?.handleInput(mapping.playerId, { action: 'role_5_select', selectedCardId: cardId });
+    });
+
+    socket.on('hidden-team:execute-action', (payload: any) => {
+      const mapping = roomManager.getPlayerMapping(socket.id);
+      if (!mapping) return;
+      const room = roomManager.getRoomById(mapping.roomId);
+      if (!room || room.status !== 'in-game') return;
+      room.getGameInstance()?.handleInput(mapping.playerId, payload);
+    });
+
+    socket.on('hidden-team:submit-votes', ({ cardIds }: { cardIds: string[] }) => {
+      const mapping = roomManager.getPlayerMapping(socket.id);
+      if (!mapping) return;
+      const room = roomManager.getRoomById(mapping.roomId);
+      if (!room || room.status !== 'in-game') return;
+      room.getGameInstance()?.handleInput(mapping.playerId, { action: 'submit_votes', cardIds });
+    });
+
+    socket.on('hidden-team:inspect-decision', ({ decision }: { decision: 'KEEP' | 'DISCARD' }) => {
+      const mapping = roomManager.getPlayerMapping(socket.id);
+      if (!mapping) return;
+      const room = roomManager.getRoomById(mapping.roomId);
+      if (!room || room.status !== 'in-game') return;
+      room.getGameInstance()?.handleInput(mapping.playerId, { action: 'role_4_inspect', decision });
     });
 
     // 9. Player Skill Trigger

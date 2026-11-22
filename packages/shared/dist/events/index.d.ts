@@ -1,4 +1,4 @@
-import { RoomInfo, RoomSettings, Player, ImpostorPublicGameState, ImpostorPrivateRoleData, ImpostorResultData, ImpostorInput, AnyGameState, ClimberInput, LudoInput, SkillType, GameResultData, AvatarId, EmoteId } from '../types';
+import { RoomInfo, RoomSettings, Player, ImpostorPublicGameState, ImpostorPrivateRoleData, ImpostorResultData, ImpostorInput, AnyGameState, ClimberInput, LudoInput, SkillType, GameResultData, AvatarId, EmoteId, HiddenTeamActionPayload, HiddenTeamPublicGameState, HiddenTeamPlayerPrivate, HiddenTeamRoundResult, HiddenTeamMatchResult } from '../types';
 export interface ClientToServerEvents {
     'room:create': (payload: {
         nickname: string;
@@ -54,6 +54,16 @@ export interface ClientToServerEvents {
     'impostor:send-chat': (payload: {
         message: string;
     }) => void;
+    'hidden-team:select-main-card': (payload: {
+        cardId: string;
+    }) => void;
+    'hidden-team:execute-action': (payload: HiddenTeamActionPayload) => void;
+    'hidden-team:submit-votes': (payload: {
+        cardIds: string[];
+    }) => void;
+    'hidden-team:inspect-decision': (payload: {
+        decision: 'KEEP' | 'DISCARD';
+    }) => void;
     'ping:check': (clientTimestamp: number, callback: (clientTimestamp: number) => void) => void;
 }
 export interface ServerToClientEvents {
@@ -74,6 +84,10 @@ export interface ServerToClientEvents {
     'impostor:private-role': (data: ImpostorPrivateRoleData) => void;
     'impostor:state': (state: ImpostorPublicGameState) => void;
     'impostor:result': (data: ImpostorResultData) => void;
+    'hidden-team:private-state': (data: HiddenTeamPlayerPrivate) => void;
+    'hidden-team:state': (state: HiddenTeamPublicGameState) => void;
+    'hidden-team:round-result': (data: HiddenTeamRoundResult) => void;
+    'hidden-team:match-result': (data: HiddenTeamMatchResult) => void;
     'player:skill-used': (data: {
         playerId: string;
         skill: SkillType;

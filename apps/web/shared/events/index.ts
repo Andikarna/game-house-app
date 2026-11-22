@@ -14,7 +14,12 @@ import {
   SkillType, 
   GameResultData,
   AvatarId,
-  EmoteId
+  EmoteId,
+  HiddenTeamActionPayload,
+  HiddenTeamPublicGameState,
+  HiddenTeamPlayerPrivate,
+  HiddenTeamRoundResult,
+  HiddenTeamMatchResult
 } from '../types';
 
 export interface ClientToServerEvents {
@@ -66,6 +71,12 @@ export interface ClientToServerEvents {
   'impostor:submit-guess': (payload: { guessedWord: string }) => void;
   'impostor:send-chat': (payload: { message: string }) => void;
 
+  // Hidden Team specific client actions
+  'hidden-team:select-main-card': (payload: { cardId: string }) => void;
+  'hidden-team:execute-action': (payload: HiddenTeamActionPayload) => void;
+  'hidden-team:submit-votes': (payload: { cardIds: string[] }) => void;
+  'hidden-team:inspect-decision': (payload: { decision: 'KEEP' | 'DISCARD' }) => void;
+
   // Heartbeat / Sync
   'ping:check': (clientTimestamp: number, callback: (clientTimestamp: number) => void) => void;
 }
@@ -89,6 +100,12 @@ export interface ServerToClientEvents {
   'impostor:private-role': (data: ImpostorPrivateRoleData) => void;
   'impostor:state': (state: ImpostorPublicGameState) => void;
   'impostor:result': (data: ImpostorResultData) => void;
+
+  // Hidden Team Authoritative Private & State events
+  'hidden-team:private-state': (data: HiddenTeamPlayerPrivate) => void;
+  'hidden-team:state': (state: HiddenTeamPublicGameState) => void;
+  'hidden-team:round-result': (data: HiddenTeamRoundResult) => void;
+  'hidden-team:match-result': (data: HiddenTeamMatchResult) => void;
 
   // Game events
   'player:skill-used': (data: { playerId: string; skill: SkillType; nickname: string }) => void;

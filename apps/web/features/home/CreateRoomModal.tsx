@@ -7,6 +7,7 @@ import { Button } from '../../components/ui/Button';
 import { AvatarSelector } from '../../components/ui/AvatarSelector';
 import { useSettingsStore } from '../../stores/useSettingsStore';
 import { useGameStore } from '../../stores/useGameStore';
+import { getGlobalSocket } from '../../hooks/useSocket';
 import { GameId, GameMode } from '@gamehouse/shared';
 import { Sparkles, Users, Flame, Clock } from 'lucide-react';
 
@@ -14,9 +15,15 @@ interface CreateRoomModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialGameId?: GameId;
+  initialAutoFillBots?: boolean;
 }
 
-export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClose, initialGameId }) => {
+export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
+  isOpen,
+  onClose,
+  initialGameId,
+  initialAutoFillBots = false,
+}) => {
   const router = useRouter();
   const { nickname, avatar, setNickname, setAvatar } = useSettingsStore();
   const { socket, setRoom, setPlayerId, playerId, addToast } = useGameStore();
@@ -27,17 +34,25 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClos
   const [roomName, setRoomName] = useState(`${nickname}'s Ludo Table`);
   const [gameMode, setGameMode] = useState<GameMode>('classic');
   const [maxPlayers, setMaxPlayers] = useState<number>(4);
+  const [autoFillBots, setAutoFillBots] = useState<boolean>(initialAutoFillBots);
   const [isLoading, setIsLoading] = useState(false);
 
   // Sync selected game whenever initialGameId changes or modal opens
   React.useEffect(() => {
     if (isOpen) {
+      if (initialAutoFillBots) {
+        setAutoFillBots(true);
+      }
       let targetGame = initialGameId || selectedGame || 'ludo';
       if (targetGame === 'panjat-pinang') {
         targetGame = 'ludo';
       }
       setSelectedGame(targetGame);
-      if (targetGame === 'impostor-desa') {
+      if (targetGame === 'hidden-team') {
+        setMaxPlayers(6);
+        setGameMode('hidden-team-5r');
+        setRoomName(`${nickname || 'Council'}'s Secret Room`);
+      } else if (targetGame === 'impostor-desa') {
         setMaxPlayers(6);
         setGameMode('impostor-classic');
         setRoomName(`${nickname || 'Warga'}'s I'amPostor`);
@@ -55,7 +70,11 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClos
       return;
     }
     setSelectedGame(gameId);
-    if (gameId === 'impostor-desa') {
+    if (gameId === 'hidden-team') {
+      setMaxPlayers(6);
+      setGameMode('hidden-team-5r');
+      setRoomName(`${nickname || 'Council'}'s Secret Room`);
+    } else if (gameId === 'impostor-desa') {
       setMaxPlayers(6);
       setGameMode('impostor-classic');
       setRoomName(`${nickname || 'Warga'}'s I'amPostor`);
@@ -79,13 +98,14 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClos
       return;
     }
 
-    if (!socket || !socket.connected) {
+    const activeSocket = socket?.connected ? socket : getGlobalSocket();
+    if (!activeSocket || !activeSocket.connected) {
       addToast('Connecting to game server...', 'info');
       return;
     }
 
     setIsLoading(true);
-    socket.emit(
+    activeSocket.emit(
       'room:create',
       {
         nickname: nickname.trim(),
@@ -96,13 +116,18 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClos
         maxPlayers,
         playerId,
       },
-      (res) => {
+      (res: any) => {
         setIsLoading(false);
         if (res.success && res.room) {
           setRoom(res.room);
-          const hostPlayer = res.room.players.find(p => p.isHost);
+          const hostPlayer = res.room.players?.find((p: any) => p.isHost);
           if (hostPlayer) {
             setPlayerId(hostPlayer.id);
+          } else if (res.playerId) {
+            setPlayerId(res.playerId);
+          }
+          if (autoFillBots) {
+            activeSocket.emit('room:fill-bots');
           }
           onClose();
           router.push(`/room/${res.room.code}`);
@@ -147,7 +172,7 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClos
           <label className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-2">
             Pilih Permainan
           </label>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <button
               type="button"
               disabled
@@ -163,7 +188,7 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClos
                     Maint
                   </span>
                 </div>
-                <p className="text-[10px] text-slate-500">Sedang Maintenance</p>
+                <p className="text-[10px] text-slate-500">Maintenance</p>
               </div>
             </button>
 
@@ -198,6 +223,22 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClos
                 <p className="text-[10px] text-slate-400">4-6 Pemain</p>
               </div>
             </button>
+
+            <button
+              type="button"
+              onClick={() => handleSelectGame('hidden-team')}
+              className={`p-2.5 rounded-2xl border text-left transition-all flex items-center gap-2.5 ${
+                selectedGame === 'hidden-team'
+                  ? 'bg-rose-600/25 border-rose-500 shadow-glow-orange text-white'
+                  : 'bg-surface-elevated/80 border-slate-700/80 text-slate-400 hover:text-white'
+              }`}
+            >
+              <span className="text-2xl">🕵️</span>
+              <div>
+                <h4 className="text-xs font-black leading-tight">Hidden Team</h4>
+                <p className="text-[10px] text-slate-400">Tepat 6 Pemain</p>
+              </div>
+            </button>
           </div>
         </div>
 
@@ -222,7 +263,26 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClos
             Game Mode
           </label>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {selectedGame === 'impostor-desa' ? (
+            {selectedGame === 'hidden-team' ? (
+              [
+                { id: 'hidden-team-5r', title: '5 Ronde (Standar)' },
+                { id: 'hidden-team-4r', title: '4 Ronde (Cepat)' },
+                { id: 'hidden-team-6r', title: '6 Ronde (Panjang)' },
+              ].map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => setGameMode(m.id as GameMode)}
+                  className={`py-2 px-2.5 rounded-xl border text-xs font-bold transition-all ${
+                    gameMode === m.id
+                      ? 'bg-rose-600/30 text-rose-300 border-rose-400 shadow-glow-orange'
+                      : 'bg-surface-elevated border-slate-700 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  {m.title}
+                </button>
+              ))
+            ) : selectedGame === 'impostor-desa' ? (
               [
                 { id: 'impostor-classic', title: 'Tebak Impostor (Klasik)' },
               ].map((m) => (
@@ -283,20 +343,59 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClos
               Kapasitas: {maxPlayers} Pemain
             </label>
             <span className="text-xs text-slate-500">
-              {selectedGame === 'impostor-desa'
+              {selectedGame === 'hidden-team'
+                ? 'Tepat 6 Pemain Dewan'
+                : selectedGame === 'impostor-desa'
                 ? '4 - 6 Pemain'
                 : selectedGame === 'ludo'
                 ? '2 - 4 Pemain'
                 : '2 - 8 Pemain'}
             </span>
           </div>
+          {selectedGame === 'hidden-team' ? (
+            <div className="p-2.5 rounded-xl bg-surface-elevated border border-slate-700/60 text-xs text-slate-300 flex items-center justify-between">
+              <span>🏛️ Kursi Dewan Tetap: <strong>6 Slot</strong></span>
+              <span className="text-[10px] text-purple-300 font-bold bg-purple-500/20 px-2 py-0.5 rounded border border-purple-500/40">Fixed 6 Seats</span>
+            </div>
+          ) : (
+            <input
+              type="range"
+              min={selectedGame === 'impostor-desa' ? 4 : 2}
+              max={selectedGame === 'impostor-desa' ? 6 : selectedGame === 'ludo' ? 4 : 8}
+              value={maxPlayers}
+              onChange={(e) => setMaxPlayers(parseInt(e.target.value, 10))}
+              className="w-full accent-indigo-500 cursor-pointer"
+            />
+          )}
+        </div>
+
+        {/* Solo / Practice with Bots Toggle */}
+        <div
+          onClick={() => setAutoFillBots(!autoFillBots)}
+          className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+            autoFillBots
+              ? 'bg-purple-950/40 border-purple-500/60 shadow-lg shadow-purple-500/10'
+              : 'bg-surface-elevated/40 border-slate-800 hover:border-slate-700'
+          }`}
+        >
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-sm shrink-0">
+              🤖
+            </div>
+            <div>
+              <span className="text-xs font-extrabold text-white block">
+                Main Sendiri (Otomatis Isi Bot AI)
+              </span>
+              <span className="text-[10px] text-slate-400 block">
+                Slot langsung diisi bot latihan agar bisa langsung bermain solo
+              </span>
+            </div>
+          </div>
           <input
-            type="range"
-            min={selectedGame === 'impostor-desa' ? 4 : 2}
-            max={selectedGame === 'impostor-desa' ? 6 : selectedGame === 'ludo' ? 4 : 8}
-            value={maxPlayers}
-            onChange={(e) => setMaxPlayers(parseInt(e.target.value, 10))}
-            className="w-full accent-indigo-500 cursor-pointer"
+            type="checkbox"
+            checked={autoFillBots}
+            onChange={(e) => setAutoFillBots(e.target.checked)}
+            className="w-4 h-4 accent-purple-500 rounded cursor-pointer shrink-0"
           />
         </div>
 
