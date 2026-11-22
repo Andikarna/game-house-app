@@ -31,16 +31,33 @@ export function setupSocketHandlers(
 
         const validAvatar: AvatarId = avatar || 'budi';
         const isImpostorGame = (gameId as GameId) === 'impostor-desa';
-        const targetMaxPlayers = isImpostorGame
+        const isHiddenTeamGame = (gameId as GameId) === 'hidden-team';
+        const targetMaxPlayers = isHiddenTeamGame
+          ? 6
+          : isImpostorGame
           ? Math.min(6, Math.max(4, maxPlayers || 6))
           : Math.min(8, Math.max(2, maxPlayers || 8));
 
+        const defaultRoomName = isHiddenTeamGame
+          ? `${cleanNickname}'s Secret Council`
+          : isImpostorGame
+          ? `${cleanNickname}'s Desa`
+          : `${cleanNickname}'s Party`;
+
+        const defaultGameMode = isHiddenTeamGame
+          ? 'hidden-team-standard'
+          : isImpostorGame
+          ? 'impostor-classic'
+          : 'classic-race';
+
+        const defaultDuration = isHiddenTeamGame ? 600 : isImpostorGame ? 240 : 180;
+
         const settings: RoomSettings = {
-          name: (roomName || (isImpostorGame ? `${cleanNickname}'s Desa` : `${cleanNickname}'s Party`)).trim().substring(0, 30),
+          name: (roomName || defaultRoomName).trim().substring(0, 30),
           gameId: (gameId as GameId) || 'panjat-pinang',
-          gameMode: (gameMode as GameMode) || (isImpostorGame ? 'impostor-classic' : 'classic-race'),
+          gameMode: (gameMode as GameMode) || defaultGameMode,
           maxPlayers: targetMaxPlayers,
-          durationSeconds: isImpostorGame ? 240 : 180,
+          durationSeconds: defaultDuration,
           isPrivate: false,
         };
 
@@ -235,6 +252,16 @@ export function setupSocketHandlers(
           const started = room.startGame();
           if (!started) {
             socket.emit('error:message', 'Failed to start game module.');
+          } else {
+            io.to(room.id).emit('room:updated', room.getInfo());
+            const initialState = room.getGameInstance()?.getState();
+            io.to(room.id).emit('game:countdown', 0);
+            io.to(room.id).emit('game:start', initialState);
+            io.to(room.id).emit('game:started', initialState);
+            io.to(room.id).emit('game:state', initialState);
+            if (room.settings.gameId === 'ludo') {
+              io.to(room.id).emit('game:ludo_state', initialState);
+            }
           }
         }
       }, 1000);
@@ -303,6 +330,39 @@ export function setupSocketHandlers(
       room.getGameInstance()?.handleInput(mapping.playerId, { action: 'send-chat', message });
     });
 
+    // 8c. Hidden Team: Secret Role Specific Socket Events
+    socket.on('hidden-team:select-main-card', ({ cardId }: { cardId: string }) => {
+      const mapping = roomManager.getPlayerMapping(socket.id);
+      if (!mapping) return;
+      const room = roomManager.getRoomById(mapping.roomId);
+      if (!room || room.status !== 'in-game') return;
+      room.getGameInstance()?.handleInput(mapping.playerId, { action: 'role_5_select', selectedCardId: cardId });
+    });
+
+    socket.on('hidden-team:execute-action', (payload: any) => {
+      const mapping = roomManager.getPlayerMapping(socket.id);
+      if (!mapping) return;
+      const room = roomManager.getRoomById(mapping.roomId);
+      if (!room || room.status !== 'in-game') return;
+      room.getGameInstance()?.handleInput(mapping.playerId, payload);
+    });
+
+    socket.on('hidden-team:submit-votes', ({ cardIds }: { cardIds: string[] }) => {
+      const mapping = roomManager.getPlayerMapping(socket.id);
+      if (!mapping) return;
+      const room = roomManager.getRoomById(mapping.roomId);
+      if (!room || room.status !== 'in-game') return;
+      room.getGameInstance()?.handleInput(mapping.playerId, { action: 'submit_votes', cardIds });
+    });
+
+    socket.on('hidden-team:inspect-decision', ({ decision }: { decision: 'KEEP' | 'DISCARD' }) => {
+      const mapping = roomManager.getPlayerMapping(socket.id);
+      if (!mapping) return;
+      const room = roomManager.getRoomById(mapping.roomId);
+      if (!room || room.status !== 'in-game') return;
+      room.getGameInstance()?.handleInput(mapping.playerId, { action: 'role_4_inspect', decision });
+    });
+
     // 9. Player Skill Trigger
     socket.on('player:skill', (skill: SkillType) => {
       const mapping = roomManager.getPlayerMapping(socket.id);
@@ -343,6 +403,38 @@ export function setupSocketHandlers(
         emoteId,
         timestamp: now,
       });
+    });
+
+    // Free Chat in Gameplay
+    socket.on('game:chat', ({ message }) => {
+      const mapping = roomManager.getPlayerMapping(socket.id);
+      if (!mapping) return;
+      const room = roomManager.getRoomById(mapping.roomId);
+      if (!room) return;
+      room.handleChat(mapping.playerId, message);
+    });
+
+    // Vote Kick in Gameplay (players > 2)
+    socket.on('game:vote-kick-start', ({ targetPlayerId, reason }) => {
+      const mapping = roomManager.getPlayerMapping(socket.id);
+      if (!mapping) return;
+      const room = roomManager.getRoomById(mapping.roomId);
+      if (!room) return;
+      const res = room.startVoteKick(mapping.playerId, targetPlayerId, reason);
+      if (!res.success && res.error) {
+        socket.emit('error:message', res.error);
+      }
+    });
+
+    socket.on('game:vote-kick-vote', ({ vote }) => {
+      const mapping = roomManager.getPlayerMapping(socket.id);
+      if (!mapping) return;
+      const room = roomManager.getRoomById(mapping.roomId);
+      if (!room) return;
+      const res = room.voteVoteKick(mapping.playerId, vote);
+      if (!res.success && res.error) {
+        socket.emit('error:message', res.error);
+      }
     });
 
     // 10. Game Rematch / Restart (Host only)

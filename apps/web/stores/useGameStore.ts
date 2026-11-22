@@ -8,7 +8,10 @@ import {
   SkillType,
   ClientToServerEvents,
   ServerToClientEvents,
-  ImpostorPrivateRoleData
+  ImpostorPrivateRoleData,
+  HiddenTeamPlayerPrivate,
+  ChatMessage,
+  VoteKickState
 } from '@gamehouse/shared';
 import { soundManager } from '../components/audio/SoundManager';
 
@@ -26,9 +29,12 @@ interface GameStoreState {
   room: RoomInfo | null;
   gameState: any | null;
   impostorRole: ImpostorPrivateRoleData | null;
+  hiddenTeamPrivate: HiddenTeamPlayerPrivate | null;
   countdown: number | null;
   gameResults: GameResultData | null;
   toasts: ToastNotification[];
+  voteKickState: VoteKickState | null;
+  chatMessages: ChatMessage[];
 
   // Actions
   setSocket: (socket: Socket<ServerToClientEvents, ClientToServerEvents> | null) => void;
@@ -38,20 +44,30 @@ interface GameStoreState {
   setRoom: (room: RoomInfo | null) => void;
   setGameState: (state: any) => void;
   setImpostorRole: (role: ImpostorPrivateRoleData | null) => void;
+  setHiddenTeamPrivate: (state: HiddenTeamPlayerPrivate | null) => void;
   setCountdown: (count: number | null) => void;
   setGameResults: (results: GameResultData | null) => void;
+  setVoteKickState: (fnOrState: VoteKickState | null | ((prev: VoteKickState | null) => VoteKickState | null)) => void;
+  addChatMessage: (msg: ChatMessage) => void;
   addToast: (message: string, type?: ToastNotification['type']) => void;
   removeToast: (id: string) => void;
   resetGame: () => void;
 }
 
 export const useGameStore = create<GameStoreState>((set, get) => {
-  const storedPlayerId = typeof window !== 'undefined'
-    ? localStorage.getItem('gh_player_id') || `p_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`
-    : `p_${Date.now()}`;
-
+  let storedPlayerId = '';
   if (typeof window !== 'undefined') {
-    localStorage.setItem('gh_player_id', storedPlayerId);
+    try {
+      storedPlayerId = sessionStorage.getItem('gh_player_id') || '';
+      if (!storedPlayerId) {
+        storedPlayerId = `p_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+        sessionStorage.setItem('gh_player_id', storedPlayerId);
+      }
+    } catch {
+      storedPlayerId = `p_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    }
+  } else {
+    storedPlayerId = `p_${Date.now()}`;
   }
 
   return {
@@ -62,28 +78,41 @@ export const useGameStore = create<GameStoreState>((set, get) => {
     room: null,
     gameState: null,
     impostorRole: null,
+    hiddenTeamPrivate: null,
     countdown: null,
     gameResults: null,
     toasts: [],
+    voteKickState: null,
+    chatMessages: [],
 
     setSocket: (socket) => set({ socket }),
     setIsConnected: (isConnected) => set({ isConnected }),
     setPing: (ping) => set({ ping }),
     setPlayerId: (playerId) => {
       if (typeof window !== 'undefined') {
-        localStorage.setItem('gh_player_id', playerId);
+        try {
+          sessionStorage.setItem('gh_player_id', playerId);
+        } catch {}
       }
       set({ playerId });
     },
     setRoom: (room) => set({ room }),
     setGameState: (gameState) => set({ gameState }),
     setImpostorRole: (impostorRole) => set({ impostorRole }),
+    setHiddenTeamPrivate: (hiddenTeamPrivate) => set({ hiddenTeamPrivate }),
     setCountdown: (countdown) => {
       if (countdown !== null) {
         soundManager.playCountdown(countdown);
       }
       set({ countdown });
     },
+    setVoteKickState: (fnOrState) => set((state) => ({
+      voteKickState: typeof fnOrState === 'function' ? (fnOrState as any)(state.voteKickState) : fnOrState
+    })),
+    addChatMessage: (msg) => set((state) => ({
+      // Keep last 30 chat messages in history
+      chatMessages: [...state.chatMessages.slice(-29), msg]
+    })),
     setGameResults: (gameResults) => {
       if (gameResults) {
         soundManager.playVictory();
@@ -119,8 +148,11 @@ export const useGameStore = create<GameStoreState>((set, get) => {
     resetGame: () => set({
       gameState: null,
       impostorRole: null,
+      hiddenTeamPrivate: null,
       countdown: null,
-      gameResults: null
+      gameResults: null,
+      voteKickState: null,
+      chatMessages: [],
     }),
   };
 });

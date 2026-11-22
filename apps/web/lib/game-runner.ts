@@ -137,3 +137,15 @@ export function processPanjatAction(
 
   return { gameState: newGameState, results };
 }
+
+export function removeLudoPlayer(
+  room: RoomInfo,
+  currentGameState: any,
+  targetPlayerId: string
+): any {
+  const ludo = new LudoGame();
+  ludo.initialize(room.id, room.players, room.settings, dummyIo);
+  restoreLudoState(ludo, currentGameState);
+  ludo.removePlayer(targetPlayerId);
+  return ludo.getState();
+}

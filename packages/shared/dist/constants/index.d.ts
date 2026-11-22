@@ -1,4 +1,4 @@
-import { SkillDefinition, SkillType, AvatarId, EmoteDefinition, EmoteCategory, ImpostorCategory } from '../types';
+import { SkillDefinition, SkillType, AvatarId, EmoteDefinition, EmoteCategory, ImpostorCategory, HiddenTeamRole, MainCard } from '../types';
 export declare const SERVER_TICK_RATE = 20;
 export declare const CLIENT_INPUT_RATE = 20;
 export declare const DEFAULT_GAME_DURATION: Record<string, number>;
@@ -56,3 +56,38 @@ export declare const IMPOSTOR_PLAYER_LIMITS: {
     minPlayers: number;
     maxPlayers: number;
 };
+export declare const HIDDEN_TEAM_CONFIG: {
+    playerCount: number;
+    minPlayers: number;
+    maxPlayers: number;
+    defaultRounds: number;
+    allowedRounds: number[];
+    defaultRole2VoteProbability: number;
+    defaultRole3BonusWeight: number;
+    voteCardsPerRound: number;
+    defaultTeamDistribution: {
+        RED: number;
+        BLUE: number;
+        NEUTRAL: number;
+    };
+};
+export interface RoleInfo {
+    id: HiddenTeamRole;
+    number: number;
+    name: string;
+    tagline: string;
+    description: string;
+    badge: string;
+    icon: string;
+    color: string;
+}
+export declare const HIDDEN_TEAM_ROLES_INFO: Record<HiddenTeamRole, RoleInfo>;
+export declare const HIDDEN_TEAM_PHASE_TIMERS: {
+    mainCardSelection: number;
+    actionPhaseSlot: number;
+    votingSubmission: number;
+    voteManipulation: number;
+    roundResolution: number;
+    matchFinished: number;
+};
+export declare const MAIN_CARDS_DECK: MainCard[];

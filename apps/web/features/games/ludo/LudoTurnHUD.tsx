@@ -1,11 +1,12 @@
 import React from 'react';
 import { LudoGameState, LudoColor } from '@gamehouse/shared';
 import { ClimberAvatarIcon } from '../../../components/ui/AvatarSelector';
-import { Clock, Trophy, Crown, Sparkles } from 'lucide-react';
+import { Clock, Trophy, Crown, Sparkles, UserMinus } from 'lucide-react';
 
 interface LudoTurnHUDProps {
   gameState: LudoGameState;
   myPlayerId: string;
+  onTriggerVoteKick?: (targetPlayerId: string) => void;
 }
 
 const COLOR_TEXT: Record<LudoColor, { label: string; text: string; bg: string }> = {
@@ -18,6 +19,7 @@ const COLOR_TEXT: Record<LudoColor, { label: string; text: string; bg: string }>
 export const LudoTurnHUD: React.FC<LudoTurnHUDProps> = ({
   gameState,
   myPlayerId,
+  onTriggerVoteKick,
 }) => {
   const currentTurnPlayer = gameState.players[gameState.currentTurnPlayerId];
   const isMyTurn = gameState.currentTurnPlayerId === myPlayerId;
@@ -57,10 +59,17 @@ export const LudoTurnHUD: React.FC<LudoTurnHUDProps> = ({
               <h4 className="text-xs sm:text-sm font-black text-white leading-tight">
                 {currentTurnPlayer?.nickname} {isMyTurn && '(Giliran Anda!)'}
               </h4>
+              {currentTurnPlayer?.isBot && (
+                <span className="text-[9px] font-black text-purple-300 bg-purple-500/25 border border-purple-500/50 px-1.5 py-0.5 rounded">
+                  🤖 BOT
+                </span>
+              )}
             </div>
 
             <p className="text-[10px] sm:text-xs text-amber-300 font-semibold truncate max-w-[210px] sm:max-w-xs mt-0.5">
-              {gameState.lastMoveNotice || 'Giliran melempar dadu...'}
+              {currentTurnPlayer?.isBot && !gameState.hasRolled
+                ? '🤖 Sedang memikirkan lemparan dadu...'
+                : gameState.lastMoveNotice || 'Giliran melempar dadu...'}
             </p>
           </div>
         </div>
@@ -97,13 +106,34 @@ export const LudoTurnHUD: React.FC<LudoTurnHUDProps> = ({
                 <span className={`text-[11px] font-bold truncate ${isMe ? 'text-white' : 'text-slate-300'}`}>
                   {p.nickname}
                 </span>
+                {p.isBot && (
+                  <span className="text-[8px] font-extrabold text-purple-300 bg-purple-900/60 border border-purple-500/40 px-1 py-0.2 rounded shrink-0">
+                    BOT
+                  </span>
+                )}
               </div>
 
-              <div className="flex items-center gap-1 text-[10px] font-black text-amber-400 shrink-0">
-                <Trophy className="w-3 h-3" />
-                <span>
-                  {p.finishedCount}/{targetWins}
-                </span>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <div className="flex items-center gap-1 text-[10px] font-black text-amber-400">
+                  <Trophy className="w-3 h-3" />
+                  <span>
+                    {p.finishedCount}/{targetWins}
+                  </span>
+                </div>
+
+                {!isMe && onTriggerVoteKick && gameState.playerOrder.length > 2 && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onTriggerVoteKick(pId);
+                    }}
+                    className="p-1 rounded-md text-slate-500 hover:text-rose-400 hover:bg-rose-950/60 transition-colors"
+                    title={`Vote Kick ${p.nickname} (AFK)`}
+                  >
+                    <UserMinus className="w-3 h-3" />
+                  </button>
+                )}
               </div>
             </div>
           );

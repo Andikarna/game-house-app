@@ -14,7 +14,9 @@ class PollingSocket {
   private currentPlayerId: string | null = null;
   private lastGameStateStr: string = '';
   private lastRoomStateStr: string = '';
+  private lastVoteKickStr: string = '';
   private processedEmoteIds: Set<string> = new Set();
+  private processedChatIds: Set<string> = new Set();
 
   constructor() {
     this.id = `client_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
@@ -111,8 +113,16 @@ class PollingSocket {
       }
 
       // Determine active context
-      const roomCode = this.currentRoomCode || payload?.roomCode || payload?.code;
-      const playerId = this.currentPlayerId || payload?.playerId;
+      let roomCode = this.currentRoomCode || payload?.roomCode || payload?.code;
+      let playerId = this.currentPlayerId || payload?.playerId;
+
+      if (typeof window !== 'undefined' && (!roomCode || !playerId)) {
+        try {
+          const store = (window as any).__gh_game_store || require('../stores/useGameStore').useGameStore?.getState?.();
+          if (!roomCode && store?.room?.code) roomCode = store.room.code;
+          if (!playerId && store?.playerId) playerId = store.playerId;
+        } catch {}
+      }
 
       if (!roomCode) return;
 
@@ -163,6 +173,63 @@ class PollingSocket {
         return;
       }
 
+      // 3e. BOT MANAGEMENT
+      if (event === 'room:add-bot') {
+        const res = await fetch(`/api/rooms/${roomCode}/action`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'add_bot', playerId }),
+        });
+        const data = await res.json();
+        if (data.success && data.room) {
+          this.emitInternal('room:updated', data.room);
+          await this.pollOnce(true);
+        }
+        return;
+      }
+
+      if (event === 'room:fill-bots') {
+        const res = await fetch(`/api/rooms/${roomCode}/action`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'fill_bots', playerId }),
+        });
+        const data = await res.json();
+        if (data.success && data.room) {
+          this.emitInternal('room:updated', data.room);
+          await this.pollOnce(true);
+        }
+        return;
+      }
+
+      if (event === 'room:remove-bot') {
+        const res = await fetch(`/api/rooms/${roomCode}/action`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'remove_bot', playerId }),
+        });
+        const data = await res.json();
+        if (data.success && data.room) {
+          this.emitInternal('room:updated', data.room);
+          await this.pollOnce(true);
+        }
+        return;
+      }
+
+      if (event === 'room:clear-bots') {
+        const res = await fetch(`/api/rooms/${roomCode}/action`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'clear_bots', playerId }),
+        });
+        const data = await res.json();
+        if (data.success && data.room) {
+          this.emitInternal('room:updated', data.room);
+          await this.pollOnce(true);
+        }
+        return;
+      }
+
       // 4. START GAME (Both 'room:start' and 'game:start')
       if (event === 'room:start' || event === 'game:start') {
         const res = await fetch(`/api/rooms/${roomCode}/action`, {
@@ -172,7 +239,12 @@ class PollingSocket {
         });
         const data = await res.json();
         if (data.success && data.gameState) {
+          if (data.room) {
+            this.emitInternal('room:updated', data.room);
+          }
+          this.emitInternal('game:countdown', 0);
           this.emitInternal('game:start', data.gameState);
+          this.emitInternal('game:started', data.gameState);
           this.emitInternal('game:state', data.gameState);
           this.emitInternal('game:ludo_state', data.gameState);
           await this.pollOnce(true);
@@ -243,6 +315,67 @@ class PollingSocket {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'emote', playerId, emoteId }),
         });
+        return;
+      }
+
+      // 8b. CHAT
+      if (event === 'game:chat') {
+        const message = payload?.message || '';
+        const res = await fetch(`/api/rooms/${roomCode}/action`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'chat', playerId, message }),
+        });
+        const data = await res.json();
+        if (data.success && data.chatMessage) {
+          this.processedChatIds.add(data.chatMessage.id);
+          this.emitInternal('game:chat-message', data.chatMessage);
+        }
+        return;
+      }
+
+      // 8c. VOTE KICK START
+      if (event === 'game:vote-kick-start') {
+        const targetPlayerId = payload?.targetPlayerId;
+        const res = await fetch(`/api/rooms/${roomCode}/action`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'vote_kick_start', playerId, targetPlayerId }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          if (data.voteKick) {
+            this.lastVoteKickStr = JSON.stringify(data.voteKick);
+            this.emitInternal('game:vote-kick-started', data.voteKick);
+          }
+          await this.pollOnce(true);
+        } else if (data.error) {
+          this.emitInternal('error:message', data.error);
+        }
+        return;
+      }
+
+      // 8d. VOTE KICK VOTE
+      if (event === 'game:vote-kick-vote') {
+        const vote = payload?.vote;
+        const res = await fetch(`/api/rooms/${roomCode}/action`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'vote_kick_vote', playerId, vote }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          if (data.voteKick) {
+            this.lastVoteKickStr = JSON.stringify(data.voteKick);
+            this.emitInternal('game:vote-kick-updated', {
+              targetPlayerId: data.voteKick.targetPlayerId,
+              yesCount: data.voteKick.yesCount,
+              noCount: data.voteKick.noCount,
+              requiredVotes: data.voteKick.requiredVotes,
+            });
+          }
+          await this.pollOnce(true);
+        }
         return;
       }
 
@@ -371,18 +504,55 @@ class PollingSocket {
           }
         });
       }
+
+      // Handle Vote Kick
+      const currentVoteKickStr = data.voteKick ? JSON.stringify(data.voteKick) : '';
+      if (currentVoteKickStr !== this.lastVoteKickStr) {
+        if (data.voteKick) {
+          if (!this.lastVoteKickStr) {
+            this.emitInternal('game:vote-kick-started', data.voteKick);
+          } else {
+            this.emitInternal('game:vote-kick-updated', {
+              targetPlayerId: data.voteKick.targetPlayerId,
+              yesCount: data.voteKick.yesCount,
+              noCount: data.voteKick.noCount,
+              requiredVotes: data.voteKick.requiredVotes,
+            });
+          }
+        } else if (this.lastVoteKickStr) {
+          this.emitInternal('game:vote-kick-ended', {
+            targetPlayerId: '',
+            targetNickname: '',
+            kicked: false,
+            reason: 'Vote kick telah berakhir.',
+          });
+        }
+        this.lastVoteKickStr = currentVoteKickStr;
+      }
+
+      // Handle Chats
+      if (Array.isArray(data.chats)) {
+        data.chats.forEach((chat: any) => {
+          if (!this.processedChatIds.has(chat.id)) {
+            this.processedChatIds.add(chat.id);
+            this.emitInternal('game:chat-message', chat);
+          }
+        });
+      }
     } catch (e: any) {
       if (e.name !== 'AbortError') {
         console.error('[PollingSocket pollOnce error]:', e);
       }
     } finally {
       this.isCurrentlyFetching = false;
-      // Sequential scheduling: Only queue the next poll AFTER the previous one finishes!
+      // Sequential scheduling: 400ms when game is active for realtime smoothness, 800ms in lobby
       if (this.isPollingActive && this.currentRoomCode) {
         if (this.pollTimer) clearTimeout(this.pollTimer);
+        const isGameActive = this.lastRoomStateStr.includes('"in-game"') || this.lastRoomStateStr.includes('"countdown"');
+        const delay = isGameActive ? 400 : 800;
         this.pollTimer = setTimeout(() => {
           this.pollOnce();
-        }, 800);
+        }, delay);
       }
     }
   }

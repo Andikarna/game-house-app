@@ -7,10 +7,13 @@ import { LudoBoard } from './LudoBoard';
 import { LudoDice } from './LudoDice';
 import { LudoTurnHUD } from './LudoTurnHUD';
 import { LudoResultModal } from './LudoResultModal';
+import { LudoChatBox } from './LudoChatBox';
+import { VoteKickModal, ActiveVoteKickBanner } from './VoteKickModal';
 import { EmotePicker } from '../../../components/emotes/EmotePicker';
 import { FloatingEmoteLayer } from '../../../components/emotes/FloatingEmoteLayer';
 import { soundManager } from '../../../components/audio/SoundManager';
-import { LogOut, Volume2, VolumeX, Dices, Trophy, Swords } from 'lucide-react';
+import { getGlobalSocket } from '../../../hooks/useSocket';
+import { LogOut, Volume2, VolumeX, Dices, Trophy, Swords, UserMinus } from 'lucide-react';
 import Link from 'next/link';
 
 export const LudoView: React.FC = () => {
@@ -26,6 +29,7 @@ export const LudoView: React.FC = () => {
 
   const isHost = room?.hostId === playerId;
   const [isAudioMuted, setIsAudioMuted] = useState(soundManager.getIsMuted());
+  const [isVoteKickModalOpen, setIsVoteKickModalOpen] = useState(false);
 
   // Tracking refs to detect dice roll and token captures for sound effects
   const prevDiceRef = useRef<number | null>(null);
@@ -141,37 +145,40 @@ export const LudoView: React.FC = () => {
       ludo.validMoves.length === 0 &&
       ludo.status !== 'finished'
     ) {
+      const activeSocket = socket || getGlobalSocket();
       const timer = setTimeout(() => {
-        if (socket && socket.connected) {
-          socket.emit('game:input', { action: 'pass-turn' });
+        if (activeSocket) {
+          activeSocket.emit('game:input', { action: 'pass-turn' });
         }
       }, 1400);
       return () => clearTimeout(timer);
     }
   }, [gameState, playerId, socket]);
 
+  const activeSocket = socket || getGlobalSocket();
+
   const handleRollDice = () => {
-    if (socket && socket.connected) {
-      socket.emit('game:input', { action: 'roll-dice' });
+    if (activeSocket) {
+      activeSocket.emit('game:input', { action: 'roll-dice' });
     }
   };
 
   const handleSelectToken = (tokenIndex: number) => {
-    if (socket && socket.connected) {
-      socket.emit('game:input', { action: 'move-token', tokenIndex });
+    if (activeSocket) {
+      activeSocket.emit('game:input', { action: 'move-token', tokenIndex });
     }
   };
 
   const handlePlayAgain = () => {
-    if (socket && socket.connected && isHost) {
-      socket.emit('game:restart');
+    if (activeSocket && isHost) {
+      activeSocket.emit('game:restart');
       setGameResults(null);
     }
   };
 
   const handleLeaveRoom = () => {
-    if (socket && socket.connected) {
-      socket.emit('room:leave');
+    if (activeSocket) {
+      activeSocket.emit('room:leave');
       window.location.href = '/';
     }
   };
@@ -210,6 +217,19 @@ export const LudoView: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Vote Kick AFK Button (Visible when players > 2) */}
+          {ludoState.playerOrder.length > 2 && (
+            <button
+              type="button"
+              onClick={() => setIsVoteKickModalOpen(true)}
+              className="px-2.5 py-1.5 rounded-xl bg-surface-elevated border border-slate-700/60 text-slate-300 hover:text-rose-400 hover:border-rose-500/50 active:scale-95 transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+              title="Ajukan Vote Kick untuk pemain yang AFK"
+            >
+              <UserMinus className="w-4 h-4 text-rose-400" />
+              <span className="text-xs font-bold text-rose-300 hidden sm:inline">Vote Kick</span>
+            </button>
+          )}
+
           {/* Audio BGM Toggle Button */}
           <button
             type="button"
@@ -236,9 +256,20 @@ export const LudoView: React.FC = () => {
         </div>
       </header>
 
+      {/* ================= 1b. ACTIVE VOTE KICK LIVE BANNER ================= */}
+      <ActiveVoteKickBanner />
+
       {/* ================= 2. ACTIVE TURN HUD ================= */}
       <div className="w-full max-w-xl z-20 mb-2">
-        <LudoTurnHUD gameState={ludoState} myPlayerId={playerId} />
+        <LudoTurnHUD
+          gameState={ludoState}
+          myPlayerId={playerId}
+          onTriggerVoteKick={(targetId) => {
+            if (activeSocket) {
+              activeSocket.emit('game:vote-kick-start', { targetPlayerId: targetId });
+            }
+          }}
+        />
       </div>
 
       {/* ================= 3. THE 15x15 LUDO BOARD ================= */}
@@ -266,6 +297,16 @@ export const LudoView: React.FC = () => {
 
       {/* Floating Emote Trigger & Drawer */}
       <EmotePicker buttonPosition="bottom-right" />
+
+      {/* Floating Free Chat Trigger & Drawer */}
+      <LudoChatBox />
+
+      {/* Vote Kick Selection Modal */}
+      <VoteKickModal
+        isOpen={isVoteKickModalOpen}
+        onClose={() => setIsVoteKickModalOpen(false)}
+        gameState={ludoState}
+      />
 
       {/* ================= 5. RESULT MODAL ================= */}
       {gameResults && (

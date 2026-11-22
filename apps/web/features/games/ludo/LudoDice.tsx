@@ -491,10 +491,10 @@ export const LudoDice: React.FC<LudoDiceProps> = ({
         landTimeoutRef.current = setTimeout(() => {
           landOnAuthoritativeNumber(value);
         }, remaining);
-      } else if (!isRolling && !isBouncing) {
-        // Opponent rolled in multiplayer!
-        startTumbling();
+      } else {
+        // Opponent or Bot rolled in multiplayer!
         if (landTimeoutRef.current) clearTimeout(landTimeoutRef.current);
+        startTumbling();
         landTimeoutRef.current = setTimeout(() => {
           landOnAuthoritativeNumber(value);
         }, 650);
@@ -502,7 +502,6 @@ export const LudoDice: React.FC<LudoDiceProps> = ({
     } else if (value === null) {
       prevValueRef.current = null;
       isAwaitingServerResultRef.current = false;
-      setShowNumberBanner(false);
     }
   }, [value]);
 

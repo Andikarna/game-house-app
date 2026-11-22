@@ -3,11 +3,13 @@
 import React, { useEffect, useState } from 'react';
 import { useGameStore } from '../../stores/useGameStore';
 import { useSettingsStore } from '../../stores/useSettingsStore';
-import { useSocket } from '../../hooks/useSocket';
+import { useSocket, getGlobalSocket } from '../../hooks/useSocket';
+import { globalPollingSocket } from '../../lib/polling-socket';
 import { LobbyView } from '../lobby/LobbyView';
 import { PanjatPinangView } from '../games/panjat-pinang/PanjatPinangView';
 import { LudoView } from '../games/ludo/LudoView';
 import { ImpostorDesaView } from '../games/impostor-desa/ImpostorDesaView';
+import { HiddenTeamView } from '../games/hidden-team/HiddenTeamView';
 import { Button } from '../../components/ui/Button';
 import { AvatarSelector } from '../../components/ui/AvatarSelector';
 import { GameHouseLogo } from '../../components/branding/GameHouseLogo';
@@ -38,9 +40,43 @@ export const RoomContainer: React.FC<RoomContainerProps> = ({ roomCode }) => {
     soundManager.playLobbyBGM();
   }, []);
 
+  // Check if player can auto-reconnect upon page refresh
+  useEffect(() => {
+    if (isInThisRoom || !cleanCode) return;
+
+    let isMounted = true;
+    const attemptAutoReconnect = async () => {
+      try {
+        const res = await fetch(`/api/rooms/${cleanCode}?playerId=${playerId}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (isMounted && data.success && data.room) {
+          const isPlayerInRoom = data.room.players?.some((p: any) => p.id === playerId);
+          if (isPlayerInRoom) {
+            setRoom(data.room);
+            if (data.gameState) {
+              useGameStore.getState().setGameState(data.gameState);
+            }
+            if (globalPollingSocket.setContext) {
+              globalPollingSocket.setContext(cleanCode, playerId);
+            }
+          }
+        }
+      } catch (err) {
+        // Silent fallback - user can click "Enter Room"
+      }
+    };
+
+    attemptAutoReconnect();
+    return () => {
+      isMounted = false;
+    };
+  }, [cleanCode, isInThisRoom, playerId, setRoom]);
+
   const handleJoinDirectly = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!socket || !socket.connected) {
+    const activeSocket = socket?.connected ? socket : getGlobalSocket();
+    if (!activeSocket || !activeSocket.connected) {
       addToast('Connecting to game server...', 'info');
       return;
     }
@@ -51,7 +87,7 @@ export const RoomContainer: React.FC<RoomContainerProps> = ({ roomCode }) => {
     }
 
     setIsJoining(true);
-    socket.emit(
+    activeSocket.emit(
       'room:join',
       {
         roomCode: cleanCode,
@@ -65,6 +101,9 @@ export const RoomContainer: React.FC<RoomContainerProps> = ({ roomCode }) => {
           setRoom(res.room);
           if (res.playerId) {
             setPlayerId(res.playerId);
+          }
+          if (globalPollingSocket.setContext) {
+            globalPollingSocket.setContext(res.room.code, res.playerId || playerId);
           }
         } else {
           addToast(res.error || `Room ${cleanCode} not found. Please verify the 5-digit room code.`, 'error');
@@ -146,6 +185,14 @@ export const RoomContainer: React.FC<RoomContainerProps> = ({ roomCode }) => {
 
   // If in game, render Arena based on selected game
   if (room.status === 'in-game' || room.status === 'countdown' || room.status === 'finished') {
+    if (room.settings.gameId === 'hidden-team') {
+      return (
+        <>
+          <HiddenTeamView />
+          <ToastContainer />
+        </>
+      );
+    }
     if (room.settings.gameId === 'impostor-desa') {
       return (
         <>

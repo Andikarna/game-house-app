@@ -1,5 +1,5 @@
-export type GameId = 'panjat-pinang' | 'ludo' | 'impostor-desa' | 'obstacle-race' | 'card-battle' | 'mini-battle-arena';
-export type GameMode = 'classic-race' | 'survival-climb' | 'skill-battle' | 'classic' | 'quick' | 'impostor-classic';
+export type GameId = 'panjat-pinang' | 'ludo' | 'impostor-desa' | 'obstacle-race' | 'card-battle' | 'mini-battle-arena' | 'hidden-team';
+export type GameMode = 'classic-race' | 'survival-climb' | 'skill-battle' | 'classic' | 'quick' | 'impostor-classic' | 'hidden-team-standard' | 'hidden-team-4r' | 'hidden-team-5r' | 'hidden-team-6r';
 export type RoomStatus = 'lobby' | 'countdown' | 'in-game' | 'finished';
 export type AvatarId = 'budi' | 'ujang' | 'rara' | 'koko' | 'jaya' | 'bayu' | 'siti' | 'jago' | 'climber-red' | 'climber-blue' | 'climber-green' | 'climber-yellow' | 'climber-purple' | 'climber-orange';
 export interface Player {
@@ -137,6 +137,7 @@ export interface LudoPlayerState {
     canRoll: boolean;
     consecutiveSixes: number;
     isConnected: boolean;
+    isBot?: boolean;
 }
 export interface LudoGameState {
     gameId: 'ludo';
@@ -298,4 +299,163 @@ export interface ActiveEmoteEvent {
     avatar: AvatarId;
     emoteId: EmoteId;
     timestamp: number;
+}
+export type HiddenTeamFaction = 'RED' | 'BLUE' | 'NEUTRAL';
+export type HiddenTeamRole = 'ROLE_1_SWAPPER' | 'ROLE_2_ROLLER' | 'ROLE_3_MULTIPLIER' | 'ROLE_4_INSPECTOR' | 'ROLE_5_SELECTOR' | 'ROLE_6_CARD_SWAPPER';
+export type HiddenTeamPhase = 'MATCH_WAITING' | 'MATCH_INITIALIZING' | 'ROUND_INITIALIZING' | 'MAIN_CARD_SELECTION' | 'ACTION_PHASE' | 'VOTING_SUBMISSION' | 'VOTE_MANIPULATION' | 'ROUND_RESOLUTION' | 'NEXT_ROUND' | 'MATCH_RESOLUTION' | 'MATCH_FINISHED';
+export interface VoteCard {
+    id: string;
+    faction: HiddenTeamFaction;
+    title: string;
+    description: string;
+}
+export interface MainCard {
+    id: string;
+    title: string;
+    scenario: string;
+    teamFlag: HiddenTeamFaction;
+    description: string;
+    illustration: string;
+    roundObjective: string;
+}
+export interface HiddenTeamPlayerPublic {
+    id: string;
+    nickname: string;
+    avatar: AvatarId;
+    slotNumber: number;
+    isConnected: boolean;
+    isBot: boolean;
+    hasActedThisSlot: boolean;
+    hasSubmittedVotes: boolean;
+}
+export interface HiddenTeamPlayerPrivate {
+    playerId: string;
+    team: HiddenTeamFaction;
+    slotNumber: number;
+    currentRole: HiddenTeamRole;
+    originalRole: HiddenTeamRole;
+    voteCards: VoteCard[];
+    role2CanVote: boolean | null;
+    role4InspectedCard: VoteCard | null;
+    role5CandidateCards: MainCard[] | null;
+    hasActed: boolean;
+    hasSubmittedVotes: boolean;
+}
+export type HiddenTeamActionPayload = {
+    action: 'pass';
+} | {
+    action: 'role_1_swap';
+    targetPlayerIdA: string;
+    targetPlayerIdB: string;
+} | {
+    action: 'role_2_roll';
+} | {
+    action: 'role_3_multiply';
+    targetPlayerId: string;
+} | {
+    action: 'role_4_inspect';
+    decision: 'KEEP' | 'DISCARD';
+} | {
+    action: 'role_5_select';
+    selectedCardId: string;
+} | {
+    action: 'role_6_swap_cards';
+    targetPlayerIdA: string;
+    targetPlayerIdB: string;
+};
+export interface HiddenTeamRoundResult {
+    roundNumber: number;
+    activeMainCard: MainCard;
+    originalVotes: {
+        RED: number;
+        BLUE: number;
+        NEUTRAL: number;
+    };
+    bonusVotes: {
+        RED: number;
+        BLUE: number;
+        NEUTRAL: number;
+    };
+    discardedVotes: {
+        RED: number;
+        BLUE: number;
+        NEUTRAL: number;
+    };
+    finalVotes: {
+        RED: number;
+        BLUE: number;
+        NEUTRAL: number;
+    };
+    winningTeam: HiddenTeamFaction | null;
+    isTieOrNoWin: boolean;
+    reason: string;
+    roundWinsSoFar: {
+        RED: number;
+        BLUE: number;
+        NEUTRAL: number;
+    };
+}
+export interface HiddenTeamPlayerIdentityReveal {
+    playerId: string;
+    nickname: string;
+    avatar: AvatarId;
+    slotNumber: number;
+    team: HiddenTeamFaction;
+    originalRole: HiddenTeamRole;
+    finalRole: HiddenTeamRole;
+}
+export interface HiddenTeamMatchResult {
+    winner: HiddenTeamFaction | 'DRAW';
+    finalRoundWins: {
+        RED: number;
+        BLUE: number;
+        NEUTRAL: number;
+    };
+    totalRounds: number;
+    playerIdentities: HiddenTeamPlayerIdentityReveal[];
+    roundHistory: HiddenTeamRoundResult[];
+}
+export interface HiddenTeamPublicGameState {
+    gameId: 'hidden-team';
+    matchId: string;
+    roundNumber: number;
+    totalRounds: number;
+    phase: HiddenTeamPhase;
+    phaseTimer: number;
+    phaseTotalTime: number;
+    currentTurnSlot: number;
+    activeMainCard: (Omit<MainCard, 'teamFlag'> & {
+        teamFlag?: HiddenTeamFaction;
+    }) | null;
+    players: Record<string, HiddenTeamPlayerPublic>;
+    playerSlots: string[];
+    roundWins: {
+        RED: number;
+        BLUE: number;
+        NEUTRAL: number;
+    };
+    currentRoundResult: HiddenTeamRoundResult | null;
+    matchResult: HiddenTeamMatchResult | null;
+    recentLogs: string[];
+}
+export interface ChatMessage {
+    id: string;
+    playerId: string;
+    nickname: string;
+    color?: LudoColor | string;
+    avatar: AvatarId;
+    message: string;
+    timestamp: number;
+}
+export interface VoteKickState {
+    targetPlayerId: string;
+    targetNickname: string;
+    targetColor?: string;
+    initiatedByPlayerId: string;
+    initiatedByNickname: string;
+    votes: Record<string, 'yes' | 'no'>;
+    yesCount: number;
+    noCount: number;
+    requiredVotes: number;
+    expiresAt: number;
 }
