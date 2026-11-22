@@ -130,45 +130,10 @@ export async function getRoomByCode(
   const raw = code.trim().toUpperCase();
   const cleanCode = raw.replace(/[^A-Za-z0-9]/g, '');
 
-  // 1. First priority: Check in-memory store
+  // In-memory cache for transient data like vote kicks and chat
   const memoryEntry = getMemoryRoom(cleanCode) || getMemoryRoom(raw);
-  if (memoryEntry) {
-    return memoryEntry;
-  }
 
-  // 2. Second priority: Check standalone game-server (port 4000)
-  try {
-    const gameServerUrl =
-      process.env.GAME_SERVER_URL ||
-      process.env.NEXT_PUBLIC_GAME_SERVER_URL ||
-      'http://localhost:4000';
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 1200);
-
-    const resp = await fetch(`${gameServerUrl}/api/rooms/${cleanCode}`, {
-      signal: controller.signal,
-      headers: { 'Content-Type': 'application/json' },
-    });
-    clearTimeout(timeoutId);
-
-    if (resp.ok) {
-      const data = await resp.json();
-      if (data && data.room) {
-        const entry: RoomEntry = {
-          room: data.room,
-          gameState: data.gameState || null,
-          gameResults: data.gameResults || null,
-        };
-        saveMemoryRoom(data.room, entry.gameState, entry.gameResults);
-        return entry;
-      }
-    }
-  } catch {
-    // Standalone server not reachable or timed out
-  }
-
-  // 3. Third priority: Query MySQL database (safe, won't crash if offline)
+  // 1. First priority: Query MySQL database (single shared source of truth across all serverless instances)
   try {
     const [[roomRows], [playerRows]] = await Promise.all([
       safeDbQuery<any[]>('SELECT * FROM gh_rooms WHERE code = ? LIMIT 1', [cleanCode]),
@@ -178,64 +143,114 @@ export async function getRoomByCode(
       ),
     ]);
 
-    if (!roomRows || roomRows.length === 0) {
-      return null;
-    }
+    if (roomRows && roomRows.length > 0) {
+      const r = roomRows[0];
 
-    const r = roomRows[0];
+      const players: Player[] = (playerRows || []).map((p) => ({
+        id: p.id,
+        socketId: p.id,
+        nickname: p.nickname,
+        avatar: p.avatar as AvatarId,
+        isHost: Boolean(p.is_host),
+        isReady: Boolean(p.is_ready),
+        isConnected: Boolean(p.is_connected),
+        joinedAt: Number(p.joined_at),
+      }));
 
-    const players: Player[] = (playerRows || []).map((p) => ({
-      id: p.id,
-      socketId: p.id,
-      nickname: p.nickname,
-      avatar: p.avatar as AvatarId,
-      isHost: Boolean(p.is_host),
-      isReady: Boolean(p.is_ready),
-      isConnected: Boolean(p.is_connected),
-      joinedAt: Number(p.joined_at),
-    }));
+      const settings: RoomSettings = {
+        name: r.name,
+        gameId: r.game_id as GameId,
+        gameMode: r.game_mode as GameMode,
+        maxPlayers: Number(r.max_players),
+        durationSeconds: Number(r.duration_seconds),
+        isPrivate: Boolean(r.is_private),
+      };
 
-    const settings: RoomSettings = {
-      name: r.name,
-      gameId: r.game_id as GameId,
-      gameMode: r.game_mode as GameMode,
-      maxPlayers: Number(r.max_players),
-      durationSeconds: Number(r.duration_seconds),
-      isPrivate: Boolean(r.is_private),
-    };
+      const room: RoomInfo = {
+        id: r.id,
+        code: r.code,
+        settings,
+        status: r.status as RoomStatus,
+        hostId: r.host_id,
+        players,
+        createdAt: Number(r.created_at),
+      };
 
-    const room: RoomInfo = {
-      id: r.id,
-      code: r.code,
-      settings,
-      status: r.status as RoomStatus,
-      hostId: r.host_id,
-      players,
-      createdAt: Number(r.created_at),
-    };
-
-    let gameState = null;
-    if (r.game_state_json) {
-      try {
-        gameState = JSON.parse(r.game_state_json);
-      } catch {
-        gameState = null;
+      let gameState = null;
+      if (r.game_state_json) {
+        try {
+          gameState = JSON.parse(r.game_state_json);
+        } catch {
+          gameState = null;
+        }
       }
-    }
 
-    let gameResults = null;
-    if (r.game_results_json) {
-      try {
-        gameResults = JSON.parse(r.game_results_json);
-      } catch {
-        gameResults = null;
+      let gameResults = null;
+      if (r.game_results_json) {
+        try {
+          gameResults = JSON.parse(r.game_results_json);
+        } catch {
+          gameResults = null;
+        }
       }
-    }
 
-    const entry: RoomEntry = { room, gameState, gameResults };
-    saveMemoryRoom(room, gameState, gameResults);
-    return entry;
-  } catch {
-    return null;
+      // If the current lambda has an in-memory entry with a newer stateVersion, prefer it
+      const dbVersion = gameState?.stateVersion || 0;
+      const memVersion = memoryEntry?.gameState?.stateVersion || 0;
+      const finalGameState = memVersion > dbVersion ? memoryEntry!.gameState : gameState;
+
+      const entry: RoomEntry = {
+        room,
+        gameState: finalGameState,
+        gameResults,
+        activeVoteKick: memoryEntry?.activeVoteKick || null,
+        chatMessages: memoryEntry?.chatMessages || [],
+      };
+      saveMemoryRoom(room, finalGameState, gameResults, entry.activeVoteKick, entry.chatMessages);
+      return entry;
+    }
+  } catch (err) {
+    console.error('[getRoomByCode] DB query failed, falling back:', err);
   }
+
+  // 2. Second priority: Check standalone game-server ONLY if configured explicitly
+  const configuredGameServerUrl =
+    process.env.GAME_SERVER_URL || process.env.NEXT_PUBLIC_GAME_SERVER_URL;
+
+  if (configuredGameServerUrl) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 1200);
+
+      const resp = await fetch(`${configuredGameServerUrl}/api/rooms/${cleanCode}`, {
+        signal: controller.signal,
+        headers: { 'Content-Type': 'application/json' },
+      });
+      clearTimeout(timeoutId);
+
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data && data.room) {
+          const entry: RoomEntry = {
+            room: data.room,
+            gameState: data.gameState || null,
+            gameResults: data.gameResults || null,
+            activeVoteKick: memoryEntry?.activeVoteKick || null,
+            chatMessages: memoryEntry?.chatMessages || [],
+          };
+          saveMemoryRoom(data.room, entry.gameState, entry.gameResults);
+          return entry;
+        }
+      }
+    } catch {
+      // Standalone server not reachable
+    }
+  }
+
+  // 3. Fallback: Check in-memory store (e.g. offline dev without MySQL)
+  if (memoryEntry) {
+    return memoryEntry;
+  }
+
+  return null;
 }

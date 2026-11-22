@@ -172,7 +172,9 @@ export class LudoGame implements GameModule {
     } else if (input.action === 'move-token') {
       this.handleMoveToken(player, input.tokenIndex);
     } else if (input.action === 'pass-turn') {
-      this.passToNextPlayer();
+      if (this.hasRolled && this.validMoves.length === 0) {
+        this.passToNextPlayer();
+      }
     }
   }
 
