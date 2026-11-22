@@ -356,7 +356,8 @@ const BaseSpeechBubble: React.FC<{
   chat: ActiveBaseChat | null;
   color: LudoColor;
   boardRotationDeg: number;
-}> = ({ chat, color, boardRotationDeg }) => {
+  onDismiss?: () => void;
+}> = ({ chat, color, boardRotationDeg, onDismiss }) => {
   const colorStyles: Record<LudoColor, { border: string; text: string; glow: string; tailBorder: string }> = {
     red: { border: 'border-red-500', text: 'text-red-400', glow: 'shadow-red-500/40', tailBorder: 'border-red-500' },
     blue: { border: 'border-blue-500', text: 'text-blue-400', glow: 'shadow-blue-500/40', tailBorder: 'border-blue-500' },
@@ -381,7 +382,9 @@ const BaseSpeechBubble: React.FC<{
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.2, opacity: 0, y: -10 }}
               transition={{ type: 'spring', stiffness: 500, damping: 25 }}
-              className="relative select-none"
+              onClick={onDismiss}
+              className="relative select-none cursor-pointer"
+              title="Klik untuk menutup balon chat"
             >
               <div className={`px-2.5 py-1.5 rounded-2xl bg-slate-950/95 border-2 ${style.border} shadow-2xl ${style.glow} backdrop-blur-md max-w-[145px] sm:max-w-[180px]`}>
                 <div className="flex items-center gap-1.5 mb-1">
@@ -451,16 +454,44 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
     yellow: null,
   });
 
+  const lastProcessedChatIdRef = useRef<string | null>(null);
+  const chatTimeoutsRef = useRef<Record<LudoColor, NodeJS.Timeout | null>>({
+    red: null,
+    blue: null,
+    green: null,
+    yellow: null,
+  });
+  const gameStatePlayersRef = useRef(gameState.players);
+  gameStatePlayersRef.current = gameState.players;
+
+  const handleDismissChat = (color: LudoColor) => {
+    if (chatTimeoutsRef.current[color]) {
+      clearTimeout(chatTimeoutsRef.current[color]!);
+      chatTimeoutsRef.current[color] = null;
+    }
+    setActiveBaseChats((prev) => ({
+      ...prev,
+      [color]: null,
+    }));
+  };
+
   useEffect(() => {
     if (!chatMessages || chatMessages.length === 0) return;
     const latestChat = chatMessages[chatMessages.length - 1];
     if (!latestChat) return;
 
+    // Prevent re-processing identical chat when other state updates/re-renders occur
+    if (latestChat.id === lastProcessedChatIdRef.current) return;
+    lastProcessedChatIdRef.current = latestChat.id;
+
+    // Ignore stale chats older than 5 seconds (e.g. from previous games or reloads)
+    if (Date.now() - latestChat.timestamp > 5000) return;
+
     let targetColor: LudoColor | undefined = undefined;
     if (latestChat.color && ['red', 'blue', 'green', 'yellow'].includes(latestChat.color as string)) {
       targetColor = latestChat.color as LudoColor;
-    } else if (gameState.players[latestChat.playerId]?.color) {
-      targetColor = gameState.players[latestChat.playerId].color;
+    } else if (gameStatePlayersRef.current?.[latestChat.playerId]?.color) {
+      targetColor = gameStatePlayersRef.current[latestChat.playerId].color;
     }
 
     if (!targetColor) return;
@@ -473,28 +504,35 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
       timestamp: latestChat.timestamp,
     };
 
+    // Clear previous dismiss timer for this base if active
+    if (chatTimeoutsRef.current[targetColor]) {
+      clearTimeout(chatTimeoutsRef.current[targetColor]!);
+      chatTimeoutsRef.current[targetColor] = null;
+    }
+
     setActiveBaseChats((prev) => ({
       ...prev,
       [targetColor!]: chatInfo,
     }));
 
-    const timer = setTimeout(() => {
-      setActiveBaseChats((prev) => {
-        if (prev[targetColor!]?.id === latestChat.id) {
-          return { ...prev, [targetColor!]: null };
-        }
-        return prev;
-      });
-    }, 5000);
-
-    return () => clearTimeout(timer);
-  }, [chatMessages, gameState.players]);
+    // Auto-dismiss smoothly after 4 seconds (strict standalone timer)
+    chatTimeoutsRef.current[targetColor] = setTimeout(() => {
+      setActiveBaseChats((prev) => ({
+        ...prev,
+        [targetColor!]: null,
+      }));
+      chatTimeoutsRef.current[targetColor] = null;
+    }, 4000);
+  }, [chatMessages]);
 
   // Cleanup on unmount ONLY
   useEffect(() => {
     return () => {
       Object.values(activeIntervalsRef.current).forEach((t) => clearInterval(t));
       Object.values(captureTimeoutsRef.current).forEach((t) => clearTimeout(t));
+      Object.values(chatTimeoutsRef.current).forEach((t) => {
+        if (t) clearTimeout(t);
+      });
     };
   }, []);
 
@@ -736,7 +774,12 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
               })}
             </div>
             {/* Pop-up Speech Bubble at Blue Base */}
-            <BaseSpeechBubble chat={activeBaseChats.blue} color="blue" boardRotationDeg={boardRotationDeg} />
+            <BaseSpeechBubble
+              chat={activeBaseChats.blue}
+              color="blue"
+              boardRotationDeg={boardRotationDeg}
+              onDismiss={() => handleDismissChat('blue')}
+            />
           </div>
 
           {/* ================================================================= */}
@@ -818,7 +861,12 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
               })}
             </div>
             {/* Pop-up Speech Bubble at Green Base */}
-            <BaseSpeechBubble chat={activeBaseChats.green} color="green" boardRotationDeg={boardRotationDeg} />
+            <BaseSpeechBubble
+              chat={activeBaseChats.green}
+              color="green"
+              boardRotationDeg={boardRotationDeg}
+              onDismiss={() => handleDismissChat('green')}
+            />
           </div>
 
           {/* ================================================================= */}
@@ -977,7 +1025,12 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
               })}
             </div>
             {/* Pop-up Speech Bubble at Red Base */}
-            <BaseSpeechBubble chat={activeBaseChats.red} color="red" boardRotationDeg={boardRotationDeg} />
+            <BaseSpeechBubble
+              chat={activeBaseChats.red}
+              color="red"
+              boardRotationDeg={boardRotationDeg}
+              onDismiss={() => handleDismissChat('red')}
+            />
           </div>
 
           {/* ================================================================= */}
@@ -1059,7 +1112,12 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
               })}
             </div>
             {/* Pop-up Speech Bubble at Yellow Base */}
-            <BaseSpeechBubble chat={activeBaseChats.yellow} color="yellow" boardRotationDeg={boardRotationDeg} />
+            <BaseSpeechBubble
+              chat={activeBaseChats.yellow}
+              color="yellow"
+              boardRotationDeg={boardRotationDeg}
+              onDismiss={() => handleDismissChat('yellow')}
+            />
           </div>
 
           {/* =================================================================== */}
