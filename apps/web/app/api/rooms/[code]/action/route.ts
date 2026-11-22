@@ -171,7 +171,7 @@ export async function POST(
       room.status = 'in-game';
       saveMemoryRoom(room, initialGameState, null);
 
-      safeDbQuery(
+      await safeDbQuery(
         'UPDATE gh_rooms SET status = "in-game", game_state_json = ?, game_results_json = NULL, updated_at = ? WHERE code = ?',
         [JSON.stringify(initialGameState), now, code]
       ).catch(() => {});
@@ -191,7 +191,7 @@ export async function POST(
       room.status = newStatus;
       saveMemoryRoom(room, newGameState, results);
 
-      safeDbQuery(
+      await safeDbQuery(
         'UPDATE gh_rooms SET game_state_json = ?, game_results_json = ?, status = ?, updated_at = ? WHERE code = ?',
         [JSON.stringify(newGameState), resultsJson, newStatus, now, code]
       ).catch(() => {});
@@ -208,7 +208,7 @@ export async function POST(
         room.status = newStatus;
         saveMemoryRoom(room, newGameState, results);
 
-        safeDbQuery(
+        await safeDbQuery(
           'UPDATE gh_rooms SET game_state_json = ?, game_results_json = ?, status = ?, updated_at = ? WHERE code = ?',
           [JSON.stringify(newGameState), resultsJson, newStatus, now, code]
         ).catch(() => {});

@@ -35,6 +35,8 @@ export const LudoView: React.FC = () => {
   const prevDiceRef = useRef<number | null>(null);
   const prevTokensStateRef = useRef<Record<string, Record<number, { state: string; stepCount: number }>>>({});
   const isFirstRender = useRef(true);
+  const lastProcessedCaptureNoticeRef = useRef<string>('');
+  const lastProcessedFinishNoticeRef = useRef<string>('');
 
   // Auto-play playful Marimba BGM during Ludo match
   useEffect(() => {
@@ -68,50 +70,40 @@ export const LudoView: React.FC = () => {
       prevDiceRef.current = null;
     }
 
-    // 2. Token Capture Toast: Synchronized with the walking arrival
+    // 2. Token Capture Toast: Authoritative check synchronized with the walking arrival
     if (!isFirstRender.current) {
-      let capturedPlayerNickname: string | null = null;
-      let walkSteps = 0;
-
-      // Check if any token is walking forward to capture
-      Object.values(ludo.players).forEach((p) => {
-        p.tokens.forEach((t) => {
-          const prev = prevTokensStateRef.current[p.playerId]?.[t.id];
-          if (prev && t.state !== 'base' && t.stepCount > prev.stepCount) {
-            walkSteps = Math.max(walkSteps, t.stepCount - prev.stepCount);
-          }
+      if (
+        ludo.lastMoveNotice &&
+        ludo.lastMoveNotice.includes('memulangkan bidak') &&
+        ludo.lastMoveNotice !== lastProcessedCaptureNoticeRef.current
+      ) {
+        lastProcessedCaptureNoticeRef.current = ludo.lastMoveNotice;
+        let walkSteps = 0;
+        // Check if any token is walking forward to capture
+        Object.values(ludo.players).forEach((p) => {
+          p.tokens.forEach((t) => {
+            const prev = prevTokensStateRef.current[p.playerId]?.[t.id];
+            if (prev && t.state !== 'base' && t.stepCount > prev.stepCount) {
+              walkSteps = Math.max(walkSteps, t.stepCount - prev.stepCount);
+            }
+          });
         });
-      });
 
-      Object.values(ludo.players).forEach((p) => {
-        p.tokens.forEach((t) => {
-          const prev = prevTokensStateRef.current[p.playerId]?.[t.id];
-          if (prev && (prev.state === 'track' || prev.state === 'home-stretch') && t.state === 'base') {
-            capturedPlayerNickname = p.nickname;
-          }
-        });
-      });
-
-      if (capturedPlayerNickname) {
         const delay = walkSteps * 140;
+        const captureNotice = ludo.lastMoveNotice;
         setTimeout(() => {
-          addToast(`💥 Bidak ${capturedPlayerNickname} dipulangkan ke markas!`, 'warning');
+          addToast(captureNotice, 'warning');
         }, delay);
       }
 
       // 3. Token Finish Toast
-      let finishedPlayerNickname: string | null = null;
-      Object.values(ludo.players).forEach((p) => {
-        p.tokens.forEach((t) => {
-          const prev = prevTokensStateRef.current[p.playerId]?.[t.id];
-          if (prev && prev.state !== 'finished' && t.state === 'finished') {
-            finishedPlayerNickname = p.nickname;
-          }
-        });
-      });
-
-      if (finishedPlayerNickname) {
-        addToast(`🎉 ${finishedPlayerNickname} berhasil memasukkan bidak ke HOME!`, 'success');
+      if (
+        ludo.lastMoveNotice &&
+        ludo.lastMoveNotice.includes('memasukkan bidak ke HOME') &&
+        ludo.lastMoveNotice !== lastProcessedFinishNoticeRef.current
+      ) {
+        lastProcessedFinishNoticeRef.current = ludo.lastMoveNotice;
+        addToast(ludo.lastMoveNotice, 'success');
       }
     } else {
       isFirstRender.current = false;

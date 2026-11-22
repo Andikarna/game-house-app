@@ -150,6 +150,46 @@ describe('Ludo Game Engine & Rules', () => {
     assert.strictEqual(state.players['p1'].canRoll, true);
   });
 
+  it('should NOT capture own tokens when landing on the same non-safe track tile, but stack instead', () => {
+    const game = new LudoGame();
+    game.initialize('room-stack', players, mockSettings, mockIo);
+
+    const p1 = (game as any).players.get('p1');
+
+    // Place Red token 0 on tile 10 (not a safe square)
+    const redToken0 = p1.tokens[0];
+    redToken0.state = 'track';
+    redToken0.stepCount = 11;
+    redToken0.trackPosition = 10;
+
+    // Place Red token 1 on tile 7
+    const redToken1 = p1.tokens[1];
+    redToken1.state = 'track';
+    redToken1.stepCount = 8;
+    redToken1.trackPosition = 7;
+
+    // Red rolls a 3 and moves token 1 to tile 10 (where token 0 is already sitting)
+    (game as any).diceValue = 3;
+    (game as any).hasRolled = true;
+    (game as any).validMoves = [1];
+
+    game.handleInput('p1', { action: 'move-token', tokenIndex: 1 });
+
+    // BOTH tokens must remain on tile 10, neither should be knocked back to base!
+    assert.strictEqual(redToken0.state, 'track');
+    assert.strictEqual(redToken0.stepCount, 11);
+    assert.strictEqual(redToken0.trackPosition, 10);
+
+    assert.strictEqual(redToken1.state, 'track');
+    assert.strictEqual(redToken1.stepCount, 11);
+    assert.strictEqual(redToken1.trackPosition, 10);
+
+    // No bonus roll for capturing own token - turn should pass to p2
+    const state = game.getState();
+    assert.strictEqual(state.currentTurnPlayerId, 'p2');
+    assert.ok(!state.lastMoveNotice?.includes('memulangkan bidak'));
+  });
+
   it('should automatically roll dice and advance turn for bot players with realistic timing', () => {
     const mixedPlayers: Player[] = [
       { id: 'h1', socketId: 's1', nickname: 'Human', avatar: 'budi', isHost: true, isReady: true, isConnected: true, joinedAt: 1, isBot: false },

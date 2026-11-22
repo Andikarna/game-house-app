@@ -578,8 +578,13 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
             return;
           }
 
+          const isActualCapture = Boolean(
+            gameState.lastMoveNotice?.includes('memulangkan bidak') &&
+            player.color !== gameState.currentTurnColor
+          );
+
           // If another token is currently walking to capture this token, delay return until it arrives!
-          if (maxWalkDuration > 0) {
+          if (maxWalkDuration > 0 && isActualCapture) {
             const capturedCoord = getTokenCoordinate(player.color, token.id, currentDisplayed, 'track');
             targetStepsRef.current[key] = 0;
 

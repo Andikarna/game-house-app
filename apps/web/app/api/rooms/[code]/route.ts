@@ -71,7 +71,7 @@ export async function GET(
 
         saveMemoryRoom(roomData.room, updatedState, results);
 
-        safeDbQuery(
+        await safeDbQuery(
           'UPDATE gh_rooms SET game_state_json = ?, game_results_json = ?, status = ?, updated_at = ? WHERE code = ?',
           [JSON.stringify(updatedState), resultsJson, newStatus, now, code]
         ).catch(() => {});

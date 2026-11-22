@@ -13,6 +13,7 @@ class PollingSocket {
   private currentRoomCode: string | null = null;
   private currentPlayerId: string | null = null;
   private lastGameStateStr: string = '';
+  private lastGameStateVersion: number = 0;
   private lastRoomStateStr: string = '';
   private lastVoteKickStr: string = '';
   private processedEmoteIds: Set<string> = new Set();
@@ -261,6 +262,10 @@ class PollingSocket {
         });
         const data = await res.json();
         if (data.success && data.gameState) {
+          if (data.gameState.stateVersion) {
+            this.lastGameStateVersion = data.gameState.stateVersion;
+          }
+          this.lastGameStateStr = JSON.stringify(data.gameState);
           this.emitInternal('game:ludo_state', data.gameState);
           if (data.results) {
             this.emitInternal('game:finished', data.results);
@@ -280,6 +285,10 @@ class PollingSocket {
         });
         const data = await res.json();
         if (data.success && data.gameState) {
+          if (data.gameState.stateVersion) {
+            this.lastGameStateVersion = data.gameState.stateVersion;
+          }
+          this.lastGameStateStr = JSON.stringify(data.gameState);
           if (isLudoAction) {
             this.emitInternal('game:ludo_state', data.gameState);
           } else {
@@ -473,6 +482,14 @@ class PollingSocket {
 
       // Handle Game State
       if (data.gameState) {
+        const incomingVersion = data.gameState.stateVersion || 0;
+        if (incomingVersion > 0 && incomingVersion < this.lastGameStateVersion) {
+          // Stale out-of-order poll response, ignore to prevent state rewind
+          return;
+        }
+        if (incomingVersion > 0) {
+          this.lastGameStateVersion = incomingVersion;
+        }
         const gameStr = JSON.stringify(data.gameState);
         if (gameStr !== this.lastGameStateStr) {
           this.lastGameStateStr = gameStr;

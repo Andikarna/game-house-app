@@ -50,6 +50,7 @@ function restoreLudoState(ludo: LudoGame, currentGameState: any): void {
   (ludo as any).consecutiveSixes = currentGameState.consecutiveSixes || 0;
   (ludo as any).turnStartedAt = currentGameState.turnStartedAt || Date.now();
   (ludo as any).passAt = currentGameState.passAt ?? null;
+  (ludo as any).stateVersion = currentGameState.stateVersion || 1;
 }
 
 export function processLudoAction(

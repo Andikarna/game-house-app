@@ -38,6 +38,7 @@ export class LudoGame implements GameModule {
   private rankings: PlayerGameResult[] = [];
   private finished: boolean = false;
   private lastMoveNotice: string = '';
+  private stateVersion: number = 0;
 
   // Bot Automation Control
   private botTimer: number = 0;
@@ -73,6 +74,7 @@ export class LudoGame implements GameModule {
     this.hasRolled = false;
     this.validMoves = [];
     this.consecutiveSixes = 0;
+    this.stateVersion = 1;
     this.lastMoveNotice = 'Game started! Roll the dice to begin.';
 
     // Assign colors in balanced classic layout matching board corners:
@@ -210,6 +212,7 @@ export class LudoGame implements GameModule {
     const isCurrentTurn = this.playerOrder[this.currentTurnIndex] === playerId;
     this.players.delete(playerId);
     this.playerOrder = this.playerOrder.filter((id) => id !== playerId);
+    this.stateVersion++;
 
     if (this.playerOrder.length <= 1) {
       this.endGame();
@@ -260,6 +263,7 @@ export class LudoGame implements GameModule {
     return {
       gameId: 'ludo',
       gameMode: this.settings.gameMode,
+      stateVersion: this.stateVersion,
       status: this.finished ? 'finished' : 'in-game',
       currentTurnPlayerId: currentPlayerId,
       currentTurnColor: currentPlayer?.color || 'red',
@@ -308,6 +312,7 @@ export class LudoGame implements GameModule {
     this.hasRolled = true;
     player.hasRolled = true;
     player.canRoll = false;
+    this.stateVersion++;
 
     // Check consecutive 6s
     if (this.diceValue === 6) {
@@ -373,6 +378,8 @@ export class LudoGame implements GameModule {
       this.autoTurnTimeout = null;
     }
 
+    this.stateVersion++;
+
     const token = player.tokens[tokenIndex];
     const dice = this.diceValue;
     let grantBonusRoll = false;
@@ -412,9 +419,10 @@ export class LudoGame implements GameModule {
     }
 
     // Capture detection on shared track (if not on safe square)
+    // Strictly requires opponent token of a DIFFERENT color - own tokens NEVER capture each other!
     if (token.state === 'track' && !LudoGame.SAFE_TILES.has(token.trackPosition)) {
       this.players.forEach((otherPlayer) => {
-        if (otherPlayer.playerId !== player.playerId) {
+        if (otherPlayer.playerId !== player.playerId && otherPlayer.color !== player.color) {
           otherPlayer.tokens.forEach((otherToken) => {
             if (otherToken.state === 'track' && otherToken.trackPosition === token.trackPosition) {
               // Knock opponent token back to yard!
@@ -500,6 +508,8 @@ export class LudoGame implements GameModule {
       clearTimeout(this.autoTurnTimeout);
       this.autoTurnTimeout = null;
     }
+
+    this.stateVersion++;
 
     let attempts = 0;
     do {
@@ -644,7 +654,7 @@ export class LudoGame implements GameModule {
 
       if (targetTrackPos !== -1 && !LudoGame.SAFE_TILES.has(targetTrackPos)) {
         for (const [otherId, otherPlayer] of Array.from(this.players.entries())) {
-          if (otherId !== bot.playerId) {
+          if (otherId !== bot.playerId && otherPlayer.color !== bot.color) {
             const hasOpponent = otherPlayer.tokens.some(
               (ot) => ot.state === 'track' && ot.trackPosition === targetTrackPos
             );
