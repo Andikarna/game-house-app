@@ -357,8 +357,6 @@ const BaseSpeechBubble: React.FC<{
   color: LudoColor;
   boardRotationDeg: number;
 }> = ({ chat, color, boardRotationDeg }) => {
-  if (!chat) return null;
-
   const colorStyles: Record<LudoColor, { border: string; text: string; glow: string; tailBorder: string }> = {
     red: { border: 'border-red-500', text: 'text-red-400', glow: 'shadow-red-500/40', tailBorder: 'border-red-500' },
     blue: { border: 'border-blue-500', text: 'text-blue-400', glow: 'shadow-blue-500/40', tailBorder: 'border-blue-500' },
@@ -370,31 +368,38 @@ const BaseSpeechBubble: React.FC<{
 
   return (
     <div className="absolute inset-0 flex items-center justify-center z-50 pointer-events-none">
-      <AnimatePresence>
-        <motion.div
-          key={chat.id}
-          initial={{ scale: 0.3, opacity: 0, y: 15 }}
-          animate={{ scale: 1, opacity: 1, y: 0 }}
-          exit={{ scale: 0.2, opacity: 0, y: -10 }}
-          transition={{ type: 'spring', stiffness: 500, damping: 25 }}
-          style={{ transform: `rotate(${-boardRotationDeg}deg)` }}
-          className="relative pointer-events-auto select-none"
-        >
-          <div className={`px-2.5 py-1.5 rounded-2xl bg-slate-950/95 border-2 ${style.border} shadow-2xl ${style.glow} backdrop-blur-md max-w-[145px] sm:max-w-[180px]`}>
-            <div className="flex items-center gap-1.5 mb-1">
-              <ClimberAvatarIcon avatar={chat.avatar} size={18} />
-              <span className={`text-[10px] font-black truncate ${style.text}`}>
-                {chat.nickname}
-              </span>
-            </div>
-            <p className="text-[11px] sm:text-xs font-bold text-white leading-tight break-words">
-              {chat.message}
-            </p>
-            {/* Comic Speech Bubble Tail */}
-            <div className={`absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-slate-950 border-r-2 border-b-2 ${style.tailBorder} rotate-45`} />
-          </div>
-        </motion.div>
-      </AnimatePresence>
+      {/* Regular non-motion wrapper with explicit CSS counter-rotation so Framer Motion never clobbers it */}
+      <div 
+        className="transition-transform duration-700 ease-out flex items-center justify-center pointer-events-auto"
+        style={{ transform: `rotate(${-boardRotationDeg}deg)` }}
+      >
+        <AnimatePresence>
+          {chat && (
+            <motion.div
+              key={chat.id}
+              initial={{ scale: 0.3, opacity: 0, y: 15 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.2, opacity: 0, y: -10 }}
+              transition={{ type: 'spring', stiffness: 500, damping: 25 }}
+              className="relative select-none"
+            >
+              <div className={`px-2.5 py-1.5 rounded-2xl bg-slate-950/95 border-2 ${style.border} shadow-2xl ${style.glow} backdrop-blur-md max-w-[145px] sm:max-w-[180px]`}>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <ClimberAvatarIcon avatar={chat.avatar} size={18} />
+                  <span className={`text-[10px] font-black truncate ${style.text}`}>
+                    {chat.nickname}
+                  </span>
+                </div>
+                <p className="text-[11px] sm:text-xs font-bold text-white leading-tight break-words">
+                  {chat.message}
+                </p>
+                {/* Comic Speech Bubble Tail */}
+                <div className={`absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-slate-950 border-r-2 border-b-2 ${style.tailBorder} rotate-45`} />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 };
