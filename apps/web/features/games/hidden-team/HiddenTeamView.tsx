@@ -1,8 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useGameStore } from '../../../stores/useGameStore';
 import { useSocket } from '../../../hooks/useSocket';
+import { soundManager } from '../../../components/audio/SoundManager';
+import { MusicControl } from '../../../components/audio/MusicControl';
 import { CouncilBackground } from './components/CouncilBackground';
 import { TurnSlotTracker } from './components/TurnSlotTracker';
 import { SecretIdentityHUD } from './components/SecretIdentityHUD';
@@ -27,6 +29,10 @@ export const HiddenTeamView: React.FC = () => {
 
   const [copiedCode, setCopiedCode] = useState(false);
   const [isRulesOpen, setIsRulesOpen] = useState(false);
+
+  useEffect(() => {
+    soundManager.playHiddenTeamBGM();
+  }, []);
 
   const state = gameState as HiddenTeamPublicGameState | null;
 
@@ -124,6 +130,8 @@ export const HiddenTeamView: React.FC = () => {
 
         {/* Right: Actions */}
         <div className="flex items-center gap-1.5 sm:gap-2">
+          <MusicControl />
+
           {/* Room Code Pill */}
           <button
             onClick={handleCopyCode}

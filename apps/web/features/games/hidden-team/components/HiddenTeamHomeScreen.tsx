@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { CouncilBackground } from './CouncilBackground';
-import { HelpCircle, Play, PlusCircle, Users, Shield, Sparkles, Trophy } from 'lucide-react';
+import { HelpCircle, Clock, ArrowLeft, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 
 interface HiddenTeamHomeScreenProps {
@@ -55,33 +55,29 @@ export const HiddenTeamHomeScreen: React.FC<HiddenTeamHomeScreenProps> = ({
             Identitas tim tersembunyi, peran berkekuatan manipulasi, dan kotak suara rahasia. Menangkan ronde dengan strategi panji faksi Anda tanpa terbongkar!
           </p>
 
+          {/* Coming Soon Notice */}
+          <div className="mb-5 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-purple-600/20 border border-purple-400/50 text-purple-200 text-xs sm:text-sm font-black uppercase tracking-wider shadow-lg">
+            <Clock className="w-4 h-4 text-purple-300" />
+            <span>🚀 Coming Soon — Segera Hadir!</span>
+          </div>
+
           {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row items-center gap-3 w-full max-w-lg justify-center">
-            {onPlaySolo && (
-              <button
-                onClick={onPlaySolo}
-                className="w-full sm:w-auto flex-1 px-5 py-3.5 rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-rose-600 hover:from-purple-500 hover:to-rose-500 text-white font-black text-sm tracking-wide shadow-xl shadow-purple-500/25 flex items-center justify-center gap-2 transform active:scale-95 transition-all cursor-pointer"
-              >
-                <span className="text-base">🤖</span>
-                <span>Main vs 5 Bot</span>
-              </button>
-            )}
-
             <button
-              onClick={onCreateRoom}
-              className="w-full sm:w-auto flex-1 px-5 py-3.5 rounded-2xl bg-[#1C172B] hover:bg-[#251F38] text-white font-black text-sm border border-rose-500/40 tracking-wide shadow-lg flex items-center justify-center gap-2 transform active:scale-95 transition-all cursor-pointer"
+              disabled
+              className="w-full sm:w-auto flex-1 px-6 py-3.5 rounded-2xl bg-slate-800/90 text-slate-300 font-black text-sm border border-slate-600/80 tracking-wide flex items-center justify-center gap-2 opacity-75 cursor-not-allowed"
             >
-              <PlusCircle className="w-4 h-4 text-rose-400" />
-              <span>Buat Room</span>
+              <Clock className="w-4 h-4 text-purple-400" />
+              <span>Coming Soon (Segera Hadir)</span>
             </button>
 
-            <button
-              onClick={onPlayNow}
-              className="w-full sm:w-auto px-5 py-3.5 rounded-2xl bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white font-bold text-sm border border-slate-700 tracking-wide flex items-center justify-center gap-2 transform active:scale-95 transition-all cursor-pointer"
+            <Link
+              href="/"
+              className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-[#1C172B] hover:bg-[#251F38] text-white font-black text-sm border border-rose-500/40 tracking-wide shadow-lg flex items-center justify-center gap-2 transition-all"
             >
-              <Play className="w-3.5 h-3.5 fill-slate-300" />
-              <span>Join Kode</span>
-            </button>
+              <ArrowLeft className="w-4 h-4 text-rose-400" />
+              <span>Kembali ke Dashboard</span>
+            </Link>
           </div>
 
           {/* How to Play Pill Button */}

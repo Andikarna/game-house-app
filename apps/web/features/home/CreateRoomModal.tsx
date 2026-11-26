@@ -28,39 +28,23 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
   const { nickname, avatar, setNickname, setAvatar } = useSettingsStore();
   const { socket, setRoom, setPlayerId, playerId, addToast } = useGameStore();
 
-  const [selectedGame, setSelectedGame] = useState<GameId>(
-    initialGameId && initialGameId !== 'panjat-pinang' ? initialGameId : 'ludo'
-  );
+  const [selectedGame, setSelectedGame] = useState<GameId>('ludo');
   const [roomName, setRoomName] = useState(`${nickname}'s Ludo Table`);
   const [gameMode, setGameMode] = useState<GameMode>('classic');
   const [maxPlayers, setMaxPlayers] = useState<number>(4);
   const [autoFillBots, setAutoFillBots] = useState<boolean>(initialAutoFillBots);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Sync selected game whenever initialGameId changes or modal opens
+  // Sync selected game whenever modal opens (only playable games allowed)
   React.useEffect(() => {
     if (isOpen) {
       if (initialAutoFillBots) {
         setAutoFillBots(true);
       }
-      let targetGame = initialGameId || selectedGame || 'ludo';
-      if (targetGame === 'panjat-pinang') {
-        targetGame = 'ludo';
-      }
-      setSelectedGame(targetGame);
-      if (targetGame === 'hidden-team') {
-        setMaxPlayers(6);
-        setGameMode('hidden-team-5r');
-        setRoomName(`${nickname || 'Council'}'s Secret Room`);
-      } else if (targetGame === 'impostor-desa') {
-        setMaxPlayers(6);
-        setGameMode('impostor-classic');
-        setRoomName(`${nickname || 'Warga'}'s I'amPostor`);
-      } else {
-        setMaxPlayers(4);
-        setGameMode('classic');
-        setRoomName(`${nickname || 'Player'}'s Ludo Table`);
-      }
+      setSelectedGame('ludo');
+      setMaxPlayers(4);
+      setGameMode('classic');
+      setRoomName(`${nickname || 'Player'}'s Ludo Table`);
     }
   }, [isOpen, initialGameId, nickname]);
 
@@ -69,27 +53,21 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
       addToast('Game Panjat Pinang sedang dalam pemeliharaan (maintenance).', 'info');
       return;
     }
-    setSelectedGame(gameId);
-    if (gameId === 'hidden-team') {
-      setMaxPlayers(6);
-      setGameMode('hidden-team-5r');
-      setRoomName(`${nickname || 'Council'}'s Secret Room`);
-    } else if (gameId === 'impostor-desa') {
-      setMaxPlayers(6);
-      setGameMode('impostor-classic');
-      setRoomName(`${nickname || 'Warga'}'s I'amPostor`);
-    } else {
-      setMaxPlayers(4);
-      setGameMode('classic');
-      setRoomName(`${nickname || 'Player'}'s Ludo Table`);
+    if (gameId === 'impostor-desa' || gameId === 'hidden-team') {
+      addToast('Game ini masih berstatus Coming Soon dan belum dapat dimainkan.', 'info');
+      return;
     }
+    setSelectedGame(gameId);
+    setMaxPlayers(4);
+    setGameMode('classic');
+    setRoomName(`${nickname || 'Player'}'s Ludo Table`);
   };
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (selectedGame === 'panjat-pinang') {
-      addToast('Game Panjat Pinang sedang dalam pemeliharaan (maintenance). Silakan pilih Ludo Party atau I\'amPostor.', 'error');
+    if (selectedGame !== 'ludo') {
+      addToast('Saat ini hanya Ludo Party yang dapat dimainkan. Game lain berstatus Maintenance / Coming Soon.', 'error');
       return;
     }
 
@@ -210,33 +188,39 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
 
             <button
               type="button"
+              disabled
               onClick={() => handleSelectGame('impostor-desa')}
-              className={`p-2.5 rounded-2xl border text-left transition-all flex items-center gap-2.5 ${
-                selectedGame === 'impostor-desa'
-                  ? 'bg-emerald-600/25 border-emerald-500 shadow-glow-primary text-white'
-                  : 'bg-surface-elevated/80 border-slate-700/80 text-slate-400 hover:text-white'
-              }`}
+              className="p-2.5 rounded-2xl border text-left flex items-center gap-2.5 opacity-50 cursor-not-allowed bg-surface-elevated/40 border-slate-800 text-slate-500 relative"
+              title="Game I'amPostor segera hadir (Coming Soon)"
             >
-              <span className="text-2xl">🌾</span>
+              <span className="text-2xl grayscale">🌾</span>
               <div>
-                <h4 className="text-xs font-black leading-tight">I'amPostor</h4>
-                <p className="text-[10px] text-slate-400">4-6 Pemain</p>
+                <div className="flex items-center gap-1.5">
+                  <h4 className="text-xs font-black leading-tight text-slate-400">I'amPostor</h4>
+                  <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30 uppercase">
+                    Soon
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-500">Coming Soon</p>
               </div>
             </button>
 
             <button
               type="button"
+              disabled
               onClick={() => handleSelectGame('hidden-team')}
-              className={`p-2.5 rounded-2xl border text-left transition-all flex items-center gap-2.5 ${
-                selectedGame === 'hidden-team'
-                  ? 'bg-rose-600/25 border-rose-500 shadow-glow-orange text-white'
-                  : 'bg-surface-elevated/80 border-slate-700/80 text-slate-400 hover:text-white'
-              }`}
+              className="p-2.5 rounded-2xl border text-left flex items-center gap-2.5 opacity-50 cursor-not-allowed bg-surface-elevated/40 border-slate-800 text-slate-500 relative"
+              title="Game Hidden Team segera hadir (Coming Soon)"
             >
-              <span className="text-2xl">🕵️</span>
+              <span className="text-2xl grayscale">🕵️</span>
               <div>
-                <h4 className="text-xs font-black leading-tight">Hidden Team</h4>
-                <p className="text-[10px] text-slate-400">Tepat 6 Pemain</p>
+                <div className="flex items-center gap-1.5">
+                  <h4 className="text-xs font-black leading-tight text-slate-400">Hidden Team</h4>
+                  <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 uppercase">
+                    Soon
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-500">Coming Soon</p>
               </div>
             </button>
           </div>

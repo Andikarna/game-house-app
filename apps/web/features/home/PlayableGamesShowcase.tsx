@@ -66,7 +66,7 @@ export const PlayableGamesShowcase: React.FC<PlayableGamesProps> = ({ onSelectGa
             Pilihan Mini-Game <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 via-pink-400 to-indigo-400">GameHouse</span>
           </h2>
           <p className="text-xs sm:text-sm text-slate-300 max-w-xl mt-1">
-            Semua game di bawah ini 100% sudah bisa langsung dimainkan bersama teman dalam satu lobby tanpa perlu download aplikasi.
+            Mainkan <strong className="text-indigo-300">Ludo Party</strong> langsung di browser! Game lainnya berstatus Maintenance & Coming Soon dan akan segera dibuka.
           </p>
         </div>
 
@@ -114,6 +114,9 @@ export const PlayableGamesShowcase: React.FC<PlayableGamesProps> = ({ onSelectGa
             }`}
           >
             <span>🌾</span> I'amPostor
+            <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/40">
+              Soon
+            </span>
           </button>
           <button
             onClick={() => setActiveTab('hidden-team')}
@@ -124,6 +127,9 @@ export const PlayableGamesShowcase: React.FC<PlayableGamesProps> = ({ onSelectGa
             }`}
           >
             <span>🕵️</span> Hidden Team
+            <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/40">
+              Soon
+            </span>
           </button>
         </div>
       </div>
@@ -370,12 +376,12 @@ export const PlayableGamesShowcase: React.FC<PlayableGamesProps> = ({ onSelectGa
         )}
 
         {/* ========================================================= */}
-        {/* GAME 3: I'AMPOSTOR */}
+        {/* GAME 3: I'AMPOSTOR (COMING SOON) */}
         {/* ========================================================= */}
         {(activeTab === 'all' || activeTab === 'impostor-desa') && (
-          <div className="group relative bg-surface border border-emerald-500/40 rounded-3xl overflow-hidden shadow-2xl hover:border-emerald-400 transition-all duration-300 flex flex-col justify-between">
+          <div className="group relative bg-surface border border-emerald-500/35 rounded-3xl overflow-hidden shadow-2xl hover:border-emerald-400/60 transition-all duration-300 flex flex-col justify-between opacity-95">
             {/* Top decorative gradient glow */}
-            <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-emerald-500 via-teal-400 to-amber-400 z-20" />
+            <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-emerald-500 via-teal-400 to-sky-400 z-20" />
             
             <div className="flex flex-col flex-1">
               {/* Visual Banner Area */}
@@ -383,17 +389,27 @@ export const PlayableGamesShowcase: React.FC<PlayableGamesProps> = ({ onSelectGa
                 <img
                   src="/assets/gameplay/impostor_desa_banner.jpg"
                   alt="I'amPostor"
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out opacity-90"
+                  className="w-full h-full object-cover transition-transform duration-700 ease-out opacity-65 grayscale-[0.2]"
                 />
                 {/* Vignette Gradients */}
                 <div className="absolute inset-0 bg-gradient-to-t from-surface via-surface/40 to-transparent z-10" />
                 <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent z-10 pointer-events-none" />
+
+                {/* Central Coming Soon Overlay */}
+                <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-[1px] flex flex-col items-center justify-center z-20 pointer-events-none">
+                  <div className="px-3.5 py-1.5 rounded-full bg-gradient-to-r from-sky-500 to-emerald-500 text-white font-black text-xs uppercase tracking-wider shadow-2xl flex items-center gap-1.5 border border-white/30">
+                    <Clock className="w-3.5 h-3.5 text-white" /> Coming Soon
+                  </div>
+                  <p className="text-[11px] font-bold text-emerald-200 mt-1.5 drop-shadow">
+                    Segera hadir di GameHouse
+                  </p>
+                </div>
                 
                 {/* Badges on banner */}
                 <div className="absolute top-3 left-3 sm:top-4 sm:left-4 flex flex-wrap gap-1.5 sm:gap-2 z-20">
-                  <span className="px-3 py-1 rounded-full bg-emerald-500/90 text-white text-[11px] font-black uppercase tracking-wider backdrop-blur-md shadow-md flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                    Siap Dimainkan
+                  <span className="px-3 py-1 rounded-full bg-sky-500/90 text-white text-[11px] font-black uppercase tracking-wider backdrop-blur-md shadow-md flex items-center gap-1.5 border border-sky-300/40">
+                    <Clock className="w-3 h-3 text-white" />
+                    Coming Soon
                   </span>
                   <span className="px-2.5 py-1 rounded-full bg-amber-500/90 text-white text-[11px] font-black tracking-wider backdrop-blur-md border border-white/20">
                     🌾 Social Deduction Desa
@@ -470,24 +486,23 @@ export const PlayableGamesShowcase: React.FC<PlayableGamesProps> = ({ onSelectGa
             {/* Action Footer */}
             <div className="p-5 sm:p-7 pt-0 border-t border-slate-800/80 flex flex-col sm:flex-row items-center gap-3 mt-4">
               <Button
-                variant="primary"
+                variant="secondary"
                 size="lg"
-                glow
-                onClick={() => onSelectGame('impostor-desa')}
-                icon={<Play className="w-4 h-4 fill-white" />}
-                className="w-full font-black text-sm sm:text-base py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-lg shadow-emerald-500/25"
+                disabled
+                icon={<Clock className="w-4 h-4 text-sky-400" />}
+                className="w-full font-black text-sm sm:text-base py-3 opacity-65 cursor-not-allowed bg-slate-800/80 border-slate-700 text-slate-300"
               >
-                Buat Room I'amPostor
+                🕒 Coming Soon (Segera Hadir)
               </Button>
             </div>
           </div>
         )}
 
         {/* ========================================================= */}
-        {/* GAME 4: HIDDEN TEAM: SECRET ROLE */}
+        {/* GAME 4: HIDDEN TEAM: SECRET ROLE (COMING SOON) */}
         {/* ========================================================= */}
         {(activeTab === 'all' || activeTab === 'hidden-team') && (
-          <div className="group relative bg-surface border border-rose-500/40 rounded-3xl overflow-hidden shadow-2xl hover:border-rose-400 transition-all duration-300 flex flex-col justify-between">
+          <div className="group relative bg-surface border border-rose-500/35 rounded-3xl overflow-hidden shadow-2xl hover:border-rose-400/60 transition-all duration-300 flex flex-col justify-between opacity-95">
             {/* Top decorative gradient glow */}
             <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-rose-500 via-purple-500 to-indigo-500 z-20" />
             
@@ -497,17 +512,27 @@ export const PlayableGamesShowcase: React.FC<PlayableGamesProps> = ({ onSelectGa
                 <img
                   src="/assets/gameplay/hidden_team_banner.jpg"
                   alt="Hidden Team: Secret Role"
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out opacity-90"
+                  className="w-full h-full object-cover transition-transform duration-700 ease-out opacity-65 grayscale-[0.2]"
                 />
                 {/* Vignette Gradients */}
                 <div className="absolute inset-0 bg-gradient-to-t from-surface via-surface/40 to-transparent z-10" />
                 <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent z-10 pointer-events-none" />
+
+                {/* Central Coming Soon Overlay */}
+                <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-[1px] flex flex-col items-center justify-center z-20 pointer-events-none">
+                  <div className="px-3.5 py-1.5 rounded-full bg-gradient-to-r from-purple-600 to-rose-600 text-white font-black text-xs uppercase tracking-wider shadow-2xl flex items-center gap-1.5 border border-white/30">
+                    <Clock className="w-3.5 h-3.5 text-white" /> Coming Soon
+                  </div>
+                  <p className="text-[11px] font-bold text-purple-200 mt-1.5 drop-shadow">
+                    Segera hadir di GameHouse
+                  </p>
+                </div>
                 
                 {/* Badges on banner */}
                 <div className="absolute top-3 left-3 sm:top-4 sm:left-4 flex flex-wrap gap-1.5 sm:gap-2 z-20">
-                  <span className="px-3 py-1 rounded-full bg-emerald-500/90 text-white text-[11px] font-black uppercase tracking-wider backdrop-blur-md shadow-md flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                    Siap Dimainkan
+                  <span className="px-3 py-1 rounded-full bg-purple-600/95 text-white text-[11px] font-black uppercase tracking-wider backdrop-blur-md shadow-md flex items-center gap-1.5 border border-purple-300/40">
+                    <Clock className="w-3 h-3 text-white" />
+                    Coming Soon
                   </span>
                   <span className="px-2.5 py-1 rounded-full bg-rose-600/90 text-white text-[11px] font-black tracking-wider backdrop-blur-md border border-white/20">
                     ✨ Game Baru Eksklusif
@@ -789,14 +814,13 @@ export const PlayableGamesShowcase: React.FC<PlayableGamesProps> = ({ onSelectGa
             {/* Action Footer */}
             <div className="p-5 sm:p-7 pt-0 border-t border-slate-800/80 flex flex-col sm:flex-row items-center gap-3 mt-4">
               <Button
-                variant="primary"
+                variant="secondary"
                 size="lg"
-                glow
-                onClick={() => onSelectGame('hidden-team')}
-                icon={<Play className="w-4 h-4 fill-white" />}
-                className="flex-1 w-full font-black text-sm sm:text-base py-3 bg-gradient-to-r from-rose-600 via-purple-600 to-indigo-600 hover:from-rose-500 hover:to-indigo-500 text-white shadow-lg shadow-rose-500/25"
+                disabled
+                icon={<Clock className="w-4 h-4 text-purple-400" />}
+                className="flex-1 w-full font-black text-sm sm:text-base py-3 opacity-65 cursor-not-allowed bg-slate-800/80 border-slate-700 text-slate-300"
               >
-                Buat Room Hidden Team
+                🕒 Coming Soon (Segera Hadir)
               </Button>
 
               <button

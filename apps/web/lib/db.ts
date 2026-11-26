@@ -3,13 +3,14 @@ import mysql from 'mysql2/promise';
 function buildPoolConfig(): mysql.PoolOptions {
   const baseOptions: mysql.PoolOptions = {
     waitForConnections: true,
-    connectionLimit: 5,
-    maxIdle: 2,
-    idleTimeout: 15000,
+    connectionLimit: 2,
+    maxIdle: 1,
+    idleTimeout: 5000,
     queueLimit: 0,
-    connectTimeout: 6000,
+    connectTimeout: 8000,
     enableKeepAlive: true,
     keepAliveInitialDelay: 5000,
+    multipleStatements: true,
   };
 
   const urlStr = process.env.MYSQL_URL || process.env.DATABASE_URL;
@@ -57,28 +58,25 @@ export async function ensureAuxTables(): Promise<void> {
 
   auxTablesPromise = (async () => {
     try {
-      await Promise.all([
-        pool.query(`
-          CREATE TABLE IF NOT EXISTS gh_chats (
-            id VARCHAR(64) PRIMARY KEY,
-            room_code VARCHAR(16) NOT NULL,
-            player_id VARCHAR(64) NOT NULL,
-            nickname VARCHAR(64) NOT NULL,
-            color VARCHAR(16),
-            avatar VARCHAR(32) NOT NULL,
-            message VARCHAR(128) NOT NULL,
-            timestamp BIGINT NOT NULL,
-            INDEX idx_room_chats (room_code, timestamp)
-          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-        `),
-        pool.query(`
-          CREATE TABLE IF NOT EXISTS gh_vote_kicks (
-            room_code VARCHAR(16) PRIMARY KEY,
-            data_json TEXT,
-            updated_at BIGINT NOT NULL
-          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-        `),
-      ]);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS gh_chats (
+          id VARCHAR(64) PRIMARY KEY,
+          room_code VARCHAR(16) NOT NULL,
+          player_id VARCHAR(64) NOT NULL,
+          nickname VARCHAR(64) NOT NULL,
+          color VARCHAR(16),
+          avatar VARCHAR(32) NOT NULL,
+          message VARCHAR(128) NOT NULL,
+          timestamp BIGINT NOT NULL,
+          INDEX idx_room_chats (room_code, timestamp)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+        CREATE TABLE IF NOT EXISTS gh_vote_kicks (
+          room_code VARCHAR(16) PRIMARY KEY,
+          data_json TEXT,
+          updated_at BIGINT NOT NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
       globalThis.__gh_aux_tables_ready = true;
     } catch (err) {
       console.warn('[MySQL] ensureAuxTables warning:', (err as any)?.message || err);
@@ -97,6 +95,10 @@ export async function isDatabaseConnected(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+export async function dbQuery<T = any>(sql: string, params?: any[]): Promise<[T, any]> {
+  return (await pool.query(sql, params)) as any;
 }
 
 export async function safeDbQuery<T = any>(sql: string, params?: any[]): Promise<[T, any]> {

@@ -3,7 +3,8 @@
 import React from 'react';
 import { ChibiAvatar } from './ChibiAvatar';
 import { VillageBackground } from './VillageBackground';
-import { HelpCircle, Play, PlusCircle, Users } from 'lucide-react';
+import { HelpCircle, Clock, ArrowLeft, Users } from 'lucide-react';
+import Link from 'next/link';
 
 interface ImpostorHomeScreenProps {
   onPlayNow: () => void;
@@ -110,37 +111,37 @@ export const ImpostorHomeScreen: React.FC<ImpostorHomeScreenProps> = ({
           </div>
         </div>
 
-        {/* 3 Bottom Action Buttons matching Image */}
+        {/* Coming Soon Notice Banner */}
+        <div className="mb-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-sky-500/20 border-2 border-sky-400/50 text-sky-200 text-xs sm:text-sm font-black uppercase tracking-wider shadow-lg">
+          <Clock className="w-4 h-4 text-sky-300" />
+          <span>🚀 Coming Soon — Segera Hadir!</span>
+        </div>
+
+        {/* Bottom Action Buttons (Locked with Coming Soon & Back to Home) */}
         <div className="flex flex-col sm:flex-row items-center gap-3 w-full max-w-md">
-          {/* Cara Bermain (Left Pill) */}
           <button
             onClick={onHowToPlay}
-            className="w-full sm:w-auto flex-1 py-3 px-5 bg-[#FFF8E8] hover:bg-[#FDF2D9] active:scale-95 text-[#18352B] font-black text-sm rounded-full border-2 border-[#18352B] shadow-md transition-all flex items-center justify-center gap-1.5"
+            className="w-full sm:w-auto flex-1 py-3 px-5 bg-[#FFF8E8] hover:bg-[#FDF2D9] active:scale-95 text-[#18352B] font-black text-sm rounded-full border-2 border-[#18352B] shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
           >
             <HelpCircle className="w-4 h-4 text-[#18352B]" />
             <span>Cara Bermain</span>
           </button>
 
-          {/* MAIN SEKARANG (Center Big Green Pill) */}
           <button
-            onClick={onPlayNow}
-            className="w-full sm:w-auto flex-1 py-4 px-8 bg-gradient-to-b from-[#4ADE80] via-[#22C55E] to-[#16A34A] hover:from-[#5EEAD4] active:scale-95 text-white font-black text-base sm:text-lg rounded-full border-3 border-[#14532D] shadow-xl shadow-green-950/40 tracking-wider transition-all flex items-center justify-center gap-2"
-            style={{
-              textShadow: '0 2px 4px rgba(0,0,0,0.4)',
-            }}
+            disabled
+            className="w-full sm:w-auto flex-1 py-3.5 px-6 bg-slate-800/90 text-slate-300 font-black text-sm sm:text-base rounded-full border-2 border-slate-600 opacity-75 cursor-not-allowed flex items-center justify-center gap-2"
           >
-            <Play className="w-5 h-5 fill-white" />
-            <span>MAIN SEKARANG</span>
+            <Clock className="w-4 h-4 text-sky-400" />
+            <span>Coming Soon</span>
           </button>
 
-          {/* Buat Room (Right Pill) */}
-          <button
-            onClick={onCreateRoom}
-            className="w-full sm:w-auto flex-1 py-3 px-5 bg-[#FFF8E8] hover:bg-[#FDF2D9] active:scale-95 text-[#18352B] font-black text-sm rounded-full border-2 border-[#18352B] shadow-md transition-all flex items-center justify-center gap-1.5"
+          <Link
+            href="/"
+            className="w-full sm:w-auto flex-1 py-3 px-5 bg-[#18352B] hover:bg-[#1f4538] text-amber-200 font-black text-sm rounded-full border-2 border-emerald-500/40 shadow-md transition-all flex items-center justify-center gap-1.5"
           >
-            <PlusCircle className="w-4 h-4 text-[#18352B]" />
-            <span>Buat Room</span>
-          </button>
+            <ArrowLeft className="w-4 h-4" />
+            <span>Dashboard</span>
+          </Link>
         </div>
 
         {/* Player Count Badge (4-6 Pemain) */}

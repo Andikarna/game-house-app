@@ -2,6 +2,7 @@ import {
   SkillDefinition, 
   SkillType, 
   AvatarId, 
+  GameId,
   EmoteDefinition, 
   EmoteId, 
   EmoteCategory, 
@@ -11,6 +12,45 @@ import {
   MainCard,
   VoteCard
 } from '../types';
+
+export type GameAvailabilityStatus = 'playable' | 'maintenance' | 'coming-soon';
+
+export const GAME_AVAILABILITY: Record<GameId, { status: GameAvailabilityStatus; label: string; reason?: string }> = {
+  'panjat-pinang': {
+    status: 'maintenance',
+    label: 'Maintenance',
+    reason: 'Game Panjat Pinang sedang dalam pemeliharaan (Maintenance).',
+  },
+  'ludo': {
+    status: 'playable',
+    label: 'Siap Dimainkan',
+  },
+  'impostor-desa': {
+    status: 'coming-soon',
+    label: 'Coming Soon',
+    reason: "Game I'amPostor belum tersedia (Coming Soon).",
+  },
+  'hidden-team': {
+    status: 'coming-soon',
+    label: 'Coming Soon',
+    reason: 'Game Hidden Team: Secret Role belum tersedia (Coming Soon).',
+  },
+  'obstacle-race': {
+    status: 'coming-soon',
+    label: 'Coming Soon',
+    reason: 'Game Obstacle Race belum tersedia (Coming Soon).',
+  },
+  'card-battle': {
+    status: 'coming-soon',
+    label: 'Coming Soon',
+    reason: 'Game Card Battle Party belum tersedia (Coming Soon).',
+  },
+  'mini-battle-arena': {
+    status: 'coming-soon',
+    label: 'Coming Soon',
+    reason: 'Game Mini Battle Arena belum tersedia (Coming Soon).',
+  },
+};
 
 export const SERVER_TICK_RATE = 20; // 20 ticks per second (50ms interval)
 export const CLIENT_INPUT_RATE = 20; // client sends input every 50ms

@@ -64,7 +64,7 @@ describe('End-to-End Multiplayer Socket Flow', () => {
     });
     assert.strictEqual(client2.connected, true);
 
-    // 3a. Verify maintenance restriction for panjat-pinang
+    // 3a. Verify maintenance & coming-soon restrictions
     await new Promise<void>((resolve) => {
       client1.emit('room:create', {
         nickname: 'AndiHost',
@@ -76,6 +76,36 @@ describe('End-to-End Multiplayer Socket Flow', () => {
       }, (res) => {
         assert.strictEqual(res.success, false);
         assert.match(res.error || '', /maintenance/i);
+        resolve();
+      });
+    });
+
+    await new Promise<void>((resolve) => {
+      client1.emit('room:create', {
+        nickname: 'AndiHost',
+        avatar: 'budi',
+        roomName: 'Desa Impostor',
+        gameId: 'impostor-desa',
+        gameMode: 'impostor-classic',
+        maxPlayers: 6,
+      }, (res) => {
+        assert.strictEqual(res.success, false);
+        assert.match(res.error || '', /coming soon/i);
+        resolve();
+      });
+    });
+
+    await new Promise<void>((resolve) => {
+      client1.emit('room:create', {
+        nickname: 'AndiHost',
+        avatar: 'budi',
+        roomName: 'Hidden Dewan',
+        gameId: 'hidden-team',
+        gameMode: 'hidden-team-5r',
+        maxPlayers: 6,
+      }, (res) => {
+        assert.strictEqual(res.success, false);
+        assert.match(res.error || '', /coming soon/i);
         resolve();
       });
     });

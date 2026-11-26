@@ -19,7 +19,7 @@ export const ExploreGames: React.FC<ExploreProps> = ({ onSelectGame }) => {
     category: string;
     tagColor: string;
     highlights: string[];
-    isMaintenance?: boolean;
+    status: 'playable' | 'maintenance' | 'coming-soon';
   }[] = [
     {
       id: 'panjat-pinang',
@@ -30,7 +30,7 @@ export const ExploreGames: React.FC<ExploreProps> = ({ onSelectGame }) => {
       category: 'Party / Competitive',
       tagColor: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
       highlights: ['6 Skill Taktis', 'Fisika Licin', '3 Mode Lomba'],
-      isMaintenance: true,
+      status: 'maintenance',
     },
     {
       id: 'ludo',
@@ -39,28 +39,31 @@ export const ExploreGames: React.FC<ExploreProps> = ({ onSelectGame }) => {
       emoji: '🎲',
       players: '2-4 Pemain',
       category: 'Classic / Board Game',
-      tagColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40',
+      tagColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
       highlights: ['Dadu 3D Interaktif', 'Makan Bidak', 'Safe Zone Bintang'],
+      status: 'playable',
     },
     {
       id: 'impostor-desa',
       title: "I'amPostor",
-      description: 'Mini-game multiplayer social deduction pedesaan Indonesia! Warga memegang kata rahasia yang sama, 1 impostor menyusup. Beri petunjuk dan tebak siapa impostornya!',
+      description: 'Mini-game multiplayer social deduction pedesaan Indonesia! Warga memegang kata rahasia yang sama, 1 impostor menyusup. Segera hadir!',
       emoji: '🌾',
       players: '4-6 Pemain',
       category: 'Social Deduction / Party',
-      tagColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
+      tagColor: 'bg-sky-500/20 text-sky-300 border-sky-500/40',
       highlights: ['Kata Rahasia Desa', 'Voting Rahasia', 'Tebakan Impostor'],
+      status: 'coming-soon',
     },
     {
       id: 'hidden-team',
       title: 'Hidden Team: Secret Role',
-      description: 'Social deduction strategis 6 pemain dengan dewan rahasia! Tiga faksi tersembunyi (Red, Blue, Neutral), manipulasi voting kartu utama, dan pertukaran peran rahasia.',
+      description: 'Social deduction strategis 6 pemain dengan dewan rahasia! Tiga faksi tersembunyi (Red, Blue, Neutral) & 6 role unik. Segera hadir!',
       emoji: '🕵️',
       players: 'Tepat 6 Pemain',
       category: 'Strategic / Secret Role',
-      tagColor: 'bg-rose-500/20 text-rose-300 border-rose-500/40',
+      tagColor: 'bg-purple-500/20 text-purple-300 border-purple-500/40',
       highlights: ['3 Tim Tersembunyi', '6 Role Taktis', 'Swap & Voting'],
+      status: 'coming-soon',
     },
   ];
 
@@ -119,7 +122,7 @@ export const ExploreGames: React.FC<ExploreProps> = ({ onSelectGame }) => {
         <div className="flex items-center gap-2 mb-4">
           <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
           <h3 className="text-sm sm:text-base font-black text-white uppercase tracking-wider">
-            Game Yang Siap Dimainkan Sekarang ({readyGames.length})
+            Daftar Mini-Game Utama GameHouse ({readyGames.length})
           </h3>
         </div>
 
@@ -145,8 +148,12 @@ export const ExploreGames: React.FC<ExploreProps> = ({ onSelectGame }) => {
                     </div>
                   </div>
 
-                  <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full border ${game.tagColor}`}>
-                    {game.isMaintenance ? '🛠️ Maintenance' : 'Ready to Play'}
+                  <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full border shrink-0 ${game.tagColor}`}>
+                    {game.status === 'maintenance'
+                      ? '🛠️ Maintenance'
+                      : game.status === 'coming-soon'
+                      ? '🕒 Coming Soon'
+                      : 'Ready to Play'}
                   </span>
                 </div>
 
@@ -172,7 +179,7 @@ export const ExploreGames: React.FC<ExploreProps> = ({ onSelectGame }) => {
                   <Users className="w-3.5 h-3.5 text-indigo-400" /> {game.players}
                 </span>
 
-                {game.isMaintenance ? (
+                {game.status === 'maintenance' ? (
                   <Button
                     variant="secondary"
                     size="sm"
@@ -180,6 +187,15 @@ export const ExploreGames: React.FC<ExploreProps> = ({ onSelectGame }) => {
                     className="font-black text-xs px-3 opacity-60 cursor-not-allowed bg-slate-800 text-slate-400 border-slate-700"
                   >
                     🛠️ Maintenance
+                  </Button>
+                ) : game.status === 'coming-soon' ? (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled
+                    className="font-black text-xs px-3 opacity-65 cursor-not-allowed bg-slate-800 text-slate-300 border-slate-700"
+                  >
+                    🕒 Coming Soon
                   </Button>
                 ) : (
                   <Button

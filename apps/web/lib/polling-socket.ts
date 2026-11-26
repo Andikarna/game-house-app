@@ -199,8 +199,8 @@ class PollingSocket {
         });
         const data = await res.json();
         if (data.success && data.room) {
+          this.lastRoomStateStr = JSON.stringify(data.room);
           this.emitInternal('room:updated', data.room);
-          await this.pollOnce(true);
         }
         return;
       }
@@ -213,22 +213,23 @@ class PollingSocket {
         });
         const data = await res.json();
         if (data.success && data.room) {
+          this.lastRoomStateStr = JSON.stringify(data.room);
           this.emitInternal('room:updated', data.room);
-          await this.pollOnce(true);
         }
         return;
       }
 
       if (event === 'room:remove-bot') {
+        const botId = typeof payload === 'string' ? payload : payload?.botId;
         const res = await fetch(`/api/rooms/${roomCode}/action`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'remove_bot', playerId }),
+          body: JSON.stringify({ action: 'remove_bot', playerId, botId }),
         });
         const data = await res.json();
         if (data.success && data.room) {
+          this.lastRoomStateStr = JSON.stringify(data.room);
           this.emitInternal('room:updated', data.room);
-          await this.pollOnce(true);
         }
         return;
       }
@@ -241,8 +242,8 @@ class PollingSocket {
         });
         const data = await res.json();
         if (data.success && data.room) {
+          this.lastRoomStateStr = JSON.stringify(data.room);
           this.emitInternal('room:updated', data.room);
-          await this.pollOnce(true);
         }
         return;
       }
@@ -494,6 +495,9 @@ class PollingSocket {
       if (!data.success || !data.room) return;
 
       const room: RoomInfo = data.room;
+      if (!Array.isArray(room.players) || room.players.length === 0) {
+        return;
+      }
       const roomStr = JSON.stringify(room);
       if (roomStr !== this.lastRoomStateStr) {
         this.lastRoomStateStr = roomStr;
@@ -585,11 +589,11 @@ class PollingSocket {
       }
     } finally {
       this.isCurrentlyFetching = false;
-      // Sequential scheduling: 400ms when game is active for realtime smoothness, 800ms in lobby
+      // Sequential scheduling: 450ms when game is active for realtime smoothness, 1200ms in lobby
       if (this.isPollingActive && this.currentRoomCode) {
         if (this.pollTimer) clearTimeout(this.pollTimer);
         const isGameActive = this.lastRoomStateStr.includes('"in-game"') || this.lastRoomStateStr.includes('"countdown"');
-        const delay = isGameActive ? 400 : 800;
+        const delay = isGameActive ? 450 : 1200;
         this.pollTimer = setTimeout(() => {
           this.pollOnce();
         }, delay);

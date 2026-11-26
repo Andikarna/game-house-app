@@ -11,7 +11,9 @@ import {
 import { ChibiAvatar } from './ChibiAvatar';
 import { VillageBackground } from './VillageBackground';
 import { AvatarSelector } from '../../../../components/ui/AvatarSelector';
+import { MusicControl } from '../../../../components/audio/MusicControl';
 import { Modal } from '../../../../components/ui/Modal';
+import { getGlobalSocket } from '../../../../hooks/useSocket';
 import { 
   Users, 
   Crown, 
@@ -24,8 +26,6 @@ import {
   LogOut, 
   UserX, 
   Sparkles,
-  Volume2,
-  VolumeX,
   Smile,
   Bot,
   Plus
@@ -35,7 +35,7 @@ import { useRouter } from 'next/navigation';
 export const ImpostorLobbyScreen: React.FC = () => {
   const router = useRouter();
   const { socket, room, playerId, addToast } = useGameStore();
-  const { isMuted, toggleMute, avatar, setAvatar } = useSettingsStore();
+  const { avatar, setAvatar } = useSettingsStore();
 
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
@@ -182,22 +182,16 @@ export const ImpostorLobbyScreen: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Audio toggle */}
-          <button
-            onClick={toggleMute}
-            className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-slate-200 transition-colors"
-            title={isMuted ? 'Unmute Audio' : 'Mute Audio'}
-          >
-            {isMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4 text-emerald-300" />}
-          </button>
+          {/* Music Control */}
+          <MusicControl variant="village" />
 
           {/* Avatar selector modal button */}
           <button
             onClick={() => setIsAvatarModalOpen(true)}
-            className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-bold text-amber-200 transition-colors"
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-bold text-amber-200 transition-colors cursor-pointer"
           >
             <Smile className="w-3.5 h-3.5" />
-            <span>Ganti Avatar</span>
+            <span className="hidden sm:inline">Ganti Avatar</span>
           </button>
 
           {/* Leave button */}
@@ -344,17 +338,8 @@ export const ImpostorLobbyScreen: React.FC = () => {
                           }`}
                         >
                           <div className="flex items-center gap-2.5 min-w-0 flex-1 mr-2">
-                            {/* Avatar Badge with Host Crown */}
-                            <div className="relative shrink-0">
-                              <div className="w-10 h-10 rounded-full bg-[#2E1808] border-2 border-amber-300/80 flex items-center justify-center overflow-hidden shadow-inner">
-                                <ChibiAvatar avatar={player.avatar || 'budi'} size="xs" />
-                              </div>
-                              {isPlayerHost && (
-                                <span className="absolute -top-1.5 -left-1 text-xs select-none" title="Tuan Rumah (Host)">
-                                  👑
-                                </span>
-                              )}
-                            </div>
+                            {/* Crisp Framed Avatar with Host Crown */}
+                            <ChibiAvatar avatar={player.avatar || 'budi'} size="sm" isHost={isPlayerHost} />
 
                             {/* Name & Subtitle without truncate on parent */}
                             <div className="min-w-0 flex-1">
@@ -640,16 +625,17 @@ export const ImpostorLobbyScreen: React.FC = () => {
         onClose={() => setIsAvatarModalOpen(false)}
         title="Pilih Karakter Warga"
       >
-        <div className="p-4">
-          <AvatarSelector selected={avatar} onSelect={setAvatar} />
-          <div className="mt-4 flex justify-end">
-            <button
-              onClick={() => setIsAvatarModalOpen(false)}
-              className="px-4 py-2 bg-[#2F7D55] text-white rounded-xl font-bold text-xs hover:bg-[#256846]"
-            >
-              Simpan Pilihan
-            </button>
-          </div>
+        <div className="p-1">
+          <AvatarSelector
+            selected={myPlayer?.avatar || avatar}
+            onSelect={(newAvatar) => {
+              setAvatar(newAvatar);
+              const activeSock = socket || getGlobalSocket();
+              activeSock?.emit('player:update-avatar' as any, { avatar: newAvatar });
+              setIsAvatarModalOpen(false);
+              addToast('Karakter warga berhasil diubah!', 'success');
+            }}
+          />
         </div>
       </Modal>
     </VillageBackground>

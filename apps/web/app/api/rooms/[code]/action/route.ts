@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { safeDbQuery, ensureAuxTables } from '../../../../../lib/db';
 import { getRoomByCode, saveMemoryRoom, RoomEntry } from '../../../../../lib/room-service';
 import { createInitialGameState, processLudoAction, processPanjatAction, removeLudoPlayer } from '../../../../../lib/game-runner';
-import { AvatarId, ChatMessage, VoteKickState } from '../../../../../shared';
+import { AvatarId, ChatMessage, VoteKickState, GAME_AVAILABILITY, GameId } from '../../../../../shared';
 
 export const dynamic = 'force-dynamic';
 export const preferredRegion = 'sin1';
@@ -126,7 +126,13 @@ export async function POST(
 
     // 1c. UPDATE SETTINGS
     if (action === 'update_settings') {
-      if (body.gameId) room.settings.gameId = body.gameId;
+      if (body.gameId) {
+        const avail = GAME_AVAILABILITY[body.gameId as GameId];
+        if (avail && avail.status !== 'playable') {
+          return NextResponse.json({ success: false, error: avail.reason || 'Game belum dapat dimainkan.' }, { status: 400 });
+        }
+        room.settings.gameId = body.gameId;
+      }
       if (body.gameMode) room.settings.gameMode = body.gameMode;
       if (body.durationSeconds) room.settings.durationSeconds = Number(body.durationSeconds);
       if (body.maxPlayers) room.settings.maxPlayers = Number(body.maxPlayers);
@@ -229,9 +235,11 @@ export async function POST(
       if (room.hostId !== playerId) {
         return NextResponse.json({ success: false, error: 'Only host can remove bots.' }, { status: 403 });
       }
-      const lastBotIndex = room.players.map((p) => Boolean(p.isBot)).lastIndexOf(true);
-      if (lastBotIndex >= 0) {
-        const [removedBot] = room.players.splice(lastBotIndex, 1);
+      const targetBotIndex = body.botId
+        ? room.players.findIndex((p) => p.id === body.botId && p.isBot)
+        : room.players.map((p) => Boolean(p.isBot)).lastIndexOf(true);
+      if (targetBotIndex >= 0) {
+        const [removedBot] = room.players.splice(targetBotIndex, 1);
         saveMemoryRoom(room, gameState, roomData.gameResults);
         if (removedBot) {
           await safeDbQuery('DELETE FROM gh_players WHERE id = ? AND room_code = ?', [removedBot.id, code]);
@@ -254,6 +262,11 @@ export async function POST(
     if (action === 'start') {
       if (room.hostId !== playerId) {
         return NextResponse.json({ success: false, error: 'Only the host can start the game.' }, { status: 403 });
+      }
+
+      const startAvail = GAME_AVAILABILITY[room.settings.gameId];
+      if (startAvail && startAvail.status !== 'playable') {
+        return NextResponse.json({ success: false, error: startAvail.reason || 'Game belum dapat dimainkan.' }, { status: 400 });
       }
 
       const initialGameState = createInitialGameState(room);

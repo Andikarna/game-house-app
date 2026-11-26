@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { safeDbQuery } from '../../../../lib/db';
 import { generateRoomCode, saveMemoryRoom } from '../../../../lib/room-service';
-import { RoomSettings, RoomInfo, Player, AvatarId, GameId, GameMode } from '../../../../shared';
+import { RoomSettings, RoomInfo, Player, AvatarId, GameId, GameMode, GAME_AVAILABILITY } from '../../../../shared';
 
 export const dynamic = 'force-dynamic';
 export const preferredRegion = 'sin1';
@@ -30,8 +30,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'Nickname must be at least 2 characters.' }, { status: 400 });
     }
 
-    if (gameId === 'panjat-pinang') {
-      return NextResponse.json({ success: false, error: 'Game Panjat Pinang sedang dalam pemeliharaan (maintenance).' }, { status: 400 });
+    const avail = GAME_AVAILABILITY[gameId];
+    if (avail && avail.status !== 'playable') {
+      return NextResponse.json(
+        { success: false, error: avail.reason || 'Game ini belum dapat dimainkan saat ini.' },
+        { status: 400 }
+      );
     }
 
     const code = generateRoomCode();
@@ -70,21 +74,19 @@ export async function POST(req: Request) {
     // 1. Save to in-memory store
     saveMemoryRoom(room, null, null, null, [], now);
 
-    // 2. Await MySQL persistence so room is immediately visible across all Vercel instances
-    await Promise.all([
-      safeDbQuery(
-        `INSERT INTO gh_rooms 
-          (id, code, name, game_id, game_mode, max_players, duration_seconds, is_private, status, host_id, updated_at, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'lobby', ?, ?, ?)`,
-        [roomId, code, roomName, gameId, gameMode, maxPlayers, durationSeconds, 0, playerId, now, now]
-      ),
-      safeDbQuery(
-        `INSERT INTO gh_players 
-          (id, room_code, nickname, avatar, is_host, is_ready, is_connected, last_seen_at, joined_at)
-         VALUES (?, ?, ?, ?, 1, 1, 1, ?, ?)`,
-        [playerId, code, nickname, avatar, now, now]
-      ),
-    ]);
+    // 2. Insert player and room together in one multi-statement MySQL call (so room never exists with 0 players)
+    await safeDbQuery(
+      `INSERT INTO gh_players 
+        (id, room_code, nickname, avatar, is_host, is_ready, is_connected, last_seen_at, joined_at)
+       VALUES (?, ?, ?, ?, 1, 1, 1, ?, ?);
+       INSERT INTO gh_rooms 
+        (id, code, name, game_id, game_mode, max_players, duration_seconds, is_private, status, host_id, updated_at, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'lobby', ?, ?, ?);`,
+      [
+        playerId, code, nickname, avatar, now, now,
+        roomId, code, roomName, gameId, gameMode, maxPlayers, durationSeconds, 0, playerId, now, now,
+      ]
+    );
 
     return NextResponse.json({
       success: true,

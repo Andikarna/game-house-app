@@ -1,4 +1,4 @@
-import { safeDbQuery, ensureAuxTables } from './db';
+import { dbQuery, safeDbQuery, ensureAuxTables } from './db';
 import {
   RoomInfo,
   Player,
@@ -17,6 +17,7 @@ export interface RoomEntry {
   gameResults: any;
   activeVoteKick?: VoteKickState | null;
   chatMessages?: ChatMessage[];
+  emotes?: any[];
   dbUpdatedAt?: number;
 }
 
@@ -125,40 +126,32 @@ export function updateMemoryRoom(
 }
 
 export async function getRoomByCode(
-  code: string
+  code: string,
+  options?: { includeAux?: boolean; throwOnDbError?: boolean }
 ): Promise<RoomEntry | null> {
   if (!code) return null;
 
   const raw = code.trim().toUpperCase();
   const cleanCode = raw.replace(/[^A-Za-z0-9]/g, '');
+  const includeAux = options?.includeAux !== false;
 
   const memoryEntry = getMemoryRoom(cleanCode) || getMemoryRoom(raw);
 
-  // 1. First priority: Query MySQL database (single shared source of truth across all serverless instances)
+  // 1. Atomic single-connection multi-statement query for room + players
   try {
-    await ensureAuxTables();
-    const chatCutoff = Date.now() - 15000;
+    const [coreResults] = await dbQuery<any[]>(
+      `SELECT * FROM gh_rooms WHERE code = ? LIMIT 1;
+       SELECT * FROM gh_players WHERE room_code = ? ORDER BY joined_at ASC;`,
+      [cleanCode, cleanCode]
+    );
 
-    const [[roomRows], [playerRows], [chatRows], [voteRows]] = await Promise.all([
-      safeDbQuery<any[]>('SELECT * FROM gh_rooms WHERE code = ? LIMIT 1', [cleanCode]),
-      safeDbQuery<any[]>(
-        'SELECT * FROM gh_players WHERE room_code = ? ORDER BY joined_at ASC',
-        [cleanCode]
-      ),
-      safeDbQuery<any[]>(
-        'SELECT id, player_id as playerId, nickname, color, avatar, message, timestamp FROM gh_chats WHERE room_code = ? AND timestamp > ? ORDER BY timestamp ASC',
-        [cleanCode, chatCutoff]
-      ),
-      safeDbQuery<any[]>(
-        'SELECT data_json FROM gh_vote_kicks WHERE room_code = ? LIMIT 1',
-        [cleanCode]
-      ),
-    ]);
+    const roomRows: any[] = Array.isArray(coreResults?.[0]) ? coreResults[0] : [];
+    const playerRows: any[] = Array.isArray(coreResults?.[1]) ? coreResults[1] : [];
 
-    if (roomRows && roomRows.length > 0) {
+    if (roomRows.length > 0) {
       const r = roomRows[0];
 
-      const players: Player[] = (playerRows || []).map((p) => ({
+      const players: Player[] = playerRows.map((p) => ({
         id: p.id,
         socketId: p.id,
         nickname: p.nickname,
@@ -169,6 +162,11 @@ export async function getRoomByCode(
         joinedAt: Number(p.joined_at),
         isBot: Boolean(p.is_bot) || String(p.id).startsWith('bot_'),
       }));
+
+      // Guard: Never treat a transient empty-players race during room creation as 0 players if memory still holds players
+      if (players.length === 0 && memoryEntry && memoryEntry.room.players.length > 0) {
+        return memoryEntry;
+      }
 
       const settings: RoomSettings = {
         name: r.name,
@@ -207,27 +205,49 @@ export async function getRoomByCode(
         }
       }
 
-      let activeVoteKick: VoteKickState | null = null;
-      if (voteRows && voteRows.length > 0 && voteRows[0]?.data_json) {
-        try {
-          const parsed = JSON.parse(voteRows[0].data_json) as VoteKickState;
-          if (parsed && Date.now() <= parsed.expiresAt) {
-            activeVoteKick = parsed;
-          }
-        } catch {
-          activeVoteKick = null;
-        }
-      }
+      // Fetch auxiliary data (chats, vote kick, emotes) in one non-blocking query
+      let activeVoteKick: VoteKickState | null = memoryEntry?.activeVoteKick || null;
+      let chatMessages: ChatMessage[] = memoryEntry?.chatMessages || [];
+      let emotes: any[] = [];
 
-      const chatMessages: ChatMessage[] = (chatRows || []).map((c) => ({
-        id: c.id,
-        playerId: c.playerId,
-        nickname: c.nickname,
-        color: c.color || undefined,
-        avatar: c.avatar as AvatarId,
-        message: c.message,
-        timestamp: Number(c.timestamp),
-      }));
+      if (includeAux) {
+        await ensureAuxTables();
+        const now = Date.now();
+        const [auxResults] = await safeDbQuery<any[]>(
+          `SELECT id, player_id as playerId, nickname, color, avatar, message, timestamp FROM gh_chats WHERE room_code = ? AND timestamp > ? ORDER BY timestamp ASC;
+           SELECT data_json FROM gh_vote_kicks WHERE room_code = ? LIMIT 1;
+           SELECT id, player_id as playerId, nickname, emote_id as emoteId, timestamp FROM gh_emotes WHERE room_code = ? AND timestamp > ? ORDER BY timestamp ASC;`,
+          [cleanCode, now - 15000, cleanCode, cleanCode, now - 10000]
+        );
+
+        const chatRows: any[] = Array.isArray(auxResults?.[0]) ? auxResults[0] : [];
+        const voteRows: any[] = Array.isArray(auxResults?.[1]) ? auxResults[1] : [];
+        const emoteRows: any[] = Array.isArray(auxResults?.[2]) ? auxResults[2] : [];
+
+        activeVoteKick = null;
+        if (voteRows.length > 0 && voteRows[0]?.data_json) {
+          try {
+            const parsed = JSON.parse(voteRows[0].data_json) as VoteKickState;
+            if (parsed && Date.now() <= parsed.expiresAt) {
+              activeVoteKick = parsed;
+            }
+          } catch {
+            activeVoteKick = null;
+          }
+        }
+
+        chatMessages = chatRows.map((c) => ({
+          id: c.id,
+          playerId: c.playerId,
+          nickname: c.nickname,
+          color: c.color || undefined,
+          avatar: c.avatar as AvatarId,
+          message: c.message,
+          timestamp: Number(c.timestamp),
+        }));
+
+        emotes = emoteRows;
+      }
 
       const dbUpdatedAt = Number(r.updated_at) || 0;
       const entry: RoomEntry = {
@@ -236,13 +256,17 @@ export async function getRoomByCode(
         gameResults,
         activeVoteKick,
         chatMessages,
+        emotes,
         dbUpdatedAt,
       };
       saveMemoryRoom(room, gameState, gameResults, activeVoteKick, chatMessages, dbUpdatedAt);
       return entry;
     }
   } catch (err) {
-    console.error('[getRoomByCode] DB query failed, falling back:', err);
+    console.error('[getRoomByCode] DB query failed:', (err as any)?.code || (err as any)?.message || err);
+    if (options?.throwOnDbError) {
+      throw err;
+    }
   }
 
   // 2. Second priority: Check standalone game-server ONLY if configured explicitly

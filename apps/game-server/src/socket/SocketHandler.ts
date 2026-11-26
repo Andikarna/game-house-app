@@ -8,7 +8,8 @@ import {
   ClimberInput, 
   SkillType,
   AvatarId,
-  EmoteId 
+  EmoteId,
+  GAME_AVAILABILITY
 } from '@gamehouse/shared';
 import { RoomManager } from '../rooms/RoomManager';
 
@@ -20,8 +21,10 @@ export function setupSocketHandlers(
     // 1. Room Creation
     socket.on('room:create', ({ nickname, avatar, roomName, gameId, gameMode, maxPlayers, playerId }, callback) => {
       try {
-        if ((gameId as GameId) === 'panjat-pinang') {
-          return callback({ success: false, error: 'Game Panjat Pinang sedang dalam pemeliharaan (maintenance).' });
+        const targetGameId = (gameId as GameId) || 'ludo';
+        const avail = GAME_AVAILABILITY[targetGameId];
+        if (avail && avail.status !== 'playable') {
+          return callback({ success: false, error: avail.reason || 'Game ini belum dapat dimainkan saat ini.' });
         }
 
         const cleanNickname = (nickname || 'Climber').trim().substring(0, 18);
@@ -137,9 +140,12 @@ export function setupSocketHandlers(
       const room = roomManager.getRoomById(mapping.roomId);
       if (!room) return;
 
-      if (newSettings.gameId === 'panjat-pinang') {
-        socket.emit('error:message', 'Game Panjat Pinang sedang dalam pemeliharaan (maintenance).');
-        return;
+      if (newSettings.gameId) {
+        const avail = GAME_AVAILABILITY[newSettings.gameId];
+        if (avail && avail.status !== 'playable') {
+          socket.emit('error:message', avail.reason || 'Game ini belum dapat dimainkan saat ini.');
+          return;
+        }
       }
 
       const success = room.updateSettings(newSettings, mapping.playerId);
@@ -243,6 +249,12 @@ export function setupSocketHandlers(
 
       const room = roomManager.getRoomById(mapping.roomId);
       if (!room) return;
+
+      const avail = GAME_AVAILABILITY[room.settings.gameId];
+      if (avail && avail.status !== 'playable') {
+        socket.emit('error:message', avail.reason || 'Game ini belum dapat dimainkan saat ini.');
+        return;
+      }
 
       const validation = room.canStartGame(mapping.playerId);
       if (!validation.canStart) {

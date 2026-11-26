@@ -12,8 +12,9 @@ import { VoteKickModal, ActiveVoteKickBanner } from './VoteKickModal';
 import { EmotePicker } from '../../../components/emotes/EmotePicker';
 import { FloatingEmoteLayer } from '../../../components/emotes/FloatingEmoteLayer';
 import { soundManager } from '../../../components/audio/SoundManager';
+import { MusicControl } from '../../../components/audio/MusicControl';
 import { getGlobalSocket } from '../../../hooks/useSocket';
-import { LogOut, Volume2, VolumeX, Dices, Trophy, Swords, UserMinus } from 'lucide-react';
+import { LogOut, Dices, UserMinus } from 'lucide-react';
 import Link from 'next/link';
 
 export const LudoView: React.FC = () => {
@@ -28,7 +29,6 @@ export const LudoView: React.FC = () => {
   } = useGameStore();
 
   const isHost = room?.hostId === playerId;
-  const [isAudioMuted, setIsAudioMuted] = useState(soundManager.getIsMuted());
   const [isVoteKickModalOpen, setIsVoteKickModalOpen] = useState(false);
 
   // Tracking refs to detect dice roll and token captures for sound effects
@@ -41,9 +41,6 @@ export const LudoView: React.FC = () => {
   // Auto-play playful Marimba BGM during Ludo match
   useEffect(() => {
     soundManager.playLudoBGM();
-    return soundManager.subscribeMusicChange((playing) => {
-      setIsAudioMuted(!playing);
-    });
   }, []);
 
   // Reactive Sound Effects for Dice Roll and Synchronized Toasts
@@ -119,11 +116,6 @@ export const LudoView: React.FC = () => {
     });
     prevTokensStateRef.current = currentTokensMap;
   }, [gameState, addToast]);
-
-  const handleToggleAudio = () => {
-    const isPlaying = soundManager.toggleMusic();
-    setIsAudioMuted(!isPlaying);
-  };
 
   // Auto-pass turn if current player rolled a number with no valid moves
   useEffect(() => {
@@ -222,19 +214,8 @@ export const LudoView: React.FC = () => {
             </button>
           )}
 
-          {/* Audio BGM Toggle Button */}
-          <button
-            type="button"
-            onClick={handleToggleAudio}
-            className="p-2 rounded-xl bg-surface-elevated border border-slate-700/60 text-slate-300 hover:text-white active:scale-95 transition-all cursor-pointer"
-            title={isAudioMuted ? 'Nyalakan Musik (BGM)' : 'Matikan Musik (Mute)'}
-          >
-            {isAudioMuted ? (
-              <VolumeX className="w-4 h-4 text-rose-400" />
-            ) : (
-              <Volume2 className="w-4 h-4 text-emerald-400 animate-pulse" />
-            )}
-          </button>
+          {/* Music Track Switcher & Mute */}
+          <MusicControl compact />
 
           {/* Leave Button */}
           <button

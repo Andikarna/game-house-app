@@ -1,7 +1,43 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.MAIN_CARDS_DECK = exports.HIDDEN_TEAM_PHASE_TIMERS = exports.HIDDEN_TEAM_ROLES_INFO = exports.HIDDEN_TEAM_CONFIG = exports.IMPOSTOR_PLAYER_LIMITS = exports.IMPOSTOR_PHASE_TIMERS = exports.IMPOSTOR_CAMOUFLAGE_THEMES = exports.IMPOSTOR_CATEGORIES = exports.EMOTE_LIST = exports.EMOTE_CATEGORIES = exports.PHYSICS_CONFIG = exports.SKILL_DEFINITIONS = exports.AVATAR_OPTIONS = exports.PRIMARY_AVATARS = exports.DEFAULT_GAME_DURATION = exports.CLIENT_INPUT_RATE = exports.SERVER_TICK_RATE = void 0;
+exports.MAIN_CARDS_DECK = exports.HIDDEN_TEAM_PHASE_TIMERS = exports.HIDDEN_TEAM_ROLES_INFO = exports.HIDDEN_TEAM_CONFIG = exports.IMPOSTOR_PLAYER_LIMITS = exports.IMPOSTOR_PHASE_TIMERS = exports.IMPOSTOR_CAMOUFLAGE_THEMES = exports.IMPOSTOR_CATEGORIES = exports.EMOTE_LIST = exports.EMOTE_CATEGORIES = exports.PHYSICS_CONFIG = exports.SKILL_DEFINITIONS = exports.AVATAR_OPTIONS = exports.PRIMARY_AVATARS = exports.DEFAULT_GAME_DURATION = exports.CLIENT_INPUT_RATE = exports.SERVER_TICK_RATE = exports.GAME_AVAILABILITY = void 0;
 exports.normalizeAvatarId = normalizeAvatarId;
+exports.GAME_AVAILABILITY = {
+    'panjat-pinang': {
+        status: 'maintenance',
+        label: 'Maintenance',
+        reason: 'Game Panjat Pinang sedang dalam pemeliharaan (Maintenance).',
+    },
+    'ludo': {
+        status: 'playable',
+        label: 'Siap Dimainkan',
+    },
+    'impostor-desa': {
+        status: 'coming-soon',
+        label: 'Coming Soon',
+        reason: "Game I'amPostor belum tersedia (Coming Soon).",
+    },
+    'hidden-team': {
+        status: 'coming-soon',
+        label: 'Coming Soon',
+        reason: 'Game Hidden Team: Secret Role belum tersedia (Coming Soon).',
+    },
+    'obstacle-race': {
+        status: 'coming-soon',
+        label: 'Coming Soon',
+        reason: 'Game Obstacle Race belum tersedia (Coming Soon).',
+    },
+    'card-battle': {
+        status: 'coming-soon',
+        label: 'Coming Soon',
+        reason: 'Game Card Battle Party belum tersedia (Coming Soon).',
+    },
+    'mini-battle-arena': {
+        status: 'coming-soon',
+        label: 'Coming Soon',
+        reason: 'Game Mini Battle Arena belum tersedia (Coming Soon).',
+    },
+};
 exports.SERVER_TICK_RATE = 20; // 20 ticks per second (50ms interval)
 exports.CLIENT_INPUT_RATE = 20; // client sends input every 50ms
 exports.DEFAULT_GAME_DURATION = {
@@ -29,19 +65,25 @@ exports.PRIMARY_AVATARS = [
 function normalizeAvatarId(avatar) {
     if (!avatar)
         return 'budi';
-    if (avatar === 'climber-red')
+    const key = avatar.toLowerCase();
+    if (key === 'climber-red')
         return 'budi';
-    if (avatar === 'climber-blue')
+    if (key === 'climber-blue' || key === 'rina')
         return 'rara';
-    if (avatar === 'climber-green')
+    if (key === 'climber-green' || key === 'andi')
         return 'koko';
-    if (avatar === 'climber-yellow')
+    if (key === 'climber-yellow')
         return 'ujang';
-    if (avatar === 'climber-purple')
+    if (key === 'climber-purple')
         return 'siti';
-    if (avatar === 'climber-orange')
+    if (key === 'climber-orange')
         return 'jaya';
-    return avatar;
+    if (key === 'joko')
+        return 'jago';
+    if (exports.PRIMARY_AVATARS.includes(key)) {
+        return key;
+    }
+    return 'budi';
 }
 exports.AVATAR_OPTIONS = [
     {

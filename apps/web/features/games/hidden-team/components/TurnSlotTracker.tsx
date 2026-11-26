@@ -2,7 +2,8 @@
 
 import React from 'react';
 import { HiddenTeamPublicGameState } from '@gamehouse/shared';
-import { Bot, CheckCircle2, Shield, User } from 'lucide-react';
+import { ClimberAvatarIcon } from '../../../../components/ui/AvatarSelector';
+import { Bot, CheckCircle2 } from 'lucide-react';
 
 interface TurnSlotTrackerProps {
   state: HiddenTeamPublicGameState;
@@ -46,6 +47,9 @@ export const TurnSlotTracker: React.FC<TurnSlotTrackerProps> = ({ state, myPlaye
               >
                 {slotNum}
               </div>
+
+              {/* Player Avatar */}
+              <ClimberAvatarIcon avatar={player?.avatar || 'budi'} size={28} shape="circle" />
 
               {/* Player Info */}
               <div className="flex flex-col min-w-0">

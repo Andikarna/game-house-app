@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { safeDbQuery } from '../../../../lib/db';
-import { getRoomByCode, saveMemoryRoom } from '../../../../lib/room-service';
+import { getRoomByCode, saveMemoryRoom, RoomEntry } from '../../../../lib/room-service';
 import { checkLudoTimeout } from '../../../../lib/game-runner';
 
 export const dynamic = 'force-dynamic';
@@ -36,18 +36,27 @@ export async function GET(
       }
     }
 
-    // Parallel fetch: Room data (with players, chats, voteKick) + Emotes
-    const tenSecondsAgo = now - 10000;
-    const [roomData, [emoteRows]] = await Promise.all([
-      getRoomByCode(code),
-      safeDbQuery<any[]>(
-        'SELECT id, player_id as playerId, nickname, emote_id as emoteId, timestamp FROM gh_emotes WHERE room_code = ? AND timestamp > ? ORDER BY timestamp ASC',
-        [code, tenSecondsAgo]
-      ),
-    ]);
+    let roomData: RoomEntry | null = null;
+    try {
+      roomData = await getRoomByCode(code, { includeAux: true, throwOnDbError: true });
+    } catch {
+      // Transient DB error: return 503 so client skips this poll without blanking players
+      return NextResponse.json(
+        { success: false, retry: true, error: 'Database temporarily busy.' },
+        { status: 503 }
+      );
+    }
 
     if (!roomData) {
       return NextResponse.json({ success: false, error: 'Room not found.' }, { status: 404 });
+    }
+
+    // Never return a transient 0-player room snapshot to polling clients
+    if (!roomData.room.players || roomData.room.players.length === 0) {
+      return NextResponse.json(
+        { success: false, retry: true, error: 'Syncing room players...' },
+        { status: 503 }
+      );
     }
 
     // Check if Ludo turn timed out, bot needs to act, or passAt expired
@@ -98,14 +107,14 @@ export async function GET(
             nextUpdatedAt
           );
         } else {
-          // Another lambda already updated the room concurrently; return fresh DB state
-          const fresh = await getRoomByCode(code);
-          if (fresh) {
+          const fresh = await getRoomByCode(code, { includeAux: true });
+          if (fresh && fresh.room.players.length > 0) {
             roomData.room = fresh.room;
             roomData.gameState = fresh.gameState;
             roomData.gameResults = fresh.gameResults;
             roomData.activeVoteKick = fresh.activeVoteKick;
             roomData.chatMessages = fresh.chatMessages;
+            roomData.emotes = fresh.emotes;
           }
         }
       }
@@ -124,7 +133,7 @@ export async function GET(
       room: roomData.room,
       gameState: roomData.gameState,
       gameResults: roomData.gameResults,
-      emotes: emoteRows || [],
+      emotes: roomData.emotes || [],
       voteKick: roomData.activeVoteKick || null,
       chats: recentChats,
     });

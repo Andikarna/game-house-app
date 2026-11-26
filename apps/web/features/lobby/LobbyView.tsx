@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useGameStore } from '../../stores/useGameStore';
-import { GameMode, RoomSettings } from '@gamehouse/shared';
+import { GameMode, AVATAR_OPTIONS, normalizeAvatarId } from '@gamehouse/shared';
 import { 
   Users, 
   Crown, 
@@ -14,19 +14,17 @@ import {
   Play, 
   LogOut, 
   UserX, 
-  ShieldAlert, 
   Sparkles,
-  Flame,
-  Volume2,
-  VolumeX,
   Wifi,
   Settings,
   Bot,
-  Plus
+  Plus,
+  RefreshCw
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { ClimberAvatarIcon, AvatarSelector } from '../../components/ui/AvatarSelector';
 import { GameHouseLogo } from '../../components/branding/GameHouseLogo';
+import { MusicControl } from '../../components/audio/MusicControl';
 import { useSettingsStore } from '../../stores/useSettingsStore';
 import { Modal } from '../../components/ui/Modal';
 import { ImpostorLobbyScreen } from '../games/impostor-desa/components/ImpostorLobbyScreen';
@@ -34,7 +32,7 @@ import { getGlobalSocket } from '../../hooks/useSocket';
 
 export const LobbyView: React.FC = () => {
   const { socket, room, playerId, setPlayerId, ping, addToast } = useGameStore();
-  const { isMuted, toggleMute, avatar, setAvatar } = useSettingsStore();
+  const { avatar, setAvatar } = useSettingsStore();
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [mobileTab, setMobileTab] = useState<'players' | 'settings'>('players');
@@ -70,12 +68,13 @@ export const LobbyView: React.FC = () => {
   if (isImpostorDesa) {
     return <ImpostorLobbyScreen />;
   }
+  const isGameDisabled = isPanjatPinang || isImpostorDesa || isHiddenTeam;
   const minPlayersRequired = isHiddenTeam ? 6 : (isImpostorDesa ? 4 : (room.settings.gameId === 'ludo' ? 2 : 1));
   const maxPlayersAllowed = (isHiddenTeam || isImpostorDesa || room.settings.gameId === 'ludo') ? 6 : 8;
 
   const nonHostPlayers = room.players.filter(p => !p.isHost && p.id !== room.hostId && !p.isBot);
   const allReady = nonHostPlayers.length === 0 ? true : nonHostPlayers.every(p => p.isReady);
-  const canStart = isHost && !isPanjatPinang && room.players.length >= minPlayersRequired && room.players.length <= maxPlayersAllowed && allReady;
+  const canStart = isHost && !isGameDisabled && room.players.length >= minPlayersRequired && room.players.length <= maxPlayersAllowed && allReady;
 
   const activeSocket = socket || getGlobalSocket();
 
@@ -140,13 +139,6 @@ export const LobbyView: React.FC = () => {
     }
   };
 
-  const handleClearBots = () => {
-    if (activeSocket && isHost) {
-      activeSocket.emit('room:clear-bots');
-      addToast('Semua bot telah dikeluarkan.', 'info');
-    }
-  };
-
   const handleStartGame = () => {
     if (activeSocket && canStart) {
       activeSocket.emit('game:start');
@@ -165,34 +157,16 @@ export const LobbyView: React.FC = () => {
       addToast('Game Panjat Pinang sedang dalam pemeliharaan (maintenance).', 'error');
       return;
     }
+    if (gameId === 'impostor-desa' || gameId === 'hidden-team') {
+      addToast('Game ini masih berstatus Coming Soon dan belum dapat dimainkan.', 'info');
+      return;
+    }
     if (socket && isHost) {
-      if (gameId === 'hidden-team') {
-        socket.emit('room:update-settings', {
-          gameId: 'hidden-team',
-          gameMode: 'hidden-team-5r',
-          maxPlayers: 6,
-          durationSeconds: 600,
-        });
-      } else if (gameId === 'impostor-desa') {
-        socket.emit('room:update-settings', {
-          gameId: 'impostor-desa',
-          gameMode: 'impostor-classic',
-          maxPlayers: 6,
-          durationSeconds: 240,
-        });
-      } else if (gameId === 'ludo') {
-        socket.emit('room:update-settings', {
-          gameId: 'ludo',
-          gameMode: 'classic',
-          maxPlayers: Math.min(room.settings.maxPlayers, 6),
-        });
-      } else {
-        socket.emit('room:update-settings', {
-          gameId: 'panjat-pinang',
-          gameMode: 'classic-race',
-          maxPlayers: 8,
-        });
-      }
+      socket.emit('room:update-settings', {
+        gameId: 'ludo',
+        gameMode: 'classic',
+        maxPlayers: Math.min(room.settings.maxPlayers, 6),
+      });
     }
   };
 
@@ -287,14 +261,8 @@ export const LobbyView: React.FC = () => {
             <span>{ping > 0 ? `${ping}ms` : 'Online'}</span>
           </div>
 
-          {/* Sound Toggle */}
-          <button
-            onClick={toggleMute}
-            className="p-2 sm:p-2.5 rounded-xl bg-surface-elevated border border-slate-700/60 text-slate-300 hover:text-white transition-colors cursor-pointer"
-            title={isMuted ? 'Unmute' : 'Mute Audio'}
-          >
-            {isMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4 text-slate-300" />}
-          </button>
+          {/* Music Track Switcher & Mute */}
+          <MusicControl />
 
           {/* Leave Button */}
           <Button
@@ -434,41 +402,45 @@ export const LobbyView: React.FC = () => {
                   <span className="text-xl sm:text-2xl">🎲</span>
                   <div>
                     <h5 className="font-extrabold text-xs text-white">Ludo Party</h5>
-                    <p className="text-[10px] text-slate-400">2-4 Pemain</p>
+                    <p className="text-[10px] text-slate-400">2-6 Pemain</p>
                   </div>
                 </button>
 
                 <button
                   type="button"
-                  disabled={!isHost}
+                  disabled
                   onClick={() => handleSwitchGame('impostor-desa')}
-                  className={`p-2.5 rounded-2xl border text-left transition-all flex items-center gap-2.5 ${
-                    room.settings.gameId === 'impostor-desa'
-                      ? 'bg-emerald-600/25 border-emerald-500 shadow-glow-primary text-white'
-                      : 'bg-surface-elevated/60 border-slate-800 text-slate-400 hover:text-white'
-                  } ${!isHost ? 'cursor-default' : 'cursor-pointer'}`}
+                  className="p-2.5 rounded-2xl border text-left flex items-center gap-2.5 opacity-50 cursor-not-allowed bg-surface-elevated/40 border-slate-800 text-slate-500 relative"
+                  title="Game I'amPostor segera hadir (Coming Soon)"
                 >
-                  <span className="text-xl sm:text-2xl">🌾</span>
+                  <span className="text-xl sm:text-2xl grayscale">🌾</span>
                   <div>
-                    <h5 className="font-extrabold text-xs text-white">I'amPostor</h5>
-                    <p className="text-[10px] text-slate-400">4-6 Pemain</p>
+                    <div className="flex items-center gap-1">
+                      <h5 className="font-extrabold text-xs text-slate-400">I'amPostor</h5>
+                      <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30 uppercase">
+                        Soon
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-slate-500">Coming Soon</p>
                   </div>
                 </button>
 
                 <button
                   type="button"
-                  disabled={!isHost}
+                  disabled
                   onClick={() => handleSwitchGame('hidden-team')}
-                  className={`p-2.5 rounded-2xl border text-left transition-all flex items-center gap-2.5 ${
-                    room.settings.gameId === 'hidden-team'
-                      ? 'bg-rose-600/25 border-rose-500 shadow-glow-orange text-white'
-                      : 'bg-surface-elevated/60 border-slate-800 text-slate-400 hover:text-white'
-                  } ${!isHost ? 'cursor-default' : 'cursor-pointer'}`}
+                  className="p-2.5 rounded-2xl border text-left flex items-center gap-2.5 opacity-50 cursor-not-allowed bg-surface-elevated/40 border-slate-800 text-slate-500 relative"
+                  title="Game Hidden Team segera hadir (Coming Soon)"
                 >
-                  <span className="text-xl sm:text-2xl">🕵️</span>
+                  <span className="text-xl sm:text-2xl grayscale">🕵️</span>
                   <div>
-                    <h5 className="font-extrabold text-xs text-white">Hidden Team</h5>
-                    <p className="text-[10px] text-slate-400">Tepat 6 Pemain</p>
+                    <div className="flex items-center gap-1">
+                      <h5 className="font-extrabold text-xs text-slate-400">Hidden Team</h5>
+                      <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 uppercase">
+                        Soon
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-slate-500">Coming Soon</p>
                   </div>
                 </button>
               </div>
@@ -553,125 +525,97 @@ export const LobbyView: React.FC = () => {
               </span>
             </div>
 
-            {/* Host Bot Controls */}
-            {isHost && (
-              <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 sm:p-3 mb-3.5 rounded-2xl bg-gradient-to-r from-purple-950/40 via-indigo-950/40 to-slate-900/60 border border-purple-500/30">
-                <div className="flex items-center gap-2 text-xs text-slate-300">
-                  <div className="w-7 h-7 rounded-lg bg-purple-500/20 flex items-center justify-center text-sm">
-                    🤖
-                  </div>
-                  <div>
-                    <span className="font-bold text-white block">Mode Main Sendiri (Bot AI)</span>
-                    <span className="text-[10px] text-slate-400">Isi slot kosong dengan bot latihan otomatis</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={handleFillBots}
-                    className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-black flex items-center gap-1.5 shadow-md shadow-purple-500/25 transition-all cursor-pointer"
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>Isi Bot Otomatis</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleAddBot}
-                    disabled={room.players.length >= room.settings.maxPlayers}
-                    className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold flex items-center gap-1 border border-slate-700 transition-colors cursor-pointer disabled:opacity-40"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Bot</span>
-                  </button>
-
-                  {room.players.some((p) => p.isBot) && (
-                    <button
-                      type="button"
-                      onClick={handleClearBots}
-                      className="px-2.5 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 text-xs font-bold border border-rose-500/30 transition-colors cursor-pointer"
-                    >
-                      <span>Hapus Bot</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
-
             {/* Players Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 flex-1 overflow-y-auto max-h-[460px] pr-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1 overflow-y-auto max-h-[480px] pr-1 content-start">
               {room.players.map((p) => {
                 const isThisPlayerMe = (myPlayer && p.id === myPlayer.id) || p.id === playerId || (socket?.id && p.socketId === socket.id);
                 const isPlayerHost = p.isHost || p.id === room.hostId;
+                const charId = normalizeAvatarId(p.avatar);
+                const charMeta = AVATAR_OPTIONS.find((a) => a.id === charId) || AVATAR_OPTIONS[0];
 
                 return (
                   <div
                     key={p.id}
-                    className={`flex items-center justify-between p-3 rounded-2xl border transition-all ${
+                    className={`flex items-center justify-between gap-3 p-3 rounded-2xl border transition-all min-h-[76px] ${
                       isThisPlayerMe
-                        ? 'bg-indigo-600/15 border-indigo-400 shadow-glow-primary'
-                        : 'bg-surface-elevated/60 border-slate-800'
+                        ? 'bg-indigo-600/15 border-indigo-400/90 shadow-glow-primary'
+                        : 'bg-surface-elevated/70 border-slate-800 hover:border-slate-700'
                     }`}
                   >
-                    <div className="flex items-center gap-2.5 sm:gap-3 truncate">
-                      <ClimberAvatarIcon avatar={p.avatar} size={42} />
-                      <div className="truncate">
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-extrabold text-xs sm:text-sm text-white truncate max-w-[120px]">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <ClimberAvatarIcon avatar={p.avatar} size={48} showBadge />
+                      <div className="min-w-0 flex-1">
+                        {/* Nickname + Role Badges */}
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="font-extrabold text-xs sm:text-sm text-white truncate">
                             {p.nickname}
                           </span>
                           {p.isBot && (
-                            <span className="text-[9px] font-black text-purple-300 bg-purple-500/25 border border-purple-500/50 px-1.5 py-0.5 rounded">
-                              🤖 BOT
+                            <span className="shrink-0 text-[9px] font-black text-purple-300 bg-purple-500/25 border border-purple-500/50 px-1.5 py-0.5 rounded-md">
+                              BOT
                             </span>
                           )}
                           {isThisPlayerMe && (
-                            <>
-                              <span className="text-[9px] font-black text-indigo-300 bg-indigo-500/30 border border-indigo-500/50 px-1.5 py-0.5 rounded">
-                                YOU
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => setIsAvatarModalOpen(true)}
-                                className="text-[10px] font-bold text-amber-300 hover:text-amber-200 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 px-2 py-0.5 rounded cursor-pointer transition-all ml-1"
-                              >
-                                Ganti Karakter
-                              </button>
-                            </>
+                            <span className="shrink-0 text-[9px] font-black text-indigo-200 bg-indigo-500/40 border border-indigo-400/60 px-1.5 py-0.5 rounded-md">
+                              YOU
+                            </span>
                           )}
                         </div>
 
-                        {isPlayerHost ? (
-                          <span className="flex items-center gap-1 text-[10px] sm:text-[11px] font-bold text-amber-400">
-                            <Crown className="w-3 h-3" /> Host
+                        {/* Character Subtitle & Status */}
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          <span
+                            className="text-[10px] font-bold truncate"
+                            style={{ color: charMeta.color }}
+                          >
+                            {charMeta.name}
                           </span>
-                        ) : p.isBot ? (
-                          <span className="flex items-center gap-1 text-[10px] sm:text-[11px] font-bold text-purple-300">
-                            <Bot className="w-3 h-3 text-purple-400" /> AI Bot Ready
-                          </span>
-                        ) : p.isReady ? (
-                          <span className="flex items-center gap-1 text-[10px] sm:text-[11px] font-bold text-emerald-400">
-                            <CheckCircle2 className="w-3 h-3" /> Ready
-                          </span>
-                        ) : (
-                          <span className="flex items-center gap-1 text-[10px] sm:text-[11px] font-bold text-slate-500">
-                            <Clock className="w-3 h-3" /> Waiting
-                          </span>
-                        )}
+                          <span className="text-slate-600 text-[10px]">•</span>
+                          {isPlayerHost ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-bold text-amber-400 shrink-0">
+                              <Crown className="w-3 h-3" /> Host
+                            </span>
+                          ) : p.isBot ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-bold text-purple-300 shrink-0">
+                              <Bot className="w-3 h-3 text-purple-400" /> AI Ready
+                            </span>
+                          ) : p.isReady ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-bold text-emerald-400 shrink-0">
+                              <CheckCircle2 className="w-3 h-3" /> Ready
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-bold text-slate-400 shrink-0">
+                              <Clock className="w-3 h-3" /> Waiting
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
 
-                    {/* Host kick / remove bot button */}
-                    {isHost && !isPlayerHost && (
-                      <button
-                        onClick={() => p.isBot ? handleRemoveBot(p.id) : handleKick(p.id)}
-                        title={p.isBot ? "Keluarkan Bot" : "Kick player"}
-                        className="p-1.5 text-slate-500 hover:text-rose-400 rounded-lg hover:bg-surface transition-colors cursor-pointer"
-                      >
-                        <UserX className="w-3.5 h-3.5" />
-                      </button>
-                    )}
+                    {/* Right Actions */}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {isThisPlayerMe && (
+                        <button
+                          type="button"
+                          onClick={() => setIsAvatarModalOpen(true)}
+                          title="Ganti Karakter Avatar"
+                          className="inline-flex items-center gap-1 text-[10px] font-black text-amber-200 hover:text-white bg-amber-500/20 hover:bg-amber-500/35 border border-amber-400/50 px-2.5 py-1.5 rounded-xl cursor-pointer transition-all active:scale-95"
+                        >
+                          <RefreshCw className="w-3 h-3" />
+                          <span>Ganti</span>
+                        </button>
+                      )}
+
+                      {isHost && !isPlayerHost && (
+                        <button
+                          onClick={() => p.isBot ? handleRemoveBot(p.id) : handleKick(p.id)}
+                          title={p.isBot ? 'Keluarkan Bot' : 'Kick player'}
+                          className="p-2 text-slate-500 hover:text-rose-400 rounded-xl hover:bg-surface transition-colors cursor-pointer"
+                        >
+                          <UserX className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -680,20 +624,29 @@ export const LobbyView: React.FC = () => {
               {Array.from({ length: Math.max(0, room.settings.maxPlayers - room.players.length) }).map((_, idx) => (
                 <div
                   key={`empty-${idx}`}
-                  className="flex items-center justify-between p-3 rounded-2xl border border-dashed border-slate-800 bg-surface/30 text-[11px] font-semibold text-slate-500"
+                  className="flex items-center justify-between gap-3 p-3 rounded-2xl border border-dashed border-slate-800/90 bg-surface/40 min-h-[76px] text-[11px] font-semibold text-slate-500"
                 >
-                  <span className="flex items-center gap-1.5 text-slate-500">
-                    <span className="w-2 h-2 rounded-full bg-slate-700" />
-                    Slot Kosong #{room.players.length + idx + 1}
-                  </span>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-12 h-12 rounded-2xl border border-dashed border-slate-700/80 bg-slate-900/50 flex items-center justify-center shrink-0 text-slate-600">
+                      <Users className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="font-bold text-slate-400 text-xs">
+                        Slot Kosong #{room.players.length + idx + 1}
+                      </div>
+                      <div className="text-[10px] text-slate-500">
+                        Menunggu pemain...
+                      </div>
+                    </div>
+                  </div>
                   {isHost && (
                     <button
                       type="button"
                       onClick={handleAddBot}
-                      className="px-2.5 py-1 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 text-[10px] font-bold border border-purple-500/30 flex items-center gap-1 cursor-pointer transition-colors"
+                      className="px-2.5 py-1.5 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 text-[10px] font-bold border border-purple-500/30 flex items-center gap-1 cursor-pointer transition-colors shrink-0"
                     >
                       <Plus className="w-3 h-3" />
-                      <span>Tambah Bot</span>
+                      <span>Bot</span>
                     </button>
                   )}
                 </div>
@@ -706,6 +659,10 @@ export const LobbyView: React.FC = () => {
                 {isPanjatPinang ? (
                   <span className="text-amber-400 font-bold flex items-center gap-1.5">
                     🛠️ Game Panjat Pinang sedang dalam pemeliharaan (maintenance). Silakan ganti permainan.
+                  </span>
+                ) : (isImpostorDesa || isHiddenTeam) ? (
+                  <span className="text-sky-300 font-bold flex items-center gap-1.5">
+                    🕒 Game ini berstatus Coming Soon. Silakan pilih Ludo Party untuk bermain.
                   </span>
                 ) : isHiddenTeam && room.players.length !== 6 ? (
                   <div className="flex items-center gap-2.5">
@@ -847,7 +804,7 @@ export const LobbyView: React.FC = () => {
             selected={myPlayer?.avatar || avatar}
             onSelect={(newAvatar) => {
               setAvatar(newAvatar);
-              socket?.emit('player:update-avatar' as any, { avatar: newAvatar });
+              activeSocket?.emit('player:update-avatar' as any, { avatar: newAvatar });
               setIsAvatarModalOpen(false);
               addToast('Karakter berhasil diubah!', 'success');
             }}

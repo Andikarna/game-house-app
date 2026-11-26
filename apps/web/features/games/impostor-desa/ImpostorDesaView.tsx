@@ -11,7 +11,9 @@ import { VotingScreen } from './components/VotingScreen';
 import { ImpostorGuessModal } from './components/ImpostorGuessModal';
 import { ResultScreen } from './components/ResultScreen';
 import { ImpostorPublicGameState } from '@gamehouse/shared';
-import { Copy, Check, LogOut, ShieldAlert } from 'lucide-react';
+import { soundManager } from '../../../components/audio/SoundManager';
+import { MusicControl } from '../../../components/audio/MusicControl';
+import { Copy, Check, LogOut } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export const ImpostorDesaView: React.FC = () => {
@@ -20,6 +22,10 @@ export const ImpostorDesaView: React.FC = () => {
   const { room, playerId, gameState, impostorRole, addToast } = useGameStore();
 
   const [copiedCode, setCopiedCode] = React.useState(false);
+
+  useEffect(() => {
+    soundManager.playImpostorBGM();
+  }, []);
 
   // Fallback state if gameState is not yet populated
   const state = gameState as ImpostorPublicGameState | null;
@@ -136,11 +142,13 @@ export const ImpostorDesaView: React.FC = () => {
           )}
         </div>
 
-        {/* Phase Indicator & Leave Button */}
+        {/* Phase Indicator, Music Control & Leave Button */}
         <div className="flex items-center gap-2">
           <div className="hidden sm:inline-flex items-center gap-1.5 bg-[#2F7D55] px-2.5 py-0.8 rounded-lg text-[11px] font-black uppercase tracking-wider text-white">
             <span>Fase: {phase.replace('-', ' ')}</span>
           </div>
+
+          <MusicControl variant="village" />
 
           <button
             onClick={handleLeaveRoom}

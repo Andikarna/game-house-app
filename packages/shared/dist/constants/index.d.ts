@@ -1,4 +1,10 @@
-import { SkillDefinition, SkillType, AvatarId, EmoteDefinition, EmoteCategory, ImpostorCategory, HiddenTeamRole, MainCard } from '../types';
+import { SkillDefinition, SkillType, AvatarId, GameId, EmoteDefinition, EmoteCategory, ImpostorCategory, HiddenTeamRole, MainCard } from '../types';
+export type GameAvailabilityStatus = 'playable' | 'maintenance' | 'coming-soon';
+export declare const GAME_AVAILABILITY: Record<GameId, {
+    status: GameAvailabilityStatus;
+    label: string;
+    reason?: string;
+}>;
 export declare const SERVER_TICK_RATE = 20;
 export declare const CLIENT_INPUT_RATE = 20;
 export declare const DEFAULT_GAME_DURATION: Record<string, number>;
