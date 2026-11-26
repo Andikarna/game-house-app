@@ -479,12 +479,16 @@ export const LudoDice: React.FC<LudoDiceProps> = ({
   useEffect(() => {
     if (value !== null && value !== prevValueRef.current) {
       prevValueRef.current = value;
+      if (safetyTimeoutRef.current) {
+        clearTimeout(safetyTimeoutRef.current);
+        safetyTimeoutRef.current = null;
+      }
 
       if (isAwaitingServerResultRef.current) {
         // Player's manual roll has arrived from server!
         isAwaitingServerResultRef.current = false;
         const elapsed = Date.now() - rollStartTimeRef.current;
-        const minFlightDuration = 650; // Ensure at least 650ms of intense 3D tumbling
+        const minFlightDuration = 420; // Snappy 3D tumbling
         const remaining = Math.max(0, minFlightDuration - elapsed);
 
         if (landTimeoutRef.current) clearTimeout(landTimeoutRef.current);
@@ -497,7 +501,7 @@ export const LudoDice: React.FC<LudoDiceProps> = ({
         startTumbling();
         landTimeoutRef.current = setTimeout(() => {
           landOnAuthoritativeNumber(value);
-        }, 650);
+        }, 420);
       }
     } else if (value === null) {
       prevValueRef.current = null;

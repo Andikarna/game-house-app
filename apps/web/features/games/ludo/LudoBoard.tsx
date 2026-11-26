@@ -572,7 +572,7 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
         const cur = displayedStepsRef.current[k] ?? target;
         if (target > cur) {
           const steps = target - cur;
-          maxWalkDuration = Math.max(maxWalkDuration, steps * 140);
+          maxWalkDuration = Math.max(maxWalkDuration, steps * 105);
         }
       });
     });
@@ -686,7 +686,7 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
                 clearInterval(activeIntervalsRef.current[key]);
                 delete activeIntervalsRef.current[key];
               }
-            }, 140);
+            }, 105);
           }
         }
       });

@@ -14,6 +14,11 @@ class PollingSocket {
   private currentPlayerId: string | null = null;
   private lastGameStateStr: string = '';
   private lastGameStateVersion: number = 0;
+  private lastDbUpdatedAt: number = 0;
+  private lastPlayerCount: number = 0;
+  private lastChatTs: number = 0;
+  private lastEmoteTs: number = 0;
+  private isMyTurnActive: boolean = false;
   private lastRoomStateStr: string = '';
   private lastVoteKickStr: string = '';
   private processedEmoteIds: Set<string> = new Set();
@@ -284,6 +289,10 @@ class PollingSocket {
           if (data.gameState.stateVersion) {
             this.lastGameStateVersion = data.gameState.stateVersion;
           }
+          if (data.u) {
+            this.lastDbUpdatedAt = Number(data.u);
+          }
+          this.isMyTurnActive = data.gameState.currentTurnPlayerId === this.currentPlayerId;
           this.lastGameStateStr = JSON.stringify(data.gameState);
           this.emitInternal('game:ludo_state', data.gameState);
           if (data.results) {
@@ -307,6 +316,10 @@ class PollingSocket {
           if (data.gameState.stateVersion) {
             this.lastGameStateVersion = data.gameState.stateVersion;
           }
+          if (data.u) {
+            this.lastDbUpdatedAt = Number(data.u);
+          }
+          this.isMyTurnActive = data.gameState.currentTurnPlayerId === this.currentPlayerId;
           this.lastGameStateStr = JSON.stringify(data.gameState);
           if (isLudoAction) {
             this.emitInternal('game:ludo_state', data.gameState);
@@ -411,6 +424,9 @@ class PollingSocket {
       if (event === 'game:restart') {
         this.lastGameStateVersion = 0;
         this.lastGameStateStr = '';
+        this.lastDbUpdatedAt = 0;
+        this.lastChatTs = 0;
+        this.isMyTurnActive = false;
         await fetch(`/api/rooms/${roomCode}/action`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -442,6 +458,16 @@ class PollingSocket {
   }
 
   public startPolling(roomCode: string, playerId: string) {
+    if (this.currentRoomCode !== roomCode) {
+      this.lastDbUpdatedAt = 0;
+      this.lastGameStateVersion = 0;
+      this.lastGameStateStr = '';
+      this.lastRoomStateStr = '';
+      this.lastPlayerCount = 0;
+      this.lastChatTs = 0;
+      this.lastEmoteTs = 0;
+      this.isMyTurnActive = false;
+    }
     this.currentRoomCode = roomCode;
     this.currentPlayerId = playerId;
     this.isPollingActive = true;
@@ -482,7 +508,16 @@ class PollingSocket {
         } catch {}
       }, 5000);
 
-      const url = `/api/rooms/${this.currentRoomCode}${this.currentPlayerId ? `?playerId=${this.currentPlayerId}` : ''}`;
+      const params = new URLSearchParams();
+      if (this.currentPlayerId) params.set('playerId', this.currentPlayerId);
+      if (this.lastDbUpdatedAt > 0) params.set('u', String(this.lastDbUpdatedAt));
+      if (this.lastGameStateVersion > 0) params.set('v', String(this.lastGameStateVersion));
+      if (this.lastPlayerCount > 0) params.set('pc', String(this.lastPlayerCount));
+      if (this.lastChatTs > 0) params.set('cs', String(this.lastChatTs));
+      if (this.lastEmoteTs > 0) params.set('es', String(this.lastEmoteTs));
+      if (this.lastVoteKickStr) params.set('vk', '1');
+
+      const url = `/api/rooms/${this.currentRoomCode}?${params.toString()}`;
       const res = await fetch(url, {
         signal: this.abortController.signal,
         cache: 'no-store',
@@ -492,18 +527,29 @@ class PollingSocket {
       if (!res.ok) return;
 
       const data = await res.json();
-      if (!data.success || !data.room) return;
+      if (!data.success) return;
+      if (data.unchanged) {
+        if (data.u) this.lastDbUpdatedAt = Number(data.u);
+        return;
+      }
+      if (!data.room) return;
+
+      if (data.u) {
+        this.lastDbUpdatedAt = Number(data.u);
+      }
 
       const room: RoomInfo = data.room;
       if (!Array.isArray(room.players) || room.players.length === 0) {
         return;
       }
+      this.lastPlayerCount = room.players.length;
       const roomStr = JSON.stringify(room);
       if (roomStr !== this.lastRoomStateStr) {
         this.lastRoomStateStr = roomStr;
         if (room.status === 'lobby') {
           this.lastGameStateVersion = 0;
           this.lastGameStateStr = '';
+          this.isMyTurnActive = false;
         }
         this.emitInternal('room:updated', room);
       }
@@ -516,6 +562,7 @@ class PollingSocket {
           if (incomingVersion > 0) {
             this.lastGameStateVersion = incomingVersion;
           }
+          this.isMyTurnActive = data.gameState.currentTurnPlayerId === this.currentPlayerId;
           const gameStr = JSON.stringify(data.gameState);
           if (gameStr !== this.lastGameStateStr) {
             this.lastGameStateStr = gameStr;
@@ -536,6 +583,8 @@ class PollingSocket {
       // Handle Emotes
       if (Array.isArray(data.emotes)) {
         data.emotes.forEach((em: any) => {
+          const ts = Number(em.timestamp) || 0;
+          if (ts > this.lastEmoteTs) this.lastEmoteTs = ts;
           if (!this.processedEmoteIds.has(em.id)) {
             this.processedEmoteIds.add(em.id);
             this.emitInternal('emote:received', {
@@ -577,6 +626,8 @@ class PollingSocket {
       // Handle Chats
       if (Array.isArray(data.chats)) {
         data.chats.forEach((chat: any) => {
+          const ts = Number(chat.timestamp) || 0;
+          if (ts > this.lastChatTs) this.lastChatTs = ts;
           if (!this.processedChatIds.has(chat.id)) {
             this.processedChatIds.add(chat.id);
             this.emitInternal('game:chat-message', chat);
@@ -589,11 +640,11 @@ class PollingSocket {
       }
     } finally {
       this.isCurrentlyFetching = false;
-      // Sequential scheduling: 450ms when game is active for realtime smoothness, 1200ms in lobby
+      // Adaptive polling: 300ms when waiting for opponent/bot, 600ms on own turn, 1100ms in lobby
       if (this.isPollingActive && this.currentRoomCode) {
         if (this.pollTimer) clearTimeout(this.pollTimer);
         const isGameActive = this.lastRoomStateStr.includes('"in-game"') || this.lastRoomStateStr.includes('"countdown"');
-        const delay = isGameActive ? 450 : 1200;
+        const delay = !isGameActive ? 1100 : this.isMyTurnActive ? 600 : 300;
         this.pollTimer = setTimeout(() => {
           this.pollOnce();
         }, delay);

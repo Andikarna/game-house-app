@@ -337,9 +337,9 @@ export class LudoGame implements GameModule {
         this.lastMoveNotice = `${player.nickname} dapat angka 6 tiga kali berturut-turut! Giliran dibatalkan.`;
         this.consecutiveSixes = 0;
         this.validMoves = [];
-        this.passAt = Date.now() + 1500;
+        this.passAt = Date.now() + 900;
         this.broadcastState();
-        this.schedulePassTurn(1500);
+        this.schedulePassTurn(900);
         return;
       }
     } else {
@@ -357,9 +357,9 @@ export class LudoGame implements GameModule {
       } else {
         this.lastMoveNotice = `${player.nickname} dapat ${this.diceValue}. Tidak ada langkah valid!`;
       }
-      this.passAt = Date.now() + 1500;
+      this.passAt = Date.now() + 900;
       this.broadcastState();
-      this.schedulePassTurn(1500);
+      this.schedulePassTurn(900);
     } else {
       this.lastMoveNotice = `${player.nickname} dapat angka ${this.diceValue}! Pilih bidak yang ingin dijalankan.`;
       this.broadcastState();
@@ -587,14 +587,14 @@ export class LudoGame implements GameModule {
     const player = this.players.get(currentPlayerId);
     if (player && player.isBot) {
       if (!this.hasRolled && player.canRoll) {
-        if (now - (this.turnStartedAt || 0) >= 850) {
+        if (now - (this.turnStartedAt || 0) >= 550) {
           this.handleRollDice(player);
           return true;
         }
         return false;
       }
       if (this.hasRolled && this.validMoves.length > 0) {
-        if (now - (this.rolledAt || 0) >= 900) {
+        if (now - (this.rolledAt || 0) >= 650) {
           const bestMove = this.chooseBestBotMove(player, this.validMoves, this.diceValue || 1);
           this.handleMoveToken(player, bestMove);
           return true;
@@ -602,7 +602,7 @@ export class LudoGame implements GameModule {
         return false;
       }
       if (this.hasRolled && this.validMoves.length === 0) {
-        if (now - (this.rolledAt || 0) >= 1200) {
+        if (now - (this.rolledAt || 0) >= 850) {
           this.passToNextPlayer();
           return true;
         }

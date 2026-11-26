@@ -24,6 +24,7 @@ export const LudoView: React.FC = () => {
     playerId,
     gameState,
     gameResults,
+    setGameState,
     setGameResults,
     addToast,
   } = useGameStore();
@@ -86,7 +87,7 @@ export const LudoView: React.FC = () => {
           });
         });
 
-        const delay = walkSteps * 140;
+        const delay = walkSteps * 105;
         const captureNotice = ludo.lastMoveNotice;
         setTimeout(() => {
           addToast(captureNotice, 'warning');
@@ -134,7 +135,7 @@ export const LudoView: React.FC = () => {
         if (activeSocket) {
           activeSocket.emit('game:input', { action: 'pass-turn' });
         }
-      }, 1400);
+      }, 850);
       return () => clearTimeout(timer);
     }
   }, [gameState, playerId, socket]);
@@ -148,9 +149,61 @@ export const LudoView: React.FC = () => {
   };
 
   const handleSelectToken = (tokenIndex: number) => {
-    if (activeSocket) {
-      activeSocket.emit('game:input', { action: 'move-token', tokenIndex });
+    if (!activeSocket) return;
+
+    if (gameState && gameState.gameId === 'ludo') {
+      const ludo = gameState as LudoGameState;
+      const myP = ludo.players[playerId];
+      const dice = ludo.diceValue;
+
+      if (
+        ludo.currentTurnPlayerId === playerId &&
+        ludo.hasRolled &&
+        dice !== null &&
+        ludo.validMoves?.includes(tokenIndex) &&
+        myP
+      ) {
+        const token = myP.tokens[tokenIndex];
+        if (token) {
+          const nextStep = token.state === 'base' && dice === 6 ? 1 : token.stepCount + dice;
+          const nextState =
+            nextStep <= 77
+              ? 'track'
+              : nextStep <= 82
+              ? 'home-stretch'
+              : 'finished';
+
+          const updatedTokens = myP.tokens.map((t, idx) =>
+            idx === tokenIndex
+              ? {
+                  ...t,
+                  state: nextState as typeof t.state,
+                  stepCount: Math.min(83, nextStep),
+                }
+              : t
+          );
+
+          // Optimistically start token hop immediately without waiting for network RTT
+          setGameState({
+            ...ludo,
+            validMoves: [],
+            hasRolled: false,
+            diceValue: null,
+            players: {
+              ...ludo.players,
+              [playerId]: {
+                ...myP,
+                tokens: updatedTokens,
+                canRoll: false,
+                hasRolled: false,
+              },
+            },
+          });
+        }
+      }
     }
+
+    activeSocket.emit('game:input', { action: 'move-token', tokenIndex });
   };
 
   const handlePlayAgain = () => {

@@ -22,6 +22,12 @@ export async function GET(
 
     const { searchParams } = new URL(req.url);
     const playerId = searchParams.get('playerId');
+    const clientU = Number(searchParams.get('u') || 0);
+    const clientV = Number(searchParams.get('v') || 0);
+    const clientPc = Number(searchParams.get('pc') || 0);
+    const clientCs = Number(searchParams.get('cs') || 0);
+    const clientEs = Number(searchParams.get('es') || 0);
+    const clientVk = searchParams.get('vk') === '1';
     const now = Date.now();
 
     // Throttle heartbeat updates to at most once every 15 seconds per player
@@ -59,6 +65,8 @@ export async function GET(
       );
     }
 
+    let ludoChanged = false;
+
     // Check if Ludo turn timed out, bot needs to act, or passAt expired
     if (
       roomData.room.status === 'in-game' &&
@@ -70,6 +78,7 @@ export async function GET(
         roomData.gameState
       );
       if (changed) {
+        ludoChanged = true;
         const newStatus = results ? 'finished' : 'in-game';
         const resultsJson = results ? JSON.stringify(results) : null;
         const expectedUpdatedAt = roomData.dbUpdatedAt || 0;
@@ -127,13 +136,39 @@ export async function GET(
     }
 
     const recentChats = (roomData.chatMessages || []).filter((c) => now - c.timestamp < 15000);
+    const recentEmotes = roomData.emotes || [];
+    const latestChatTs = recentChats.length > 0 ? recentChats[recentChats.length - 1].timestamp : 0;
+    const latestEmoteTs = recentEmotes.length > 0 ? Number(recentEmotes[recentEmotes.length - 1].timestamp) : 0;
+    const hasActiveVoteKick = Boolean(roomData.activeVoteKick);
+
+    // Fast-path lightweight response during gameplay when nothing changed
+    if (
+      roomData.room.status === 'in-game' &&
+      !ludoChanged &&
+      clientU > 0 &&
+      clientU === (roomData.dbUpdatedAt || 0) &&
+      clientV > 0 &&
+      clientV === (roomData.gameState?.stateVersion || 0) &&
+      clientPc === roomData.room.players.length &&
+      latestChatTs <= clientCs &&
+      latestEmoteTs <= clientEs &&
+      hasActiveVoteKick === clientVk &&
+      !hasActiveVoteKick
+    ) {
+      return NextResponse.json({
+        success: true,
+        unchanged: true,
+        u: roomData.dbUpdatedAt,
+      });
+    }
 
     return NextResponse.json({
       success: true,
+      u: roomData.dbUpdatedAt || 0,
       room: roomData.room,
       gameState: roomData.gameState,
       gameResults: roomData.gameResults,
-      emotes: roomData.emotes || [],
+      emotes: recentEmotes,
       voteKick: roomData.activeVoteKick || null,
       chats: recentChats,
     });

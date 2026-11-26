@@ -46,6 +46,7 @@ async function persistLudoTransition(
           'UPDATE gh_rooms SET game_state_json = ?, game_results_json = ?, status = ?, updated_at = ? WHERE code = ?',
           [JSON.stringify(retry.gameState), retryResultsJson, retryStatus, retryUpdatedAt, code]
         );
+        roomData.dbUpdatedAt = retryUpdatedAt;
         return retry;
       }
     }
@@ -57,6 +58,7 @@ async function persistLudoTransition(
   }
 
   roomData.room.status = newStatus;
+  roomData.dbUpdatedAt = nextUpdatedAt;
   saveMemoryRoom(
     roomData.room,
     newGameState,
@@ -86,7 +88,12 @@ export async function POST(
       return NextResponse.json({ success: false, error: 'Player ID is required.' }, { status: 400 });
     }
 
-    const roomData = await getRoomByCode(code);
+    const needsAux =
+      action === 'chat' ||
+      action === 'vote_kick_start' ||
+      action === 'vote_kick_vote';
+
+    const roomData = await getRoomByCode(code, { includeAux: needsAux });
     if (!roomData) {
       return NextResponse.json({ success: false, error: 'Room not found.' }, { status: 404 });
     }
@@ -292,14 +299,14 @@ export async function POST(
         (body.action === 'roll-dice' || body.action === 'move-token' || body.action === 'pass-turn'))
     ) {
       const { gameState: newGameState, results } = await persistLudoTransition(code, roomData, playerId, body);
-      return NextResponse.json({ success: true, gameState: newGameState, results });
+      return NextResponse.json({ success: true, gameState: newGameState, results, u: roomData.dbUpdatedAt });
     }
 
     // 4. PANJAT PINANG INPUT ACTION
     if (action === 'input') {
       if (room.settings.gameId === 'ludo') {
         const { gameState: newGameState, results } = await persistLudoTransition(code, roomData, playerId, body);
-        return NextResponse.json({ success: true, gameState: newGameState, results });
+        return NextResponse.json({ success: true, gameState: newGameState, results, u: roomData.dbUpdatedAt });
       }
 
       const { gameState: newGameState, results } = processPanjatAction(room, gameState, playerId, body);
