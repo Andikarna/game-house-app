@@ -71,7 +71,7 @@ export const LobbyView: React.FC = () => {
     return <ImpostorLobbyScreen />;
   }
   const minPlayersRequired = isHiddenTeam ? 6 : (isImpostorDesa ? 4 : (room.settings.gameId === 'ludo' ? 2 : 1));
-  const maxPlayersAllowed = (isHiddenTeam || isImpostorDesa) ? 6 : (room.settings.gameId === 'ludo' ? 4 : 8);
+  const maxPlayersAllowed = (isHiddenTeam || isImpostorDesa || room.settings.gameId === 'ludo') ? 6 : 8;
 
   const nonHostPlayers = room.players.filter(p => !p.isHost && p.id !== room.hostId && !p.isBot);
   const allReady = nonHostPlayers.length === 0 ? true : nonHostPlayers.every(p => p.isReady);
@@ -184,7 +184,7 @@ export const LobbyView: React.FC = () => {
         socket.emit('room:update-settings', {
           gameId: 'ludo',
           gameMode: 'classic',
-          maxPlayers: Math.min(room.settings.maxPlayers, 4),
+          maxPlayers: Math.min(room.settings.maxPlayers, 6),
         });
       } else {
         socket.emit('room:update-settings', {

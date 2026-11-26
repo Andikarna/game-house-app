@@ -10,9 +10,11 @@ import { LudoGameState, LudoColor } from '@gamehouse/shared';
 
 const COLOR_TEXT: Record<LudoColor, { label: string; text: string; bg: string }> = {
   red: { label: 'MERAH', text: 'text-red-400', bg: 'bg-red-600' },
-  green: { label: 'HIJAU', text: 'text-emerald-400', bg: 'bg-emerald-600' },
-  yellow: { label: 'KUNING', text: 'text-amber-400', bg: 'bg-amber-500' },
   blue: { label: 'BIRU', text: 'text-blue-400', bg: 'bg-blue-600' },
+  purple: { label: 'UNGU', text: 'text-purple-400', bg: 'bg-purple-600' },
+  green: { label: 'HIJAU', text: 'text-emerald-400', bg: 'bg-emerald-600' },
+  yellow: { label: 'KUNING', text: 'text-yellow-400', bg: 'bg-yellow-500' },
+  orange: { label: 'ORANYE', text: 'text-orange-400', bg: 'bg-orange-600' },
 };
 
 interface VoteKickModalProps {

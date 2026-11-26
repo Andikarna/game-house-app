@@ -14,7 +14,14 @@ export async function POST(req: Request) {
     const gameMode: GameMode = body.gameMode || body.settings?.gameMode || 'classic';
     const isHiddenTeam = gameId === 'hidden-team';
     const isImpostor = gameId === 'impostor-desa';
-    const maxPlayers = isHiddenTeam ? 6 : isImpostor ? Math.min(6, Math.max(4, Number(body.maxPlayers || 6))) : Number(body.maxPlayers || body.settings?.maxPlayers || 4);
+    const isLudo = gameId === 'ludo';
+    const maxPlayers = isHiddenTeam
+      ? 6
+      : isImpostor
+      ? Math.min(6, Math.max(4, Number(body.maxPlayers || 6)))
+      : isLudo
+      ? Math.min(6, Math.max(2, Number(body.maxPlayers || body.settings?.maxPlayers || 4)))
+      : Number(body.maxPlayers || body.settings?.maxPlayers || 4);
     const roomName = body.roomName || body.settings?.name || (isHiddenTeam ? `${nickname}'s Council` : `${nickname}'s Arena`);
     const durationSeconds = Number(body.durationSeconds || body.settings?.durationSeconds || (isHiddenTeam ? 600 : 180));
 

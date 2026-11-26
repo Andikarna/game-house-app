@@ -116,7 +116,7 @@ export interface GameResultData {
     rankings: PlayerGameResult[];
     endedAt: number;
 }
-export type LudoColor = 'red' | 'green' | 'yellow' | 'blue';
+export type LudoColor = 'red' | 'blue' | 'purple' | 'green' | 'yellow' | 'orange';
 export type LudoTokenState = 'base' | 'track' | 'home-stretch' | 'finished';
 export interface LudoToken {
     id: number;

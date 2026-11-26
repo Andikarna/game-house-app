@@ -11,9 +11,11 @@ interface LudoTurnHUDProps {
 
 const COLOR_TEXT: Record<LudoColor, { label: string; text: string; bg: string }> = {
   red: { label: 'MERAH', text: 'text-red-400', bg: 'bg-red-600' },
-  green: { label: 'HIJAU', text: 'text-emerald-400', bg: 'bg-emerald-600' },
-  yellow: { label: 'KUNING', text: 'text-amber-400', bg: 'bg-amber-500' },
   blue: { label: 'BIRU', text: 'text-blue-400', bg: 'bg-blue-600' },
+  purple: { label: 'UNGU', text: 'text-purple-400', bg: 'bg-purple-600' },
+  green: { label: 'HIJAU', text: 'text-emerald-400', bg: 'bg-emerald-600' },
+  yellow: { label: 'KUNING', text: 'text-yellow-400', bg: 'bg-yellow-500' },
+  orange: { label: 'ORANYE', text: 'text-orange-400', bg: 'bg-orange-600' },
 };
 
 export const LudoTurnHUD: React.FC<LudoTurnHUDProps> = ({
@@ -84,7 +86,7 @@ export const LudoTurnHUD: React.FC<LudoTurnHUDProps> = ({
       </div>
 
       {/* 2. All Players Token Summary Strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+      <div className={`grid gap-1.5 ${gameState.playerOrder.length > 4 ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-2 sm:grid-cols-4'}`}>
         {gameState.playerOrder.map((pId) => {
           const p = gameState.players[pId];
           if (!p) return null;

@@ -348,7 +348,7 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
                 : selectedGame === 'impostor-desa'
                 ? '4 - 6 Pemain'
                 : selectedGame === 'ludo'
-                ? '2 - 4 Pemain'
+                ? '2 - 6 Pemain'
                 : '2 - 8 Pemain'}
             </span>
           </div>
@@ -361,7 +361,7 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
             <input
               type="range"
               min={selectedGame === 'impostor-desa' ? 4 : 2}
-              max={selectedGame === 'impostor-desa' ? 6 : selectedGame === 'ludo' ? 4 : 8}
+              max={selectedGame === 'impostor-desa' ? 6 : selectedGame === 'ludo' ? 6 : 8}
               value={maxPlayers}
               onChange={(e) => setMaxPlayers(parseInt(e.target.value, 10))}
               className="w-full accent-indigo-500 cursor-pointer"
