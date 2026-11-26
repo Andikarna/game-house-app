@@ -353,6 +353,10 @@ export class Room {
       return { canStart: false, reason: 'Ludo Party supports a maximum of 6 players.' };
     }
 
+    if (this.settings.gameId === 'snake-ladder' && this.players.size > 6) {
+      return { canStart: false, reason: 'Ular Tangga supports a maximum of 6 players.' };
+    }
+
     const nonHostPlayers = Array.from(this.players.values()).filter(p => !p.isHost && !p.isBot);
     const unreadyPlayers = nonHostPlayers.filter(p => !p.isReady);
 

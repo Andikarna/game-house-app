@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { safeDbQuery } from '../../../../lib/db';
 import { getRoomByCode, saveMemoryRoom, RoomEntry } from '../../../../lib/room-service';
-import { checkLudoTimeout } from '../../../../lib/game-runner';
+import { checkLudoTimeout, checkSnakeTimeout } from '../../../../lib/game-runner';
 
 export const dynamic = 'force-dynamic';
 export const preferredRegion = 'sin1';
@@ -67,16 +67,16 @@ export async function GET(
 
     let ludoChanged = false;
 
-    // Check if Ludo turn timed out, bot needs to act, or passAt expired
+    // Check if Ludo or Snake-Ladder turn timed out, bot needs to act, or passAt expired
     if (
       roomData.room.status === 'in-game' &&
-      roomData.room.settings.gameId === 'ludo' &&
+      (roomData.room.settings.gameId === 'ludo' || roomData.room.settings.gameId === 'snake-ladder') &&
       roomData.gameState
     ) {
-      const { changed, gameState: updatedState, results } = checkLudoTimeout(
-        roomData.room,
-        roomData.gameState
-      );
+      const { changed, gameState: updatedState, results } =
+        roomData.room.settings.gameId === 'snake-ladder'
+          ? checkSnakeTimeout(roomData.room, roomData.gameState)
+          : checkLudoTimeout(roomData.room, roomData.gameState);
       if (changed) {
         ludoChanged = true;
         const newStatus = results ? 'finished' : 'in-game';

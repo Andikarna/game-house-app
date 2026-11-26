@@ -3,6 +3,8 @@ import {
   SkillType, 
   AvatarId, 
   GameId,
+  SnakeLink,
+  LadderLink,
   EmoteDefinition, 
   EmoteId, 
   EmoteCategory, 
@@ -22,6 +24,10 @@ export const GAME_AVAILABILITY: Record<GameId, { status: GameAvailabilityStatus;
     reason: 'Game Panjat Pinang sedang dalam pemeliharaan (Maintenance).',
   },
   'ludo': {
+    status: 'playable',
+    label: 'Siap Dimainkan',
+  },
+  'snake-ladder': {
     status: 'playable',
     label: 'Siap Dimainkan',
   },
@@ -61,6 +67,8 @@ export const DEFAULT_GAME_DURATION: Record<string, number> = {
   'skill-battle': 150, // 2.5 minutes
   'classic': 600, // 10 minutes
   'quick': 300, // 5 minutes
+  'snake-classic': 600, // 10 minutes
+  'snake-quick': 300, // 5 minutes
   'impostor-classic': 240, // 4 minutes
   'hidden-team-standard': 600, // 10 minutes
   'hidden-team-4r': 480, // 8 minutes
@@ -770,6 +778,103 @@ export const MAIN_CARDS_DECK: MainCard[] = [
     description: 'Kemenangan suara Netral membuktikan kekuatan faksi independen tak terbendung.',
     illustration: '🕊️',
     roundObjective: 'Menangkan suara faksi NEUTRAL melebihi Red dan Blue.',
+  },
+];
+
+// =========================================================================
+// SNAKES & LADDERS (ULAR TANGGA 2.5D) BOARD MAP
+// =========================================================================
+
+export const SNAKE_LADDER_LADDERS: LadderLink[] = [
+  { id: 'ladder-1', from: 4, to: 25, name: 'Tangga Bambu Awal' },
+  { id: 'ladder-2', from: 13, to: 46, name: 'Tangga Rimba Panjang' },
+  { id: 'ladder-3', from: 33, to: 49, name: 'Tangga Bukit Hijau' },
+  { id: 'ladder-4', from: 42, to: 63, name: 'Tangga Awan Barat' },
+  { id: 'ladder-5', from: 50, to: 69, name: 'Tangga Menara Timur' },
+  { id: 'ladder-6', from: 62, to: 81, name: 'Tangga Puncak Utara' },
+  { id: 'ladder-7', from: 74, to: 92, name: 'Tangga Emas Juara' },
+];
+
+export const SNAKE_LADDER_SNAKES: SnakeLink[] = [
+  {
+    id: 'snake-1',
+    from: 27,
+    to: 5,
+    name: 'Ular Koral Cilik',
+    bodyColor: '#F97316',
+    accentColor: '#FDE047',
+    bellyColor: '#FFEDD5',
+    pattern: 'stripes',
+  },
+  {
+    id: 'snake-2',
+    from: 40,
+    to: 3,
+    name: 'Piton Zamrud',
+    bodyColor: '#10B981',
+    accentColor: '#A7F3D0',
+    bellyColor: '#D1FAE5',
+    pattern: 'diamonds',
+  },
+  {
+    id: 'snake-3',
+    from: 43,
+    to: 18,
+    name: 'Viper Lembayung',
+    bodyColor: '#8B5CF6',
+    accentColor: '#F472B6',
+    bellyColor: '#EDE9FE',
+    pattern: 'spots',
+  },
+  {
+    id: 'snake-4',
+    from: 54,
+    to: 31,
+    name: 'Kobra Safir',
+    bodyColor: '#0EA5E9',
+    accentColor: '#67E8F9',
+    bellyColor: '#E0F2FE',
+    pattern: 'stripes',
+  },
+  {
+    id: 'snake-5',
+    from: 66,
+    to: 45,
+    name: 'Ular Emas Licin',
+    bodyColor: '#EAB308',
+    accentColor: '#FEF08A',
+    bellyColor: '#FEF9C3',
+    pattern: 'diamonds',
+  },
+  {
+    id: 'snake-6',
+    from: 89,
+    to: 53,
+    name: 'Naga Ular Rubi',
+    bodyColor: '#E11D48',
+    accentColor: '#FDA4AF',
+    bellyColor: '#FFE4E6',
+    pattern: 'spots',
+  },
+  {
+    id: 'snake-7',
+    from: 95,
+    to: 75,
+    name: 'Mamba Tosca',
+    bodyColor: '#14B8A6',
+    accentColor: '#5EEAD4',
+    bellyColor: '#CCFBF1',
+    pattern: 'stripes',
+  },
+  {
+    id: 'snake-8',
+    from: 99,
+    to: 61,
+    name: 'Raja Kobra Puncak',
+    bodyColor: '#9333EA',
+    accentColor: '#FACC15',
+    bellyColor: '#F3E8FF',
+    pattern: 'diamonds',
   },
 ];
 

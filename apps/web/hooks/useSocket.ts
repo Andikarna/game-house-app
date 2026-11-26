@@ -117,6 +117,10 @@ export function useSocket() {
         setGameState(state);
       });
 
+      targetSocket.on('game:snake_state', (state: any) => {
+        setGameState(state);
+      });
+
       targetSocket.on('game:finished', (results: any) => {
         setGameResults(results);
         soundManager.playVictory();

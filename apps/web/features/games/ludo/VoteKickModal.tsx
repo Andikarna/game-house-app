@@ -20,7 +20,7 @@ const COLOR_TEXT: Record<LudoColor, { label: string; text: string; bg: string }>
 interface VoteKickModalProps {
   isOpen: boolean;
   onClose: () => void;
-  gameState: LudoGameState;
+  gameState?: LudoGameState | any;
 }
 
 export const VoteKickModal: React.FC<VoteKickModalProps> = ({
@@ -33,9 +33,9 @@ export const VoteKickModal: React.FC<VoteKickModalProps> = ({
   const activeSocket = socket || getGlobalSocket();
 
   // Filter eligible targets (all opponents, excluding self)
-  const eligibleOpponents = gameState.playerOrder
-    .filter((pId) => pId !== playerId)
-    .map((pId) => gameState.players[pId])
+  const eligibleOpponents: any[] = (gameState?.playerOrder || [])
+    .filter((pId: string) => pId !== playerId)
+    .map((pId: string) => gameState?.players?.[pId])
     .filter(Boolean);
 
   const handleStartVoteKick = (targetId: string) => {
@@ -78,8 +78,8 @@ export const VoteKickModal: React.FC<VoteKickModalProps> = ({
           </p>
 
           <div className="flex flex-col gap-2 mt-1">
-            {eligibleOpponents.map((opp) => {
-              const cMeta = COLOR_TEXT[opp.color] || COLOR_TEXT.red;
+            {eligibleOpponents.map((opp: any) => {
+              const cMeta = COLOR_TEXT[opp.color as LudoColor] || COLOR_TEXT.red;
               const isSelected = selectedTargetId === opp.playerId;
 
               return (

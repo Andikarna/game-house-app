@@ -274,6 +274,9 @@ class PollingSocket {
           this.emitInternal('game:started', data.gameState);
           this.emitInternal('game:state', data.gameState);
           this.emitInternal('game:ludo_state', data.gameState);
+          if (data.gameState.gameId === 'snake-ladder') {
+            this.emitInternal('game:snake_state', data.gameState);
+          }
           await this.pollOnce(true);
         }
         return;
@@ -304,12 +307,13 @@ class PollingSocket {
         return;
       }
 
-      // 6. GAME INPUT (Ludo roll/move/pass or Panjat Pinang movement)
+      // 6. GAME INPUT (Ludo / Snake-Ladder / Panjat Pinang)
       if (event === 'game:input') {
         const isLudoAction = payload?.action === 'roll-dice' || payload?.action === 'move-token' || payload?.action === 'pass-turn';
-        const actionName = isLudoAction ? 'ludo_action' : 'input';
+        const isTurnGame = isLudoAction;
+        const actionName = 'input';
         this.inFlightActionCount++;
-        if (isLudoAction && this.lastGameStateVersion > 0) {
+        if (isTurnGame && this.lastGameStateVersion > 0) {
           this.minExpectedVersion = Math.max(this.minExpectedVersion, this.lastGameStateVersion + 1);
         }
 
@@ -345,8 +349,11 @@ class PollingSocket {
             }
             this.isMyTurnActive = data.gameState.currentTurnPlayerId === this.currentPlayerId;
             this.lastGameStateStr = JSON.stringify(data.gameState);
-            if (isLudoAction) {
+            if (data.gameState.gameId === 'ludo') {
               this.emitInternal('game:ludo_state', data.gameState);
+            } else if (data.gameState.gameId === 'snake-ladder') {
+              this.emitInternal('game:snake_state', data.gameState);
+              this.emitInternal('game:state', data.gameState);
             } else {
               this.emitInternal('game:state', data.gameState);
             }
@@ -604,6 +611,9 @@ class PollingSocket {
             this.lastGameStateStr = gameStr;
             if (room.settings.gameId === 'ludo') {
               this.emitInternal('game:ludo_state', data.gameState);
+            } else if (room.settings.gameId === 'snake-ladder') {
+              this.emitInternal('game:snake_state', data.gameState);
+              this.emitInternal('game:state', data.gameState);
             } else {
               this.emitInternal('game:state', data.gameState);
             }

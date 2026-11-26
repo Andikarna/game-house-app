@@ -167,9 +167,9 @@ export const LudoDice: React.FC<LudoDiceProps> = ({
 
     const cur = cubeRotRef.current;
     // Spin forward along all 3 axes smoothly
-    const spinRx = cur.rx + 520 + Math.floor(Math.random() * 140);
-    const spinRy = cur.ry + 620 + Math.floor(Math.random() * 160);
-    const spinRz = cur.rz + 360;
+    const spinRx = cur.rx + 360 + Math.floor(Math.random() * 120);
+    const spinRy = cur.ry + 420 + Math.floor(Math.random() * 140);
+    const spinRz = cur.rz + 180;
     setCubeRotation({ rx: spinRx, ry: spinRy, rz: spinRz });
   };
 
@@ -189,32 +189,29 @@ export const LudoDice: React.FC<LudoDiceProps> = ({
     const cur = cubeRotRef.current;
 
     setCubeRotation({
-      rx: nextForwardAngle(cur.rx, target.rx, 1),
-      ry: nextForwardAngle(cur.ry, target.ry, 1),
+      rx: nextForwardAngle(cur.rx, target.rx, 0),
+      ry: nextForwardAngle(cur.ry, target.ry, 0),
       rz: nextForwardAngle(cur.rz, 0, 0),
     });
 
     setRevealedNumber(clampedVal);
     setIsRolling(false);
     setIsLanding(true);
+    setShowNumberBanner(true);
+    setShowShockwave(true);
+    soundManager.playDiceImpact();
+    soundManager.playNumberReveal(clampedVal);
 
     if (impactTimeoutRef.current) clearTimeout(impactTimeoutRef.current);
     impactTimeoutRef.current = setTimeout(() => {
-      setShowShockwave(true);
-      setShowNumberBanner(true);
-      soundManager.playDiceImpact();
-      soundManager.playNumberReveal(clampedVal);
-
-      setTimeout(() => {
-        setIsLanding(false);
-        setShowShockwave(false);
-      }, 420);
-    }, 240);
+      setIsLanding(false);
+      setShowShockwave(false);
+    }, 300);
 
     if (bannerTimeoutRef.current) clearTimeout(bannerTimeoutRef.current);
     bannerTimeoutRef.current = setTimeout(() => {
       setShowNumberBanner(false);
-    }, 2600);
+    }, 2400);
   };
 
   // Sync with incoming server value changes
@@ -229,20 +226,24 @@ export const LudoDice: React.FC<LudoDiceProps> = ({
       if (isAwaitingServerResultRef.current) {
         isAwaitingServerResultRef.current = false;
         const elapsed = Date.now() - rollStartTimeRef.current;
-        const minFlightDuration = 340;
+        const minFlightDuration = 120;
         const remaining = Math.max(0, minFlightDuration - elapsed);
 
         if (landTimeoutRef.current) clearTimeout(landTimeoutRef.current);
-        landTimeoutRef.current = setTimeout(() => {
+        if (remaining === 0) {
           landOnAuthoritativeNumber(value);
-        }, remaining);
+        } else {
+          landTimeoutRef.current = setTimeout(() => {
+            landOnAuthoritativeNumber(value);
+          }, remaining);
+        }
       } else {
         // Opponent or Bot rolled
         if (landTimeoutRef.current) clearTimeout(landTimeoutRef.current);
         startTumbling();
         landTimeoutRef.current = setTimeout(() => {
           landOnAuthoritativeNumber(value);
-        }, 360);
+        }, 200);
       }
     } else if (value === null) {
       prevValueRef.current = null;
@@ -388,7 +389,7 @@ export const LudoDice: React.FC<LudoDiceProps> = ({
               : { y: 0, scale: 1 }
           }
           transition={{
-            duration: isRolling ? 0.32 : isLanding ? 0.36 : 0.25,
+            duration: isRolling ? 0.22 : isLanding ? 0.24 : 0.2,
             ease: [0.22, 1, 0.36, 1],
           }}
           style={{ perspective: 720 }}
@@ -416,8 +417,8 @@ export const LudoDice: React.FC<LudoDiceProps> = ({
               }}
               transition={
                 isRolling
-                  ? { duration: 0.45, ease: [0.3, 0.85, 0.4, 1] }
-                  : { duration: 0.44, ease: [0.18, 1.15, 0.32, 1] }
+                  ? { duration: 0.24, ease: [0.25, 0.85, 0.35, 1] }
+                  : { duration: 0.24, ease: [0.18, 1.15, 0.32, 1] }
               }
               style={{ transformStyle: 'preserve-3d' }}
               className="relative w-[72px] h-[72px]"

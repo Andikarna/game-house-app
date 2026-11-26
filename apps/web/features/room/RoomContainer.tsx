@@ -8,6 +8,7 @@ import { globalPollingSocket } from '../../lib/polling-socket';
 import { LobbyView } from '../lobby/LobbyView';
 import { PanjatPinangView } from '../games/panjat-pinang/PanjatPinangView';
 import { LudoView } from '../games/ludo/LudoView';
+import { SnakeLadderView } from '../games/snake-ladder/SnakeLadderView';
 import { ImpostorDesaView } from '../games/impostor-desa/ImpostorDesaView';
 import { HiddenTeamView } from '../games/hidden-team/HiddenTeamView';
 import { Button } from '../../components/ui/Button';
@@ -205,6 +206,14 @@ export const RoomContainer: React.FC<RoomContainerProps> = ({ roomCode }) => {
       return (
         <>
           <LudoView />
+          <ToastContainer />
+        </>
+      );
+    }
+    if (room.settings.gameId === 'snake-ladder') {
+      return (
+        <>
+          <SnakeLadderView />
           <ToastContainer />
         </>
       );

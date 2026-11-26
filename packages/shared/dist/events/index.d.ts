@@ -1,4 +1,4 @@
-import { RoomInfo, RoomSettings, Player, ImpostorPublicGameState, ImpostorPrivateRoleData, ImpostorResultData, ImpostorInput, AnyGameState, ClimberInput, LudoInput, SkillType, GameResultData, AvatarId, EmoteId, HiddenTeamActionPayload, HiddenTeamPublicGameState, HiddenTeamPlayerPrivate, HiddenTeamRoundResult, HiddenTeamMatchResult, ChatMessage, VoteKickState } from '../types';
+import { RoomInfo, RoomSettings, Player, ImpostorPublicGameState, ImpostorPrivateRoleData, ImpostorResultData, ImpostorInput, AnyGameState, ClimberInput, LudoInput, SnakeLadderInput, SkillType, GameResultData, AvatarId, EmoteId, HiddenTeamActionPayload, HiddenTeamPublicGameState, HiddenTeamPlayerPrivate, HiddenTeamRoundResult, HiddenTeamMatchResult, ChatMessage, VoteKickState } from '../types';
 export interface ClientToServerEvents {
     'room:create': (payload: {
         nickname: string;
@@ -34,7 +34,7 @@ export interface ClientToServerEvents {
     'room:fill-bots': () => void;
     'room:clear-bots': () => void;
     'game:start': () => void;
-    'game:input': (input: ClimberInput | LudoInput | ImpostorInput | any) => void;
+    'game:input': (input: ClimberInput | LudoInput | SnakeLadderInput | ImpostorInput | any) => void;
     'player:skill': (skill: SkillType) => void;
     'game:restart': () => void;
     'game:emote': (payload: {
@@ -92,6 +92,7 @@ export interface ServerToClientEvents {
     'game:started': (initialState: AnyGameState | any) => void;
     'game:state': (state: AnyGameState | any) => void;
     'game:ludo_state': (state: AnyGameState | any) => void;
+    'game:snake_state': (state: AnyGameState | any) => void;
     'game:finished': (results: GameResultData | any) => void;
     'impostor:private-role': (data: ImpostorPrivateRoleData) => void;
     'impostor:state': (state: ImpostorPublicGameState) => void;

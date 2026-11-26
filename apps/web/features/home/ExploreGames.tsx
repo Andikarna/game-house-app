@@ -37,10 +37,21 @@ export const ExploreGames: React.FC<ExploreProps> = ({ onSelectGame }) => {
       title: 'Ludo Party',
       description: 'Papan permainan klasik favorit keluarga & tongkrongan! Lempar dadu 3D, tendang bidak lawan kembali ke markas, dan balapan ke segitiga finish.',
       emoji: '🎲',
-      players: '2-4 Pemain',
+      players: '2-6 Pemain',
       category: 'Classic / Board Game',
       tagColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
       highlights: ['Dadu 3D Interaktif', 'Makan Bidak', 'Safe Zone Bintang'],
+      status: 'playable',
+    },
+    {
+      id: 'snake-ladder',
+      title: 'Ular Tangga 2.5D',
+      description: 'Balapan seru di papan 1-100 bersama 2-6 pemain! Dilengkapi ular 2.5D yang bergerak hidup, efek cahaya naik tangga, dan luncuran ular dramatis.',
+      emoji: '🐍',
+      players: '2-6 Pemain',
+      category: 'Classic / 2.5D Board',
+      tagColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
+      highlights: ['Ular 2.5D Bergerak', 'Efek Naik & Turun', 'Pantulan Petak 100'],
       status: 'playable',
     },
     {
@@ -126,7 +137,7 @@ export const ExploreGames: React.FC<ExploreProps> = ({ onSelectGame }) => {
           </h3>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
           {readyGames.map((game) => (
             <div
               key={game.id}

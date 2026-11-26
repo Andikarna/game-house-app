@@ -469,6 +469,7 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
 
   // Visual effects state
   const [impactBurst, setImpactBurst] = useState<{ coord: [number, number]; id: number } | null>(null);
+  const [isBoardShaking, setIsBoardShaking] = useState(false);
   const [finishCelebrate, setFinishCelebrate] = useState<{ color: LudoColor; id: number } | null>(null);
 
   // Base Speech Bubbles State
@@ -603,27 +604,37 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
           }
 
           const isActualCapture = Boolean(
-            gameState.lastMoveNotice?.includes('memulangkan bidak') &&
-            player.color !== gameState.currentTurnColor
+            token.state === 'base' &&
+            currentDisplayed > 0 &&
+            (gameState.lastMoveNotice?.includes('memulangkan bidak') || player.color !== gameState.currentTurnColor)
           );
 
-          if (maxWalkDuration > 0 && isActualCapture) {
+          if (isActualCapture) {
             const capturedCoord = getTokenCoordinate(player.color, token.id, currentDisplayed, 'track');
             targetStepsRef.current[key] = 0;
 
-            captureTimeoutsRef.current[key] = setTimeout(() => {
+            const executeCaptureVisuals = () => {
               soundManager.playTokenCapture();
+              setIsBoardShaking(true);
+              setTimeout(() => setIsBoardShaking(false), 320);
+
               setImpactBurst({
                 coord: capturedCoord,
                 id: Date.now(),
               });
-              setTimeout(() => setImpactBurst(null), 700);
+              setTimeout(() => setImpactBurst(null), 950);
 
               displayedStepsRef.current[key] = 0;
               targetStepsRef.current[key] = 0;
               setAnimatedSteps((prev) => ({ ...prev, [key]: 0 }));
               delete captureTimeoutsRef.current[key];
-            }, maxWalkDuration);
+            };
+
+            if (maxWalkDuration > 0) {
+              captureTimeoutsRef.current[key] = setTimeout(executeCaptureVisuals, maxWalkDuration);
+            } else {
+              executeCaptureVisuals();
+            }
             return;
           }
 
@@ -759,7 +770,11 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
   });
 
   return (
-    <div className="relative w-full max-w-[500px] sm:max-w-[580px] aspect-square bg-[#0c121e] border-[5px] border-slate-700/80 rounded-[2.5rem] shadow-[0_20px_60px_rgba(0,0,0,0.85)] p-2 sm:p-3 select-none touch-manipulation overflow-hidden">
+    <motion.div
+      animate={isBoardShaking ? { x: [0, -6, 6, -4, 4, 0], y: [0, 3, -3, 2, -2, 0] } : { x: 0, y: 0 }}
+      transition={{ duration: 0.3, ease: 'easeOut' }}
+      className="relative w-full max-w-[500px] sm:max-w-[580px] aspect-square bg-[#0c121e] border-[5px] border-slate-700/80 rounded-[2.5rem] shadow-[0_20px_60px_rgba(0,0,0,0.85)] p-2 sm:p-3 select-none touch-manipulation overflow-hidden"
+    >
       {/* POV CAMERA BADGE */}
       <div className="absolute top-3 right-3 z-30 pointer-events-auto">
         <button
@@ -1107,13 +1122,13 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
             });
           })()}
 
-          {/* Comic KAPOW Impact Burst Effect */}
+          {/* Comic KAPOW / BONK Impact Burst Effect when sending opponent token back to base */}
           {impactBurst && (
             <motion.div
               key={impactBurst.id}
-              initial={{ scale: 0.2, opacity: 1, rotate: -20, x: '-50%', y: '-50%' }}
-              animate={{ scale: [0.2, 1.35, 1.1], opacity: [1, 1, 0], rotate: [-20, 10, 0], x: '-50%', y: '-50%' }}
-              transition={{ duration: 0.65, ease: 'easeOut' }}
+              initial={{ scale: 0.25, opacity: 1, x: '-50%', y: '-50%' }}
+              animate={{ scale: [0.25, 1.4, 1.15], opacity: [1, 1, 0], x: '-50%', y: '-50%' }}
+              transition={{ duration: 0.9, ease: 'easeOut' }}
               style={{
                 left: `${(impactBurst.coord[1] / 1000) * 100}%`,
                 top: `${(impactBurst.coord[0] / 1000) * 100}%`,
@@ -1122,13 +1137,17 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
               }}
               className="absolute z-40 pointer-events-none flex flex-col items-center justify-center select-none"
             >
-              <div className="relative flex items-center justify-center">
-                <span className="absolute w-12 h-12 rounded-full border-4 border-amber-400 bg-amber-400/30 animate-ping" />
-                <span className="relative text-3xl filter drop-shadow-[0_0_12px_rgba(239,68,68,1)]">
+              <div
+                className="relative flex items-center justify-center"
+                style={{ transform: `rotate(${-boardRotationDeg}deg)` }}
+              >
+                <span className="absolute w-16 h-16 rounded-full border-4 border-rose-500 bg-rose-500/35 animate-ping" />
+                <span className="absolute w-11 h-11 rounded-full border-2 border-amber-300 bg-amber-400/30 animate-pulse" />
+                <span className="relative text-3xl sm:text-4xl filter drop-shadow-[0_0_16px_rgba(239,68,68,1)]">
                   💥
                 </span>
-                <span className="absolute -top-3.5 font-black text-[9px] tracking-widest text-amber-300 uppercase bg-slate-950/95 px-2 py-0.5 rounded-full border border-amber-400 shadow-xl">
-                  BONK!
+                <span className="absolute -top-4 font-black text-[10px] tracking-widest text-amber-200 uppercase bg-gradient-to-r from-rose-600 to-amber-600 px-2.5 py-0.5 rounded-full border border-amber-300 shadow-xl whitespace-nowrap">
+                  BONK! PULANG!
                 </span>
               </div>
             </motion.div>
@@ -1160,6 +1179,6 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
           )}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 };

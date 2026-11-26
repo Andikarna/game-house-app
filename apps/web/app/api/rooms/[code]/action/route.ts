@@ -1,7 +1,14 @@
 import { NextResponse } from 'next/server';
 import { dbQuery, safeDbQuery, ensureAuxTables } from '../../../../../lib/db';
 import { getRoomByCode, saveMemoryRoom, RoomEntry } from '../../../../../lib/room-service';
-import { createInitialGameState, processLudoAction, processPanjatAction, removeLudoPlayer } from '../../../../../lib/game-runner';
+import {
+  createInitialGameState,
+  processLudoAction,
+  processPanjatAction,
+  removeLudoPlayer,
+  processSnakeAction,
+  removeSnakePlayer,
+} from '../../../../../lib/game-runner';
 import { AvatarId, ChatMessage, VoteKickState, GAME_AVAILABILITY, GameId } from '../../../../../shared';
 
 export const dynamic = 'force-dynamic';
@@ -10,13 +17,14 @@ export const preferredRegion = 'sin1';
 const BOT_NAMES = ['Budi (Bot)', 'Siti (Bot)', 'Jago (Bot)', 'Rara (Bot)', 'Bayu (Bot)'];
 const BOT_AVATARS: AvatarId[] = ['budi', 'siti', 'jago', 'rara', 'bayu'];
 
-async function persistLudoTransition(
+async function persistTurnGameTransition(
   code: string,
   roomData: RoomEntry,
   playerId: string,
-  body: any
+  body: any,
+  processor: (room: any, gameState: any, playerId: string, body: any) => { gameState: any; results: any | null }
 ): Promise<{ gameState: any; results: any | null }> {
-  const { gameState: newGameState, results } = processLudoAction(
+  const { gameState: newGameState, results } = processor(
     roomData.room,
     roomData.gameState,
     playerId,
@@ -36,7 +44,7 @@ async function persistLudoTransition(
       // Concurrent update (e.g. timeout poll); reload fresh state and retry once
       const fresh = await getRoomByCode(code, { includeAux: false, throwOnDbError: true });
       if (fresh) {
-        const retry = processLudoAction(fresh.room, fresh.gameState, playerId, body);
+        const retry = processor(fresh.room, fresh.gameState, playerId, body);
         const retryResultsJson = retry.results ? JSON.stringify(retry.results) : null;
         const retryStatus = retry.results ? 'finished' : 'in-game';
         const retryUpdatedAt = Math.max(Date.now(), (fresh.dbUpdatedAt || 0) + 1);
@@ -68,6 +76,24 @@ async function persistLudoTransition(
     nextUpdatedAt
   );
   return { gameState: newGameState, results };
+}
+
+async function persistLudoTransition(
+  code: string,
+  roomData: RoomEntry,
+  playerId: string,
+  body: any
+): Promise<{ gameState: any; results: any | null }> {
+  return persistTurnGameTransition(code, roomData, playerId, body, processLudoAction);
+}
+
+async function persistSnakeTransition(
+  code: string,
+  roomData: RoomEntry,
+  playerId: string,
+  body: any
+): Promise<{ gameState: any; results: any | null }> {
+  return persistTurnGameTransition(code, roomData, playerId, body, processSnakeAction);
 }
 
 export async function POST(
@@ -302,10 +328,23 @@ export async function POST(
       return NextResponse.json({ success: true, gameState: newGameState, results, u: roomData.dbUpdatedAt });
     }
 
+    // 3b. SNAKE LADDER ACTION
+    if (
+      action === 'snake_action' ||
+      (room.settings.gameId === 'snake-ladder' && body.action === 'roll-dice')
+    ) {
+      const { gameState: newGameState, results } = await persistSnakeTransition(code, roomData, playerId, body);
+      return NextResponse.json({ success: true, gameState: newGameState, results, u: roomData.dbUpdatedAt });
+    }
+
     // 4. PANJAT PINANG INPUT ACTION
     if (action === 'input') {
       if (room.settings.gameId === 'ludo') {
         const { gameState: newGameState, results } = await persistLudoTransition(code, roomData, playerId, body);
+        return NextResponse.json({ success: true, gameState: newGameState, results, u: roomData.dbUpdatedAt });
+      }
+      if (room.settings.gameId === 'snake-ladder') {
+        const { gameState: newGameState, results } = await persistSnakeTransition(code, roomData, playerId, body);
         return NextResponse.json({ success: true, gameState: newGameState, results, u: roomData.dbUpdatedAt });
       }
 
@@ -466,6 +505,8 @@ export async function POST(
       if (voteState.yesCount >= requiredVotes) {
         const updatedState = room.settings.gameId === 'ludo' && gameState
           ? removeLudoPlayer(room, gameState, target.id)
+          : room.settings.gameId === 'snake-ladder' && gameState
+          ? removeSnakePlayer(room, gameState, target.id)
           : gameState;
         room.players = room.players.filter((p) => p.id !== target.id);
         const nextUpdatedAt = Math.max(now, (roomData.dbUpdatedAt || 0) + 1);
@@ -516,6 +557,8 @@ export async function POST(
       if (yesCount >= activeVote.requiredVotes) {
         const updatedState = room.settings.gameId === 'ludo' && gameState
           ? removeLudoPlayer(room, gameState, targetId)
+          : room.settings.gameId === 'snake-ladder' && gameState
+          ? removeSnakePlayer(room, gameState, targetId)
           : gameState;
         room.players = room.players.filter((p) => p.id !== targetId);
         const nextUpdatedAt = Math.max(now, (roomData.dbUpdatedAt || 0) + 1);

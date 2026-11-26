@@ -70,12 +70,13 @@ export const LudoView: React.FC = () => {
 
     // 2. Token Capture Toast: Authoritative check synchronized with the walking arrival
     if (!isFirstRender.current) {
+      const captureKey = `${ludo.stateVersion || 0}_${ludo.lastMoveNotice}`;
       if (
         ludo.lastMoveNotice &&
         ludo.lastMoveNotice.includes('memulangkan bidak') &&
-        ludo.lastMoveNotice !== lastProcessedCaptureNoticeRef.current
+        captureKey !== lastProcessedCaptureNoticeRef.current
       ) {
-        lastProcessedCaptureNoticeRef.current = ludo.lastMoveNotice;
+        lastProcessedCaptureNoticeRef.current = captureKey;
         let walkSteps = 0;
         // Check if any token is walking forward to capture
         Object.values(ludo.players).forEach((p) => {

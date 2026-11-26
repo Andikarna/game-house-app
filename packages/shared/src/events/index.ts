@@ -4,6 +4,7 @@ import {
   Player, 
   PanjatPinangGameState, 
   LudoGameState,
+  SnakeLadderGameState,
   ImpostorPublicGameState,
   ImpostorPrivateRoleData,
   ImpostorResultData,
@@ -11,6 +12,7 @@ import {
   AnyGameState,
   ClimberInput, 
   LudoInput,
+  SnakeLadderInput,
   SkillType, 
   GameResultData,
   AvatarId,
@@ -60,7 +62,7 @@ export interface ClientToServerEvents {
 
   // Game Lifecycle
   'game:start': () => void;
-  'game:input': (input: ClimberInput | LudoInput | ImpostorInput | any) => void;
+  'game:input': (input: ClimberInput | LudoInput | SnakeLadderInput | ImpostorInput | any) => void;
   'player:skill': (skill: SkillType) => void;
   'game:restart': () => void; // Host triggers back to lobby for rematch
   'game:emote': (payload: { emoteId: EmoteId }) => void;
@@ -105,6 +107,7 @@ export interface ServerToClientEvents {
   'game:started': (initialState: AnyGameState | any) => void;
   'game:state': (state: AnyGameState | any) => void;
   'game:ludo_state': (state: AnyGameState | any) => void;
+  'game:snake_state': (state: AnyGameState | any) => void;
   'game:finished': (results: GameResultData | any) => void;
   
   // Impostor Desa Authoritative Private & State events

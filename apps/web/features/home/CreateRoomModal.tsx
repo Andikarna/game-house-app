@@ -28,7 +28,9 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
   const { nickname, avatar, setNickname, setAvatar } = useSettingsStore();
   const { socket, setRoom, setPlayerId, playerId, addToast } = useGameStore();
 
-  const [selectedGame, setSelectedGame] = useState<GameId>('ludo');
+  const [selectedGame, setSelectedGame] = useState<GameId>(
+    initialGameId === 'snake-ladder' ? 'snake-ladder' : 'ludo'
+  );
   const [roomName, setRoomName] = useState(`${nickname}'s Ludo Table`);
   const [gameMode, setGameMode] = useState<GameMode>('classic');
   const [maxPlayers, setMaxPlayers] = useState<number>(4);
@@ -41,10 +43,15 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
       if (initialAutoFillBots) {
         setAutoFillBots(true);
       }
-      setSelectedGame('ludo');
+      const nextGame: GameId = initialGameId === 'snake-ladder' ? 'snake-ladder' : 'ludo';
+      setSelectedGame(nextGame);
       setMaxPlayers(4);
-      setGameMode('classic');
-      setRoomName(`${nickname || 'Player'}'s Ludo Table`);
+      setGameMode(nextGame === 'snake-ladder' ? 'snake-classic' : 'classic');
+      setRoomName(
+        nextGame === 'snake-ladder'
+          ? `${nickname || 'Player'}'s Ular Tangga`
+          : `${nickname || 'Player'}'s Ludo Table`
+      );
     }
   }, [isOpen, initialGameId, nickname]);
 
@@ -59,15 +66,19 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
     }
     setSelectedGame(gameId);
     setMaxPlayers(4);
-    setGameMode('classic');
-    setRoomName(`${nickname || 'Player'}'s Ludo Table`);
+    setGameMode(gameId === 'snake-ladder' ? 'snake-classic' : 'classic');
+    setRoomName(
+      gameId === 'snake-ladder'
+        ? `${nickname || 'Player'}'s Ular Tangga`
+        : `${nickname || 'Player'}'s Ludo Table`
+    );
   };
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (selectedGame !== 'ludo') {
-      addToast('Saat ini hanya Ludo Party yang dapat dimainkan. Game lain berstatus Maintenance / Coming Soon.', 'error');
+    if (selectedGame !== 'ludo' && selectedGame !== 'snake-ladder') {
+      addToast('Saat ini hanya Ludo Party & Ular Tangga yang dapat dimainkan. Game lain berstatus Maintenance / Coming Soon.', 'error');
       return;
     }
 
@@ -182,7 +193,23 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
               <span className="text-2xl">🎲</span>
               <div>
                 <h4 className="text-xs font-black leading-tight">Ludo Party</h4>
-                <p className="text-[10px] text-slate-400">2-4 Pemain</p>
+                <p className="text-[10px] text-slate-400">2-6 Pemain</p>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleSelectGame('snake-ladder')}
+              className={`p-2.5 rounded-2xl border text-left transition-all flex items-center gap-2.5 ${
+                selectedGame === 'snake-ladder'
+                  ? 'bg-emerald-600/25 border-emerald-500 shadow-glow-primary text-white'
+                  : 'bg-surface-elevated/80 border-slate-700/80 text-slate-400 hover:text-white'
+              }`}
+            >
+              <span className="text-2xl">🐍</span>
+              <div>
+                <h4 className="text-xs font-black leading-tight">Ular Tangga</h4>
+                <p className="text-[10px] text-slate-400">2-6 Pemain</p>
               </div>
             </button>
 
@@ -298,6 +325,24 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
                   {m.title}
                 </button>
               ))
+            ) : selectedGame === 'snake-ladder' ? (
+              [
+                { id: 'snake-classic', title: 'Klasik (Pantul 100)' },
+                { id: 'snake-quick', title: 'Cepat (Santai)' },
+              ].map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => setGameMode(m.id as GameMode)}
+                  className={`py-2 px-2.5 rounded-xl border text-xs font-bold transition-all ${
+                    gameMode === m.id
+                      ? 'bg-emerald-600/30 text-emerald-300 border-emerald-400 shadow-glow-primary'
+                      : 'bg-surface-elevated text-slate-400 border-slate-800 hover:text-white'
+                  }`}
+                >
+                  {m.title}
+                </button>
+              ))
             ) : (
               [
                 { id: 'classic', title: 'Classic (4 Bidak)' },
@@ -331,7 +376,7 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
                 ? 'Tepat 6 Pemain Dewan'
                 : selectedGame === 'impostor-desa'
                 ? '4 - 6 Pemain'
-                : selectedGame === 'ludo'
+                : selectedGame === 'ludo' || selectedGame === 'snake-ladder'
                 ? '2 - 6 Pemain'
                 : '2 - 8 Pemain'}
             </span>
@@ -345,7 +390,7 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
             <input
               type="range"
               min={selectedGame === 'impostor-desa' ? 4 : 2}
-              max={selectedGame === 'impostor-desa' ? 6 : selectedGame === 'ludo' ? 6 : 8}
+              max={selectedGame === 'impostor-desa' || selectedGame === 'ludo' || selectedGame === 'snake-ladder' ? 6 : 8}
               value={maxPlayers}
               onChange={(e) => setMaxPlayers(parseInt(e.target.value, 10))}
               className="w-full accent-indigo-500 cursor-pointer"

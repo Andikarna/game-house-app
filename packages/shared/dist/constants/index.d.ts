@@ -1,4 +1,4 @@
-import { SkillDefinition, SkillType, AvatarId, GameId, EmoteDefinition, EmoteCategory, ImpostorCategory, HiddenTeamRole, MainCard } from '../types';
+import { SkillDefinition, SkillType, AvatarId, GameId, SnakeLink, LadderLink, EmoteDefinition, EmoteCategory, ImpostorCategory, HiddenTeamRole, MainCard } from '../types';
 export type GameAvailabilityStatus = 'playable' | 'maintenance' | 'coming-soon';
 export declare const GAME_AVAILABILITY: Record<GameId, {
     status: GameAvailabilityStatus;
@@ -97,3 +97,5 @@ export declare const HIDDEN_TEAM_PHASE_TIMERS: {
     matchFinished: number;
 };
 export declare const MAIN_CARDS_DECK: MainCard[];
+export declare const SNAKE_LADDER_LADDERS: LadderLink[];
+export declare const SNAKE_LADDER_SNAKES: SnakeLink[];

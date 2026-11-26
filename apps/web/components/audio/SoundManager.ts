@@ -1,10 +1,11 @@
 // Procedural Studio-Grade Web Audio API Sound & Multi-Genre Soundtrack Engine for GameHouse
 
-export type MusicTrackId = 'lobby' | 'ludo' | 'impostor-desa' | 'hidden-team' | 'panjat-pinang';
+export type MusicTrackId = 'lobby' | 'ludo' | 'snake-ladder' | 'impostor-desa' | 'hidden-team' | 'panjat-pinang';
 
 export const MUSIC_TRACK_META: Record<MusicTrackId, { label: string; emoji: string; genre: string }> = {
   lobby: { label: 'Party Lounge', emoji: '🪩', genre: 'Funky Synth-Pop Groove' },
   ludo: { label: 'Board Bounce', emoji: '🎲', genre: 'Playful Marimba Jazz' },
+  'snake-ladder': { label: 'Ular Rimba', emoji: '🐍', genre: 'Tropical Jungle Bounce' },
   'impostor-desa': { label: 'Misteri Kampung', emoji: '🔍', genre: 'Sneaky Detective Chimes' },
   'hidden-team': { label: 'Dewan Noir', emoji: '🕵️', genre: 'Cyber-Noir Espionage' },
   'panjat-pinang': { label: 'Pesta 17-an', emoji: '🥁', genre: 'Festive Gamelan Party' },
@@ -240,6 +241,7 @@ class SoundManager {
     const stepDurations: Record<MusicTrackId, number> = {
       lobby: 0.129,
       ludo: 0.125,
+      'snake-ladder': 0.122,
       'impostor-desa': 0.139,
       'hidden-team': 0.131,
       'panjat-pinang': 0.115,
@@ -253,6 +255,9 @@ class SoundManager {
         switch (this.currentTrack) {
           case 'ludo':
             this.scheduleLudoStep(this.currentStep, this.nextNoteTime);
+            break;
+          case 'snake-ladder':
+            this.scheduleSnakeLadderStep(this.currentStep, this.nextNoteTime);
             break;
           case 'impostor-desa':
             this.scheduleImpostorStep(this.currentStep, this.nextNoteTime);
@@ -278,12 +283,13 @@ class SoundManager {
 
   public playPanjatBGM() { this.startBGM('panjat-pinang'); }
   public playLudoBGM() { this.startBGM('ludo'); }
+  public playSnakeLadderBGM() { this.startBGM('snake-ladder'); }
   public playLobbyBGM() { this.startBGM('lobby'); }
   public playImpostorBGM() { this.startBGM('impostor-desa'); }
   public playHiddenTeamBGM() { this.startBGM('hidden-team'); }
 
   public cycleTrack(): MusicTrackId {
-    const order: MusicTrackId[] = ['lobby', 'ludo', 'impostor-desa', 'hidden-team', 'panjat-pinang'];
+    const order: MusicTrackId[] = ['lobby', 'ludo', 'snake-ladder', 'impostor-desa', 'hidden-team', 'panjat-pinang'];
     const idx = order.indexOf(this.currentTrack);
     const next = order[(idx + 1) % order.length];
     if (this.isMuted) {
@@ -475,6 +481,53 @@ class SoundManager {
         ? [[523.25, 659.25], [440.00, 523.25], [587.33, 698.46], [587.33, 783.99]][bar]
         : [[523.25, 783.99], [493.88, 830.61], [523.25, 880.00], [587.33, 783.99]][bar - 4];
       chords.forEach((f) => this.playMarimbaChime(time, f, 0.08));
+    }
+  }
+
+  // =========================================================================
+  // TRACK B2: ULAR TANGGA 2.5D — "ULAR RIMBA" (Tropical Jungle Marimba)
+  // =========================================================================
+  private scheduleSnakeLadderStep(step: number, time: number) {
+    if (!this.ctx || !this.bgmBus || this.isMuted) return;
+    const bar = Math.floor(step / 16);
+    const stepInBar = step % 16;
+
+    if (stepInBar === 0 || stepInBar === 6 || stepInBar === 10) {
+      this.playWarmKick(time, stepInBar === 0 ? 0.30 : 0.22);
+    }
+    if (stepInBar === 4 || stepInBar === 12 || stepInBar === 15) {
+      this.playWoodblock(time, stepInBar !== 4);
+    }
+    if (step % 2 === 0) {
+      this.playNoiseHihat(time, stepInBar % 4 === 2 ? 0.04 : 0.018, 0.024);
+    }
+    if (stepInBar === 0 && bar % 2 === 0) {
+      this.playAgogoBell(time, bar % 4 === 0 ? 987.77 : 1174.66);
+    }
+
+    const jungleBass: Record<number, number> = {
+      0: 146.83, 6: 174.61, 10: 220.00,
+      16: 130.81, 22: 164.81, 26: 196.00,
+      32: 116.54, 38: 146.83, 42: 174.61,
+      48: 130.81, 54: 164.81, 58: 196.00,
+    };
+    const bassStep = step % 64;
+    if (jungleBass[bassStep]) {
+      this.playSubBass(time, jungleBass[bassStep], 0.22, 0.23);
+    }
+
+    const jungleMelody: Record<number, { freq: number; dur: number }> = {
+      0: { freq: 587.33, dur: 0.14 }, 3: { freq: 739.99, dur: 0.14 }, 6: { freq: 880.00, dur: 0.16 }, 10: { freq: 1046.50, dur: 0.18 },
+      16: { freq: 987.77, dur: 0.14 }, 19: { freq: 880.00, dur: 0.14 }, 22: { freq: 783.99, dur: 0.18 }, 28: { freq: 659.25, dur: 0.20 },
+      32: { freq: 587.33, dur: 0.14 }, 35: { freq: 698.46, dur: 0.14 }, 38: { freq: 880.00, dur: 0.16 }, 42: { freq: 932.33, dur: 0.18 },
+      48: { freq: 880.00, dur: 0.16 }, 52: { freq: 783.99, dur: 0.16 }, 56: { freq: 659.25, dur: 0.22 }, 60: { freq: 783.99, dur: 0.14 },
+      64: { freq: 1174.66, dur: 0.16 }, 67: { freq: 1046.50, dur: 0.14 }, 70: { freq: 987.77, dur: 0.16 }, 74: { freq: 880.00, dur: 0.18 },
+      80: { freq: 783.99, dur: 0.16 }, 84: { freq: 880.00, dur: 0.16 }, 88: { freq: 1046.50, dur: 0.20 }, 92: { freq: 880.00, dur: 0.14 },
+      96: { freq: 932.33, dur: 0.16 }, 100: { freq: 1046.50, dur: 0.16 }, 104: { freq: 1174.66, dur: 0.22 }, 108: { freq: 1046.50, dur: 0.16 },
+      112: { freq: 987.77, dur: 0.16 }, 116: { freq: 880.00, dur: 0.16 }, 120: { freq: 783.99, dur: 0.24 }, 124: { freq: 659.25, dur: 0.14 },
+    };
+    if (jungleMelody[step]) {
+      this.playMarimba(time, jungleMelody[step].freq, jungleMelody[step].dur, true);
     }
   }
 
@@ -1427,6 +1480,143 @@ class SoundManager {
 
       osc.start(now);
       osc.stop(now + 0.3);
+    } catch {}
+  }
+
+  // =========================================================================
+  // ULAR TANGGA 2.5D DEDICATED SOUND EFFECTS
+  // =========================================================================
+
+  public playPawnHop(stepIndex: number = 0) {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    try {
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      const baseFreq = 460 + (stepIndex % 6) * 45;
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(baseFreq, now);
+      osc.frequency.exponentialRampToValueAtTime(baseFreq * 1.38, now + 0.075);
+
+      gain.gain.setValueAtTime(0.18 * this.volume, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.095);
+
+      osc.connect(gain);
+      gain.connect(this.sfxGain || this.ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.1);
+    } catch {}
+  }
+
+  public playLadderClimb() {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    try {
+      const now = this.ctx.currentTime;
+      const notes = [523.25, 587.33, 659.25, 783.99, 880.0, 1046.5, 1318.51];
+      notes.forEach((freq, idx) => {
+        const osc = this.ctx!.createOscillator();
+        const gain = this.ctx!.createGain();
+        const t = now + idx * 0.075;
+
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, t);
+        osc.frequency.exponentialRampToValueAtTime(freq * 1.04, t + 0.12);
+
+        gain.gain.setValueAtTime(0.22 * this.volume, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+
+        osc.connect(gain);
+        gain.connect(this.sfxGain || this.ctx!.destination);
+        osc.start(t);
+        osc.stop(t + 0.24);
+      });
+    } catch {}
+  }
+
+  public playSnakeSlide() {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    try {
+      const now = this.ctx.currentTime;
+      // Playful cartoon descending slide whistle + wobble
+      const osc = this.ctx.createOscillator();
+      const lfo = this.ctx.createOscillator();
+      const lfoGain = this.ctx.createGain();
+      const gain = this.ctx.createGain();
+
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(760, now);
+      osc.frequency.exponentialRampToValueAtTime(160, now + 0.72);
+
+      lfo.type = 'sine';
+      lfo.frequency.setValueAtTime(14, now);
+      lfoGain.gain.setValueAtTime(24, now);
+      lfo.connect(lfoGain);
+      lfoGain.connect(osc.frequency);
+
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(1800, now);
+
+      gain.gain.setValueAtTime(0.22 * this.volume, now);
+      gain.gain.linearRampToValueAtTime(0.18 * this.volume, now + 0.5);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.78);
+
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.sfxGain || this.ctx.destination);
+
+      lfo.start(now);
+      osc.start(now);
+      lfo.stop(now + 0.8);
+      osc.stop(now + 0.8);
+
+      // Soft thud at tail landing
+      const thud = this.ctx.createOscillator();
+      const thudGain = this.ctx.createGain();
+      thud.type = 'sine';
+      thud.frequency.setValueAtTime(150, now + 0.72);
+      thud.frequency.exponentialRampToValueAtTime(55, now + 0.9);
+      thudGain.gain.setValueAtTime(0.26 * this.volume, now + 0.72);
+      thudGain.gain.exponentialRampToValueAtTime(0.001, now + 0.92);
+      thud.connect(thudGain);
+      thudGain.connect(this.sfxGain || this.ctx.destination);
+      thud.start(now + 0.72);
+      thud.stop(now + 0.94);
+    } catch {}
+  }
+
+  public playBounce100() {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    try {
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(220, now);
+      osc.frequency.exponentialRampToValueAtTime(620, now + 0.12);
+      osc.frequency.exponentialRampToValueAtTime(260, now + 0.28);
+
+      gain.gain.setValueAtTime(0.25 * this.volume, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.32);
+
+      osc.connect(gain);
+      gain.connect(this.sfxGain || this.ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.34);
     } catch {}
   }
 }

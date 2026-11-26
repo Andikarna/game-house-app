@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { KeyRound, Users, Dices, Trophy, Zap, Shield, HelpCircle } from 'lucide-react';
 
 export const HowToPlay: React.FC = () => {
-  const [guideTab, setGuideTab] = useState<'general' | 'panjat-pinang' | 'ludo' | 'impostor-desa' | 'hidden-team'>('general');
+  const [guideTab, setGuideTab] = useState<'general' | 'panjat-pinang' | 'ludo' | 'snake-ladder' | 'impostor-desa' | 'hidden-team'>('general');
 
   const generalSteps = [
     {
@@ -66,6 +66,24 @@ export const HowToPlay: React.FC = () => {
       key: 'Petak Bintang',
       action: 'Zona Aman',
       tip: 'Petak berbintang adalah zona netral aman. Bidakmu tidak dapat dimakan oleh lawan saat berada di sini.',
+    },
+  ];
+
+  const snakeLadderTips = [
+    {
+      key: 'Lempar Dadu (Spasi)',
+      action: 'Jalan 1 → 100',
+      tip: 'Lempar dadu 3D untuk melangkah zig-zag dari petak 1 menuju 100. Mendapat angka 6 memberi bonus lempar dadu lagi!',
+    },
+    {
+      key: 'Tangga & Ular 2.5D',
+      action: 'Naik & Meluncur',
+      tip: 'Berhenti di kaki tangga akan menerbangkan bidakmu ke atas! Hati-hati dengan kepala ular 2.5D yang siap menjatuhkanmu ke ekornya.',
+    },
+    {
+      key: 'Pantulan Petak 100',
+      action: 'Tepat di Puncak',
+      tip: 'Di mode Klasik, kamu harus mendarat tepat di petak 100. Jika berlebih, bidak akan memantul mundur!',
     },
   ];
 
@@ -163,6 +181,16 @@ export const HowToPlay: React.FC = () => {
             Tips Ludo Party
           </button>
           <button
+            onClick={() => setGuideTab('snake-ladder')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+              guideTab === 'snake-ladder'
+                ? 'bg-emerald-600 text-white shadow-glow-primary'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            Tips Ular Tangga
+          </button>
+          <button
             onClick={() => setGuideTab('impostor-desa')}
             className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
               guideTab === 'impostor-desa'
@@ -244,6 +272,26 @@ export const HowToPlay: React.FC = () => {
             >
               <div>
                 <div className="inline-block px-3 py-1 rounded-xl bg-indigo-600/20 text-indigo-300 border border-indigo-500/40 text-xs font-black mb-3">
+                  {tip.key}
+                </div>
+                <h4 className="text-lg font-black text-white mb-2">{tip.action}</h4>
+                <p className="text-xs text-slate-300 leading-relaxed">{tip.tip}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Tab: Ular Tangga Tips */}
+      {guideTab === 'snake-ladder' && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-6">
+          {snakeLadderTips.map((tip, idx) => (
+            <div
+              key={idx}
+              className="p-6 rounded-3xl bg-surface border border-emerald-500/30 shadow-xl flex flex-col justify-between"
+            >
+              <div>
+                <div className="inline-block px-3 py-1 rounded-xl bg-emerald-600/20 text-emerald-300 border border-emerald-500/40 text-xs font-black mb-3">
                   {tip.key}
                 </div>
                 <h4 className="text-lg font-black text-white mb-2">{tip.action}</h4>

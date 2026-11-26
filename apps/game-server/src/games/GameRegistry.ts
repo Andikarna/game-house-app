@@ -2,6 +2,7 @@ import { GameId } from '@gamehouse/shared';
 import { GameModule } from '../core/GameModule';
 import { PanjatPinangGame } from './panjat-pinang/PanjatPinangGame';
 import { LudoGame } from './ludo/LudoGame';
+import { SnakeLadderGame } from './snake-ladder/SnakeLadderGame';
 import { ImpostorDesaGame } from './impostor-desa/ImpostorDesaGame';
 import { HiddenTeamGame } from './hidden-team/HiddenTeamGame';
 
@@ -26,5 +27,6 @@ export class GameRegistry {
 // Register games: Panjat Pinang Battle, Ludo Party, Impostor Desa, & Hidden Team: Secret Role
 GameRegistry.register('panjat-pinang', () => new PanjatPinangGame());
 GameRegistry.register('ludo', () => new LudoGame());
+GameRegistry.register('snake-ladder', () => new SnakeLadderGame());
 GameRegistry.register('impostor-desa', () => new ImpostorDesaGame());
 GameRegistry.register('hidden-team', () => new HiddenTeamGame());

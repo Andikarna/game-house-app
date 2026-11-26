@@ -35,22 +35,29 @@ export function setupSocketHandlers(
         const validAvatar: AvatarId = avatar || 'budi';
         const isImpostorGame = (gameId as GameId) === 'impostor-desa';
         const isHiddenTeamGame = (gameId as GameId) === 'hidden-team';
+        const isSixMaxBoardGame = (gameId as GameId) === 'ludo' || (gameId as GameId) === 'snake-ladder';
         const targetMaxPlayers = isHiddenTeamGame
           ? 6
           : isImpostorGame
           ? Math.min(6, Math.max(4, maxPlayers || 6))
+          : isSixMaxBoardGame
+          ? Math.min(6, Math.max(2, maxPlayers || 4))
           : Math.min(8, Math.max(2, maxPlayers || 8));
 
         const defaultRoomName = isHiddenTeamGame
           ? `${cleanNickname}'s Secret Council`
           : isImpostorGame
           ? `${cleanNickname}'s Desa`
+          : (gameId as GameId) === 'snake-ladder'
+          ? `${cleanNickname}'s Ular Tangga`
           : `${cleanNickname}'s Party`;
 
         const defaultGameMode = isHiddenTeamGame
           ? 'hidden-team-standard'
           : isImpostorGame
           ? 'impostor-classic'
+          : (gameId as GameId) === 'snake-ladder'
+          ? 'snake-classic'
           : 'classic-race';
 
         const defaultDuration = isHiddenTeamGame ? 600 : isImpostorGame ? 240 : 180;
@@ -287,6 +294,8 @@ export function setupSocketHandlers(
             io.to(room.id).emit('game:state', initialState);
             if (room.settings.gameId === 'ludo') {
               io.to(room.id).emit('game:ludo_state', initialState);
+            } else if (room.settings.gameId === 'snake-ladder') {
+              io.to(room.id).emit('game:snake_state', initialState);
             }
           }
         }

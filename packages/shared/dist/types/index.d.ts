@@ -1,5 +1,5 @@
-export type GameId = 'panjat-pinang' | 'ludo' | 'impostor-desa' | 'obstacle-race' | 'card-battle' | 'mini-battle-arena' | 'hidden-team';
-export type GameMode = 'classic-race' | 'survival-climb' | 'skill-battle' | 'classic' | 'quick' | 'impostor-classic' | 'hidden-team-standard' | 'hidden-team-4r' | 'hidden-team-5r' | 'hidden-team-6r';
+export type GameId = 'panjat-pinang' | 'ludo' | 'snake-ladder' | 'impostor-desa' | 'obstacle-race' | 'card-battle' | 'mini-battle-arena' | 'hidden-team';
+export type GameMode = 'classic-race' | 'survival-climb' | 'skill-battle' | 'classic' | 'quick' | 'snake-classic' | 'snake-quick' | 'impostor-classic' | 'hidden-team-standard' | 'hidden-team-4r' | 'hidden-team-5r' | 'hidden-team-6r';
 export type RoomStatus = 'lobby' | 'countdown' | 'in-game' | 'finished';
 export type AvatarId = 'budi' | 'ujang' | 'rara' | 'koko' | 'jaya' | 'bayu' | 'siti' | 'jago' | 'climber-red' | 'climber-blue' | 'climber-green' | 'climber-yellow' | 'climber-purple' | 'climber-orange';
 export interface Player {
@@ -169,6 +169,82 @@ export type LudoInput = {
 } | {
     action: 'pass-turn';
 };
+export type SnakeLadderColor = LudoColor;
+export interface SnakeLink {
+    id: string;
+    from: number;
+    to: number;
+    name: string;
+    bodyColor: string;
+    accentColor: string;
+    bellyColor: string;
+    pattern: 'diamonds' | 'stripes' | 'spots';
+}
+export interface LadderLink {
+    id: string;
+    from: number;
+    to: number;
+    name: string;
+}
+export interface SnakeLadderTrigger {
+    type: 'ladder' | 'snake';
+    linkId: string;
+    from: number;
+    to: number;
+    name: string;
+}
+export interface SnakeLadderMoveEvent {
+    seq: number;
+    playerId: string;
+    diceValue: number;
+    fromTile: number;
+    walkPath: number[];
+    bouncedAt100: boolean;
+    trigger?: SnakeLadderTrigger;
+    toTile: number;
+    bonusRoll: boolean;
+    forfeitedThreeSixes?: boolean;
+    timestamp: number;
+}
+export interface SnakeLadderPlayerState {
+    playerId: string;
+    nickname: string;
+    avatar: AvatarId;
+    color: SnakeLadderColor;
+    position: number;
+    rank?: number;
+    laddersClimbed: number;
+    snakesBitten: number;
+    rollsCount: number;
+    consecutiveSixes: number;
+    canRoll: boolean;
+    isConnected: boolean;
+    isBot?: boolean;
+}
+export interface SnakeLadderGameState {
+    gameId: 'snake-ladder';
+    gameMode: GameMode;
+    stateVersion?: number;
+    status: RoomStatus;
+    currentTurnPlayerId: string;
+    currentTurnColor: SnakeLadderColor;
+    diceValue: number | null;
+    hasRolled: boolean;
+    turnTimeRemaining: number;
+    turnStartedAt?: number | null;
+    rolledAt?: number | null;
+    moveAnimUntil?: number | null;
+    consecutiveSixes?: number;
+    players: Record<string, SnakeLadderPlayerState>;
+    playerOrder: string[];
+    lastMove: SnakeLadderMoveEvent | null;
+    lastMoveNotice?: string;
+    winnerId: string | null;
+    rankings: PlayerGameResult[];
+}
+export type SnakeLadderInput = {
+    action: 'roll-dice';
+};
 export type ImpostorCategory = 'pertanian' | 'hewan' | 'pasar-desa' | 'kehidupan-desa' | 'makanan' | 'perkakas-alat' | 'alam-geografi' | 'permainan-tradisional' | 'kesenian-budaya' | 'transportasi-desa';
 export type ImpostorPhase = 'role-reveal' | 'clue' | 'discussion' | 'voting' | 'revote' | 'impostor-guess' | 'result';
 export type ImpostorPlayerRole = 'villager' | 'impostor';
@@ -283,7 +359,7 @@ export type ImpostorInput = {
     action: 'send-chat';
     message: string;
 };
-export type AnyGameState = PanjatPinangGameState | LudoGameState | ImpostorPublicGameState;
+export type AnyGameState = PanjatPinangGameState | LudoGameState | SnakeLadderGameState | ImpostorPublicGameState;
 export type EmoteId = 'ggwp' | 'aaghh' | 'hahaha' | 'ez' | 'cepat' | 'otw' | 'santuy' | 'capekk' | 'trap' | 'sorry' | 'puyeng' | 'wush' | 'wow' | 'ampun' | 'jagoan' | 'licin' | 'merosot' | 'rip' | 'awas' | 'merdeka' | 'juara' | 'dakap' | 'tanya' | 'pelicin';
 export type EmoteCategory = 'all' | 'reaction' | 'taunt' | 'gameplay' | 'festival';
 export interface EmoteDefinition {

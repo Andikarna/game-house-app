@@ -69,8 +69,9 @@ export const LobbyView: React.FC = () => {
     return <ImpostorLobbyScreen />;
   }
   const isGameDisabled = isPanjatPinang || isImpostorDesa || isHiddenTeam;
-  const minPlayersRequired = isHiddenTeam ? 6 : (isImpostorDesa ? 4 : (room.settings.gameId === 'ludo' ? 2 : 1));
-  const maxPlayersAllowed = (isHiddenTeam || isImpostorDesa || room.settings.gameId === 'ludo') ? 6 : 8;
+  const isSixPlayerBoard = room.settings.gameId === 'ludo' || room.settings.gameId === 'snake-ladder';
+  const minPlayersRequired = isHiddenTeam ? 6 : (isImpostorDesa ? 4 : (isSixPlayerBoard ? 2 : 1));
+  const maxPlayersAllowed = (isHiddenTeam || isImpostorDesa || isSixPlayerBoard) ? 6 : 8;
 
   const nonHostPlayers = room.players.filter(p => !p.isHost && p.id !== room.hostId && !p.isBot);
   const allReady = nonHostPlayers.length === 0 ? true : nonHostPlayers.every(p => p.isReady);
@@ -152,7 +153,7 @@ export const LobbyView: React.FC = () => {
     }
   };
 
-  const handleSwitchGame = (gameId: 'panjat-pinang' | 'ludo' | 'impostor-desa' | 'hidden-team') => {
+  const handleSwitchGame = (gameId: 'panjat-pinang' | 'ludo' | 'snake-ladder' | 'impostor-desa' | 'hidden-team') => {
     if (gameId === 'panjat-pinang') {
       addToast('Game Panjat Pinang sedang dalam pemeliharaan (maintenance).', 'error');
       return;
@@ -161,10 +162,10 @@ export const LobbyView: React.FC = () => {
       addToast('Game ini masih berstatus Coming Soon dan belum dapat dimainkan.', 'info');
       return;
     }
-    if (socket && isHost) {
-      socket.emit('room:update-settings', {
-        gameId: 'ludo',
-        gameMode: 'classic',
+    if (activeSocket && isHost) {
+      activeSocket.emit('room:update-settings', {
+        gameId,
+        gameMode: gameId === 'snake-ladder' ? 'snake-classic' : 'classic',
         maxPlayers: Math.min(room.settings.maxPlayers, 6),
       });
     }
@@ -206,6 +207,21 @@ export const LobbyView: React.FC = () => {
     },
   ];
 
+  const snakeLadderModes: { id: GameMode; title: string; desc: string; icon: string }[] = [
+    {
+      id: 'snake-classic',
+      title: 'Klasik Ular Tangga (Pantul 100)',
+      desc: 'Harus tepat di angka 100! Jika berlebih, bidak memantul mundur!',
+      icon: '🐍',
+    },
+    {
+      id: 'snake-quick',
+      title: 'Mode Cepat (Santai)',
+      desc: 'Cukup capai atau lewati petak 100 untuk langsung menang!',
+      icon: '⚡',
+    },
+  ];
+
   const impostorModes: { id: GameMode; title: string; desc: string; icon: string }[] = [
     {
       id: 'impostor-classic',
@@ -240,6 +256,8 @@ export const LobbyView: React.FC = () => {
     ? hiddenTeamModes
     : room.settings.gameId === 'impostor-desa'
     ? impostorModes
+    : room.settings.gameId === 'snake-ladder'
+    ? snakeLadderModes
     : room.settings.gameId === 'ludo'
     ? ludoModes
     : modes;
@@ -402,6 +420,23 @@ export const LobbyView: React.FC = () => {
                   <span className="text-xl sm:text-2xl">🎲</span>
                   <div>
                     <h5 className="font-extrabold text-xs text-white">Ludo Party</h5>
+                    <p className="text-[10px] text-slate-400">2-6 Pemain</p>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={!isHost}
+                  onClick={() => handleSwitchGame('snake-ladder')}
+                  className={`p-2.5 rounded-2xl border text-left transition-all flex items-center gap-2.5 ${
+                    room.settings.gameId === 'snake-ladder'
+                      ? 'bg-emerald-600/25 border-emerald-500 shadow-glow-primary text-white'
+                      : 'bg-surface-elevated/60 border-slate-800 text-slate-400 hover:text-white'
+                  } ${!isHost ? 'cursor-default' : 'cursor-pointer'}`}
+                >
+                  <span className="text-xl sm:text-2xl">🐍</span>
+                  <div>
+                    <h5 className="font-extrabold text-xs text-white">Ular Tangga</h5>
                     <p className="text-[10px] text-slate-400">2-6 Pemain</p>
                   </div>
                 </button>

@@ -1,6 +1,6 @@
-export type GameId = 'panjat-pinang' | 'ludo' | 'impostor-desa' | 'obstacle-race' | 'card-battle' | 'mini-battle-arena' | 'hidden-team';
+export type GameId = 'panjat-pinang' | 'ludo' | 'snake-ladder' | 'impostor-desa' | 'obstacle-race' | 'card-battle' | 'mini-battle-arena' | 'hidden-team';
 
-export type GameMode = 'classic-race' | 'survival-climb' | 'skill-battle' | 'classic' | 'quick' | 'impostor-classic' | 'hidden-team-standard' | 'hidden-team-4r' | 'hidden-team-5r' | 'hidden-team-6r';
+export type GameMode = 'classic-race' | 'survival-climb' | 'skill-battle' | 'classic' | 'quick' | 'snake-classic' | 'snake-quick' | 'impostor-classic' | 'hidden-team-standard' | 'hidden-team-4r' | 'hidden-team-5r' | 'hidden-team-6r';
 
 export type RoomStatus = 'lobby' | 'countdown' | 'in-game' | 'finished';
 
@@ -212,6 +212,93 @@ export type LudoInput =
   | { action: 'pass-turn' };
 
 // =========================================================================
+// SNAKES & LADDERS (ULAR TANGGA 2.5D) TYPES
+// =========================================================================
+
+export type SnakeLadderColor = LudoColor;
+
+export interface SnakeLink {
+  id: string;
+  from: number; // Head tile (higher number, e.g. 99)
+  to: number;   // Tail tile (lower number, e.g. 61)
+  name: string;
+  bodyColor: string;
+  accentColor: string;
+  bellyColor: string;
+  pattern: 'diamonds' | 'stripes' | 'spots';
+}
+
+export interface LadderLink {
+  id: string;
+  from: number; // Bottom tile (lower number)
+  to: number;   // Top tile (higher number)
+  name: string;
+}
+
+export interface SnakeLadderTrigger {
+  type: 'ladder' | 'snake';
+  linkId: string;
+  from: number;
+  to: number;
+  name: string;
+}
+
+export interface SnakeLadderMoveEvent {
+  seq: number;
+  playerId: string;
+  diceValue: number;
+  fromTile: number;
+  walkPath: number[];
+  bouncedAt100: boolean;
+  trigger?: SnakeLadderTrigger;
+  toTile: number;
+  bonusRoll: boolean;
+  forfeitedThreeSixes?: boolean;
+  timestamp: number;
+}
+
+export interface SnakeLadderPlayerState {
+  playerId: string;
+  nickname: string;
+  avatar: AvatarId;
+  color: SnakeLadderColor;
+  position: number; // 0 = start pad, 1..100 = board tile
+  rank?: number;
+  laddersClimbed: number;
+  snakesBitten: number;
+  rollsCount: number;
+  consecutiveSixes: number;
+  canRoll: boolean;
+  isConnected: boolean;
+  isBot?: boolean;
+}
+
+export interface SnakeLadderGameState {
+  gameId: 'snake-ladder';
+  gameMode: GameMode;
+  stateVersion?: number;
+  status: RoomStatus;
+  currentTurnPlayerId: string;
+  currentTurnColor: SnakeLadderColor;
+  diceValue: number | null;
+  hasRolled: boolean;
+  turnTimeRemaining: number;
+  turnStartedAt?: number | null;
+  rolledAt?: number | null;
+  moveAnimUntil?: number | null;
+  consecutiveSixes?: number;
+  players: Record<string, SnakeLadderPlayerState>;
+  playerOrder: string[];
+  lastMove: SnakeLadderMoveEvent | null;
+  lastMoveNotice?: string;
+  winnerId: string | null;
+  rankings: PlayerGameResult[];
+}
+
+export type SnakeLadderInput =
+  | { action: 'roll-dice' };
+
+// =========================================================================
 // IMPOSTOR DESA GAME TYPES
 // =========================================================================
 
@@ -348,7 +435,7 @@ export type ImpostorInput =
   | { action: 'submit-guess'; guessedWord: string }
   | { action: 'send-chat'; message: string };
 
-export type AnyGameState = PanjatPinangGameState | LudoGameState | ImpostorPublicGameState;
+export type AnyGameState = PanjatPinangGameState | LudoGameState | SnakeLadderGameState | ImpostorPublicGameState;
 
 // =========================================================================
 // IN-GAME EMOTES SYSTEM

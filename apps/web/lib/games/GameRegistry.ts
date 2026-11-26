@@ -2,6 +2,7 @@ import { GameId } from '@gamehouse/shared';
 import { GameModule } from '../core/GameModule';
 import { PanjatPinangGame } from './panjat-pinang/PanjatPinangGame';
 import { LudoGame } from './ludo/LudoGame';
+import { SnakeLadderGame } from './snake-ladder/SnakeLadderGame';
 
 export class GameRegistry {
   private static games: Map<GameId, () => GameModule> = new Map();
@@ -21,6 +22,7 @@ export class GameRegistry {
   }
 }
 
-// Register games: Panjat Pinang Battle & Ludo Party
+// Register games: Panjat Pinang Battle, Ludo Party & Ular Tangga 2.5D
 GameRegistry.register('panjat-pinang', () => new PanjatPinangGame());
 GameRegistry.register('ludo', () => new LudoGame());
+GameRegistry.register('snake-ladder', () => new SnakeLadderGame());

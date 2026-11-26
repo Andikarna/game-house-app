@@ -39,7 +39,7 @@ interface PlayableGamesProps {
 }
 
 export const PlayableGamesShowcase: React.FC<PlayableGamesProps> = ({ onSelectGame }) => {
-  const [activeTab, setActiveTab] = useState<'all' | 'panjat-pinang' | 'ludo' | 'impostor-desa' | 'hidden-team'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'panjat-pinang' | 'ludo' | 'snake-ladder' | 'impostor-desa' | 'hidden-team'>('all');
   const [isHiddenTeamRulesOpen, setIsHiddenTeamRulesOpen] = useState(false);
   const [hiddenTeamRulesTab, setHiddenTeamRulesTab] = useState<HiddenTeamRulesTab>('flow');
   const [showInlineRoles, setShowInlineRoles] = useState(false);
@@ -66,7 +66,7 @@ export const PlayableGamesShowcase: React.FC<PlayableGamesProps> = ({ onSelectGa
             Pilihan Mini-Game <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 via-pink-400 to-indigo-400">GameHouse</span>
           </h2>
           <p className="text-xs sm:text-sm text-slate-300 max-w-xl mt-1">
-            Mainkan <strong className="text-indigo-300">Ludo Party</strong> langsung di browser! Game lainnya berstatus Maintenance & Coming Soon dan akan segera dibuka.
+            Mainkan <strong className="text-indigo-300">Ludo Party</strong> dan <strong className="text-emerald-300">Ular Tangga 2.5D</strong> langsung di browser! Game lainnya berstatus Maintenance & Coming Soon.
           </p>
         </div>
 
@@ -80,7 +80,7 @@ export const PlayableGamesShowcase: React.FC<PlayableGamesProps> = ({ onSelectGa
                 : 'text-slate-400 hover:text-white'
             }`}
           >
-            Semua (4)
+            Semua (5)
           </button>
           <button
             onClick={() => setActiveTab('panjat-pinang')}
@@ -104,6 +104,16 @@ export const PlayableGamesShowcase: React.FC<PlayableGamesProps> = ({ onSelectGa
             }`}
           >
             <span>🎲</span> Ludo Party
+          </button>
+          <button
+            onClick={() => setActiveTab('snake-ladder')}
+            className={`px-3 sm:px-4 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+              activeTab === 'snake-ladder'
+                ? 'bg-emerald-600 text-white shadow-glow-primary'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <span>🐍</span> Ular Tangga 2.5D
           </button>
           <button
             onClick={() => setActiveTab('impostor-desa')}
@@ -370,6 +380,109 @@ export const PlayableGamesShowcase: React.FC<PlayableGamesProps> = ({ onSelectGa
                 className="w-full font-black text-sm sm:text-base py-3 bg-indigo-600 hover:bg-indigo-500 shadow-glow-primary"
               >
                 Buat Room Ludo Party
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* GAME 2B: ULAR TANGGA 2.5D (SIAP DIMAINKAN) */}
+        {/* ========================================================= */}
+        {(activeTab === 'all' || activeTab === 'snake-ladder') && (
+          <div className="group relative bg-surface border border-emerald-500/45 rounded-3xl overflow-hidden shadow-2xl hover:border-emerald-400 transition-all duration-300 flex flex-col justify-between">
+            <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-emerald-500 via-teal-400 to-amber-400 z-20" />
+
+            <div className="flex flex-col flex-1">
+              <div className="relative w-full aspect-[16/9] sm:h-64 bg-gradient-to-br from-emerald-950 via-teal-900 to-amber-950 overflow-hidden flex items-center justify-center">
+                {/* 2.5D Decorative Board Preview */}
+                <div className="absolute inset-0 opacity-25 bg-[radial-gradient(#34d399_1.5px,transparent_1.5px)] [background-size:18px_18px]" />
+                <div className="relative flex items-center gap-4 z-10 group-hover:scale-105 transition-transform duration-500">
+                  <span className="text-6xl sm:text-7xl drop-shadow-[0_12px_20px_rgba(0,0,0,0.6)]">🐍</span>
+                  <span className="text-5xl sm:text-6xl drop-shadow-[0_12px_20px_rgba(0,0,0,0.6)]">🪜</span>
+                  <span className="text-5xl sm:text-6xl drop-shadow-[0_12px_20px_rgba(0,0,0,0.6)]">🎲</span>
+                </div>
+                <div className="absolute inset-0 bg-gradient-to-t from-surface via-surface/35 to-transparent z-10" />
+
+                <div className="absolute top-3 left-3 sm:top-4 sm:left-4 flex flex-wrap gap-1.5 sm:gap-2 z-20">
+                  <span className="px-3 py-1 rounded-full bg-emerald-500/90 text-white text-[11px] font-black uppercase tracking-wider backdrop-blur-md shadow-md flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                    Siap Dimainkan
+                  </span>
+                  <span className="px-2.5 py-1 rounded-full bg-amber-500/90 text-slate-950 text-[11px] font-black tracking-wider backdrop-blur-md border border-white/20">
+                    ✨ 2.5D Animasi Hidup
+                  </span>
+                </div>
+
+                <div className="absolute top-3 right-3 sm:top-4 sm:right-4 z-20">
+                  <span className="px-3 py-1 rounded-full bg-surface-elevated/90 text-emerald-300 text-xs font-black backdrop-blur-md border border-emerald-500/40 shadow-lg flex items-center gap-1">
+                    <Users className="w-3.5 h-3.5" /> 2 - 6 Pemain
+                  </span>
+                </div>
+
+                <div className="absolute bottom-3 left-4 sm:bottom-4 sm:left-6 z-20">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-2xl sm:text-3xl">🐍</span>
+                    <h3 className="text-xl sm:text-2xl lg:text-3xl font-black text-white tracking-tight drop-shadow-md">
+                      Ular Tangga 2.5D
+                    </h3>
+                  </div>
+                  <p className="text-xs sm:text-sm font-semibold text-emerald-300 drop-shadow">
+                    Ular 2.5D Bergerak, Efek Naik Tangga & Meluncur Seru!
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-5 sm:p-7 space-y-4 sm:space-y-5 flex-1 flex flex-col justify-between">
+                <p className="text-xs sm:text-sm text-slate-300 leading-relaxed min-h-[48px]">
+                  Permainan Ular Tangga klasik 1–100 untuk 2 hingga 6 pemain dengan papan 2.5D, ular bergerak interaktif, efek cahaya saat memanjat tangga, serta luncuran dramatis saat digigit ular menuju petak 100!
+                </p>
+
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  <div className="p-2.5 rounded-2xl bg-surface-elevated border border-slate-700/80 flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <div>
+                      <div className="font-bold text-white text-[11px] sm:text-xs">Ular 2.5D Hidup</div>
+                      <div className="text-[10px] text-slate-400">Bergerak & Lidah</div>
+                    </div>
+                  </div>
+                  <div className="p-2.5 rounded-2xl bg-surface-elevated border border-slate-700/80 flex items-center gap-2">
+                    <Zap className="w-4 h-4 text-amber-400 shrink-0" />
+                    <div>
+                      <div className="font-bold text-white text-[11px] sm:text-xs">Efek Naik/Turun</div>
+                      <div className="text-[10px] text-slate-400">Partikel & Suara</div>
+                    </div>
+                  </div>
+                  <div className="p-2.5 rounded-2xl bg-surface-elevated border border-slate-700/80 flex items-center gap-2">
+                    <Users className="w-4 h-4 text-cyan-400 shrink-0" />
+                    <div>
+                      <div className="font-bold text-white text-[11px] sm:text-xs">2 - 6 Pemain</div>
+                      <div className="text-[10px] text-slate-400">Multiplayer & Bot</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                  <span className="text-[11px] font-bold text-slate-400 mr-1">Mode:</span>
+                  <span className="px-2.5 py-0.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[11px] font-bold">
+                    Klasik (Pantul 100)
+                  </span>
+                  <span className="px-2.5 py-0.5 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[11px] font-bold">
+                    Cepat (Santai)
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-5 sm:p-7 pt-0 border-t border-slate-800/80 flex flex-col sm:flex-row items-center gap-3 mt-4">
+              <Button
+                variant="orange"
+                size="lg"
+                glow
+                onClick={() => onSelectGame('snake-ladder')}
+                icon={<Play className="w-4 h-4 fill-white" />}
+                className="w-full font-black text-sm sm:text-base py-3"
+              >
+                Buat Room Ular Tangga 2.5D
               </Button>
             </div>
           </div>
