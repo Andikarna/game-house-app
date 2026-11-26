@@ -157,99 +157,107 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
         </div>
 
         {/* Game Selection */}
-        <div>
-          <label className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-2">
+        <div className="space-y-2.5">
+          <label className="text-xs font-bold uppercase tracking-wider text-slate-400 block">
             Pilih Permainan
           </label>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <button
-              type="button"
-              disabled
-              onClick={() => handleSelectGame('panjat-pinang')}
-              className="p-2.5 rounded-2xl border text-left flex items-center gap-2.5 opacity-50 cursor-not-allowed bg-surface-elevated/40 border-slate-800 text-slate-500 relative"
-              title="Game Panjat Pinang sedang dalam pemeliharaan (maintenance)"
-            >
-              <span className="text-2xl grayscale">🌴</span>
-              <div>
-                <div className="flex items-center gap-1.5">
-                  <h4 className="text-xs font-black leading-tight text-slate-400">Panjat Pinang</h4>
-                  <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 uppercase">
-                    Maint
-                  </span>
-                </div>
-                <p className="text-[10px] text-slate-500">Maintenance</p>
-              </div>
-            </button>
 
+          {/* Row 1: Playable Games (2 balanced columns) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             <button
               type="button"
               onClick={() => handleSelectGame('ludo')}
-              className={`p-2.5 rounded-2xl border text-left transition-all flex items-center gap-2.5 ${
+              className={`p-3 rounded-2xl border text-left transition-all flex items-center gap-3 min-w-0 ${
                 selectedGame === 'ludo'
-                  ? 'bg-indigo-600/25 border-indigo-500 shadow-glow-primary text-white'
-                  : 'bg-surface-elevated/80 border-slate-700/80 text-slate-400 hover:text-white'
+                  ? 'bg-indigo-600/25 border-indigo-500 shadow-glow-primary text-white ring-1 ring-indigo-400/50'
+                  : 'bg-surface-elevated/80 border-slate-700/80 text-slate-300 hover:border-slate-600 hover:text-white'
               }`}
             >
-              <span className="text-2xl">🎲</span>
-              <div>
-                <h4 className="text-xs font-black leading-tight">Ludo Party</h4>
-                <p className="text-[10px] text-slate-400">2-6 Pemain</p>
+              <div className="w-10 h-10 rounded-xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-2xl shrink-0">
+                🎲
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-1.5">
+                  <h4 className="text-sm font-black leading-tight truncate">Ludo Party</h4>
+                  <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase shrink-0">
+                    Siap
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400 mt-0.5 truncate">2–6 Pemain • Klasik & Cepat</p>
               </div>
             </button>
 
             <button
               type="button"
               onClick={() => handleSelectGame('snake-ladder')}
-              className={`p-2.5 rounded-2xl border text-left transition-all flex items-center gap-2.5 ${
+              className={`p-3 rounded-2xl border text-left transition-all flex items-center gap-3 min-w-0 ${
                 selectedGame === 'snake-ladder'
-                  ? 'bg-emerald-600/25 border-emerald-500 shadow-glow-primary text-white'
-                  : 'bg-surface-elevated/80 border-slate-700/80 text-slate-400 hover:text-white'
+                  ? 'bg-emerald-600/25 border-emerald-500 shadow-glow-primary text-white ring-1 ring-emerald-400/50'
+                  : 'bg-surface-elevated/80 border-slate-700/80 text-slate-300 hover:border-slate-600 hover:text-white'
               }`}
             >
-              <span className="text-2xl">🐍</span>
-              <div>
-                <h4 className="text-xs font-black leading-tight">Ular Tangga</h4>
-                <p className="text-[10px] text-slate-400">2-6 Pemain</p>
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-2xl shrink-0">
+                🐍
               </div>
-            </button>
-
-            <button
-              type="button"
-              disabled
-              onClick={() => handleSelectGame('impostor-desa')}
-              className="p-2.5 rounded-2xl border text-left flex items-center gap-2.5 opacity-50 cursor-not-allowed bg-surface-elevated/40 border-slate-800 text-slate-500 relative"
-              title="Game I'amPostor segera hadir (Coming Soon)"
-            >
-              <span className="text-2xl grayscale">🌾</span>
-              <div>
-                <div className="flex items-center gap-1.5">
-                  <h4 className="text-xs font-black leading-tight text-slate-400">I'amPostor</h4>
-                  <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30 uppercase">
-                    Soon
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-1.5">
+                  <h4 className="text-sm font-black leading-tight truncate">Ular Tangga 2.5D</h4>
+                  <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase shrink-0">
+                    Siap
                   </span>
                 </div>
-                <p className="text-[10px] text-slate-500">Coming Soon</p>
+                <p className="text-[11px] text-slate-400 mt-0.5 truncate">2–6 Pemain • Ular Hidup</p>
               </div>
             </button>
+          </div>
 
-            <button
-              type="button"
-              disabled
-              onClick={() => handleSelectGame('hidden-team')}
-              className="p-2.5 rounded-2xl border text-left flex items-center gap-2.5 opacity-50 cursor-not-allowed bg-surface-elevated/40 border-slate-800 text-slate-500 relative"
-              title="Game Hidden Team segera hadir (Coming Soon)"
-            >
-              <span className="text-2xl grayscale">🕵️</span>
-              <div>
-                <div className="flex items-center gap-1.5">
-                  <h4 className="text-xs font-black leading-tight text-slate-400">Hidden Team</h4>
-                  <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 uppercase">
-                    Soon
+          {/* Row 2: Maintenance & Coming Soon (3 balanced columns) */}
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              {
+                id: 'panjat-pinang' as GameId,
+                emoji: '🌴',
+                title: 'Panjat Pinang',
+                badge: 'Maint',
+                badgeClass: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
+                tooltip: 'Game Panjat Pinang sedang dalam pemeliharaan (maintenance)',
+              },
+              {
+                id: 'impostor-desa' as GameId,
+                emoji: '🌾',
+                title: "I'amPostor",
+                badge: 'Soon',
+                badgeClass: 'bg-sky-500/15 text-sky-300 border-sky-500/30',
+                tooltip: "Game I'amPostor segera hadir (Coming Soon)",
+              },
+              {
+                id: 'hidden-team' as GameId,
+                emoji: '🕵️',
+                title: 'Hidden Team',
+                badge: 'Soon',
+                badgeClass: 'bg-purple-500/15 text-purple-300 border-purple-500/30',
+                tooltip: 'Game Hidden Team segera hadir (Coming Soon)',
+              },
+            ].map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                disabled
+                onClick={() => handleSelectGame(item.id)}
+                className="p-2 rounded-xl border text-left flex flex-col gap-1 opacity-55 cursor-not-allowed bg-surface-elevated/40 border-slate-800 text-slate-500 overflow-hidden min-w-0"
+                title={item.tooltip}
+              >
+                <div className="flex items-center justify-between gap-1 w-full">
+                  <span className="text-lg grayscale leading-none">{item.emoji}</span>
+                  <span className={`text-[8px] font-black px-1.5 py-0.5 rounded border uppercase shrink-0 ${item.badgeClass}`}>
+                    {item.badge}
                   </span>
                 </div>
-                <p className="text-[10px] text-slate-500">Coming Soon</p>
-              </div>
-            </button>
+                <h4 className="text-[11px] font-bold leading-tight text-slate-400 truncate w-full">
+                  {item.title}
+                </h4>
+              </button>
+            ))}
           </div>
         </div>
 
