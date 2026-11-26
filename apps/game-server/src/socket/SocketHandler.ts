@@ -222,6 +222,20 @@ export function setupSocketHandlers(
       }
     });
 
+    // 6c. Player Avatar Update inside Lobby
+    socket.on('player:update-avatar' as any, (payload: { avatar: string } | string) => {
+      const mapping = roomManager.getPlayerMapping(socket.id);
+      if (!mapping) return;
+      const room = roomManager.getRoomById(mapping.roomId);
+      if (!room) return;
+
+      const nextAvatar = typeof payload === 'string' ? payload : payload?.avatar;
+      if (!nextAvatar) return;
+      if (room.updatePlayerAvatar(mapping.playerId, nextAvatar)) {
+        io.to(room.id).emit('room:updated', room.getInfo());
+      }
+    });
+
     // 7. Start Game (Host only)
     socket.on('game:start', () => {
       const mapping = roomManager.getPlayerMapping(socket.id);

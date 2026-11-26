@@ -195,6 +195,7 @@ export interface LudoGameState {
   hasRolled?: boolean;
   turnTimeRemaining: number;
   turnStartedAt?: number | null;
+  rolledAt?: number | null;
   passAt?: number | null;
   consecutiveSixes?: number;
   players: Record<string, LudoPlayerState>;

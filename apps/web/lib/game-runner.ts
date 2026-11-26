@@ -49,6 +49,7 @@ function restoreLudoState(ludo: LudoGame, currentGameState: any): void {
   (ludo as any).rankings = currentGameState.rankings || [];
   (ludo as any).consecutiveSixes = currentGameState.consecutiveSixes || 0;
   (ludo as any).turnStartedAt = currentGameState.turnStartedAt || Date.now();
+  (ludo as any).rolledAt = currentGameState.rolledAt ?? null;
   (ludo as any).passAt = currentGameState.passAt ?? null;
   (ludo as any).stateVersion = currentGameState.stateVersion || 1;
 }
@@ -81,6 +82,7 @@ export function processLudoAction(
 
   const newGameState = ludo.getState();
   const results = ludo.isFinished() ? ludo.getResults() : null;
+  ludo.cleanup();
 
   return { gameState: newGameState, results };
 }
@@ -105,9 +107,11 @@ export function checkLudoTimeout(
   if (changed) {
     const newGameState = ludo.getState();
     const results = ludo.isFinished() ? ludo.getResults() : null;
+    ludo.cleanup();
     return { changed: true, gameState: newGameState, results };
   }
 
+  ludo.cleanup();
   return { changed: false, gameState: currentGameState, results: null };
 }
 

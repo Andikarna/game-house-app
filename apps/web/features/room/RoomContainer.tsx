@@ -120,7 +120,7 @@ export const RoomContainer: React.FC<RoomContainerProps> = ({ roomCode }) => {
         <div className="absolute top-1/4 -left-20 w-80 h-80 bg-indigo-600/15 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute bottom-1/4 -right-20 w-80 h-80 bg-orange-600/15 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="w-full max-w-md bg-surface border border-slate-700/80 rounded-2xl sm:rounded-3xl p-5 sm:p-8 shadow-2xl z-10 text-center">
+        <div className="w-full max-w-lg bg-surface border border-slate-700/80 rounded-2xl sm:rounded-3xl p-5 sm:p-8 shadow-2xl z-10 text-center">
           <div className="flex justify-center mb-4 sm:mb-6">
             <GameHouseLogo size="sm" />
           </div>

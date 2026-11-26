@@ -14,12 +14,13 @@ import { ToastContainer } from '../../components/ui/ToastContainer';
 import { useSocket } from '../../hooks/useSocket';
 import { useSettingsStore } from '../../stores/useSettingsStore';
 import { soundManager } from '../../components/audio/SoundManager';
-import { Volume2, VolumeX, Sparkles, LogIn, Heart } from 'lucide-react';
+import { MusicControl } from '../../components/audio/MusicControl';
+import { Sparkles, LogIn, Heart } from 'lucide-react';
 import { GameId } from '@gamehouse/shared';
 
 export const HomeContent: React.FC = () => {
   const socket = useSocket();
-  const { isMuted, toggleMute } = useSettingsStore();
+  const { isMuted } = useSettingsStore();
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isJoinOpen, setIsJoinOpen] = useState(false);
@@ -77,14 +78,8 @@ export const HomeContent: React.FC = () => {
           <GameHouseLogo size="sm" className="scale-90 sm:scale-100 origin-left" />
 
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Audio Mute Toggle */}
-            <button
-              onClick={toggleMute}
-              className="p-2 sm:p-2.5 rounded-xl bg-surface-elevated border border-slate-700/60 text-slate-300 hover:text-white transition-colors cursor-pointer"
-              title={isMuted ? 'Unmute Audio' : 'Mute Audio'}
-            >
-              {isMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4 text-slate-300" />}
-            </button>
+            {/* Music Track Switcher & Mute */}
+            <MusicControl />
 
             <Button
               variant="secondary"

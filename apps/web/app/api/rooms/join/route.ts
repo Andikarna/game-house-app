@@ -4,6 +4,7 @@ import { getRoomByCode, addPlayerToMemoryRoom, saveMemoryRoom } from '../../../.
 import { AvatarId, Player } from '../../../../shared';
 
 export const dynamic = 'force-dynamic';
+export const preferredRegion = 'sin1';
 
 export async function POST(req: Request) {
   try {
@@ -45,10 +46,10 @@ export async function POST(req: Request) {
         existingPlayer.isConnected = true;
         saveMemoryRoom(room, roomData.gameState, roomData.gameResults);
 
-        safeDbQuery(
+        await safeDbQuery(
           'UPDATE gh_players SET avatar = ?, is_connected = 1, last_seen_at = ? WHERE id = ?',
           [avatar, now, existingPlayer.id]
-        ).catch(() => {});
+        );
 
         return NextResponse.json({
           success: true,
@@ -80,7 +81,7 @@ export async function POST(req: Request) {
     if (room.players.length >= maxCapacity && botIndex >= 0) {
       const botPlayer = room.players[botIndex];
       room.players.splice(botIndex, 1);
-      safeDbQuery('DELETE FROM gh_players WHERE id = ?', [botPlayer.id]).catch(() => {});
+      await safeDbQuery('DELETE FROM gh_players WHERE id = ?', [botPlayer.id]);
     }
 
     // 4. Nickname deduplication (e.g. "Player (2)")
@@ -107,12 +108,12 @@ export async function POST(req: Request) {
 
     const updatedRoom = addPlayerToMemoryRoom(room.code, newPlayer) || room;
 
-    safeDbQuery(
+    await safeDbQuery(
       `INSERT INTO gh_players 
         (id, room_code, nickname, avatar, is_host, is_ready, is_connected, last_seen_at, joined_at)
        VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)`,
       [newPlayerId, room.code, finalNickname, avatar, newPlayer.isHost ? 1 : 0, newPlayer.isReady ? 1 : 0, now, now]
-    ).catch(() => {});
+    );
 
     return NextResponse.json({
       success: true,

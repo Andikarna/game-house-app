@@ -4,8 +4,9 @@ import { getRoomByCode, saveMemoryRoom } from '../../../../lib/room-service';
 import { checkLudoTimeout } from '../../../../lib/game-runner';
 
 export const dynamic = 'force-dynamic';
+export const preferredRegion = 'sin1';
 
-// In-memory throttling map to prevent hammering MySQL on every 800ms poll
+// In-memory throttling map to prevent hammering MySQL on every poll
 const lastHeartbeatMap = new Map<string, number>();
 
 export async function GET(
@@ -28,7 +29,6 @@ export async function GET(
       const lastSeen = lastHeartbeatMap.get(playerId) || 0;
       if (now - lastSeen > 15000) {
         lastHeartbeatMap.set(playerId, now);
-        // Non-blocking background heartbeat update
         safeDbQuery(
           'UPDATE gh_players SET last_seen_at = ?, is_connected = 1 WHERE id = ? AND room_code = ?',
           [now, playerId, code]
@@ -36,7 +36,7 @@ export async function GET(
       }
     }
 
-    // Parallel fetch: Room data + Emotes
+    // Parallel fetch: Room data (with players, chats, voteKick) + Emotes
     const tenSecondsAgo = now - 10000;
     const [roomData, [emoteRows]] = await Promise.all([
       getRoomByCode(code),
@@ -50,7 +50,7 @@ export async function GET(
       return NextResponse.json({ success: false, error: 'Room not found.' }, { status: 404 });
     }
 
-    // Check if Ludo turn timed out or passAt expired
+    // Check if Ludo turn timed out, bot needs to act, or passAt expired
     if (
       roomData.room.status === 'in-game' &&
       roomData.room.settings.gameId === 'ludo' &&
@@ -61,26 +61,60 @@ export async function GET(
         roomData.gameState
       );
       if (changed) {
-        roomData.gameState = updatedState;
-        if (results) {
-          roomData.gameResults = results;
-          roomData.room.status = 'finished';
-        }
         const newStatus = results ? 'finished' : 'in-game';
         const resultsJson = results ? JSON.stringify(results) : null;
+        const expectedUpdatedAt = roomData.dbUpdatedAt || 0;
+        const nextUpdatedAt = Math.max(Date.now(), expectedUpdatedAt + 1);
 
-        saveMemoryRoom(roomData.room, updatedState, results);
+        let wonRace = true;
+        if (expectedUpdatedAt > 0) {
+          const [updateRes] = await safeDbQuery<any>(
+            'UPDATE gh_rooms SET game_state_json = ?, game_results_json = ?, status = ?, updated_at = ? WHERE code = ? AND updated_at = ?',
+            [JSON.stringify(updatedState), resultsJson, newStatus, nextUpdatedAt, code, expectedUpdatedAt]
+          );
+          if (updateRes && typeof updateRes.affectedRows === 'number' && updateRes.affectedRows === 0) {
+            wonRace = false;
+          }
+        } else {
+          await safeDbQuery(
+            'UPDATE gh_rooms SET game_state_json = ?, game_results_json = ?, status = ?, updated_at = ? WHERE code = ?',
+            [JSON.stringify(updatedState), resultsJson, newStatus, nextUpdatedAt, code]
+          );
+        }
 
-        await safeDbQuery(
-          'UPDATE gh_rooms SET game_state_json = ?, game_results_json = ?, status = ?, updated_at = ? WHERE code = ?',
-          [JSON.stringify(updatedState), resultsJson, newStatus, now, code]
-        ).catch(() => {});
+        if (wonRace) {
+          roomData.gameState = updatedState;
+          roomData.dbUpdatedAt = nextUpdatedAt;
+          if (results) {
+            roomData.gameResults = results;
+            roomData.room.status = 'finished';
+          }
+          saveMemoryRoom(
+            roomData.room,
+            updatedState,
+            results,
+            roomData.activeVoteKick,
+            roomData.chatMessages,
+            nextUpdatedAt
+          );
+        } else {
+          // Another lambda already updated the room concurrently; return fresh DB state
+          const fresh = await getRoomByCode(code);
+          if (fresh) {
+            roomData.room = fresh.room;
+            roomData.gameState = fresh.gameState;
+            roomData.gameResults = fresh.gameResults;
+            roomData.activeVoteKick = fresh.activeVoteKick;
+            roomData.chatMessages = fresh.chatMessages;
+          }
+        }
       }
     }
 
     if (roomData.activeVoteKick && Date.now() > roomData.activeVoteKick.expiresAt) {
       roomData.activeVoteKick = null;
       saveMemoryRoom(roomData.room, roomData.gameState, roomData.gameResults, null);
+      safeDbQuery('DELETE FROM gh_vote_kicks WHERE room_code = ?', [code]).catch(() => {});
     }
 
     const recentChats = (roomData.chatMessages || []).filter((c) => now - c.timestamp < 15000);

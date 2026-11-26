@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import pool from '../../../lib/db';
 
 export const dynamic = 'force-dynamic';
+export const preferredRegion = 'sin1';
 
 export async function GET() {
   try {

@@ -1,4 +1,4 @@
-import { safeDbQuery } from './db';
+import { safeDbQuery, ensureAuxTables } from './db';
 import {
   RoomInfo,
   Player,
@@ -17,6 +17,7 @@ export interface RoomEntry {
   gameResults: any;
   activeVoteKick?: VoteKickState | null;
   chatMessages?: ChatMessage[];
+  dbUpdatedAt?: number;
 }
 
 // In-memory room store using globalThis so it persists across Next.js API reloads
@@ -44,16 +45,18 @@ export function saveMemoryRoom(
   gameState: any = null,
   gameResults: any = null,
   activeVoteKick?: VoteKickState | null,
-  chatMessages?: ChatMessage[]
+  chatMessages?: ChatMessage[],
+  dbUpdatedAt?: number
 ): void {
   const cleanCode = (room.code || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
   const existing = memoryRooms.get(cleanCode);
-  const entry: RoomEntry = { 
-    room, 
-    gameState, 
+  const entry: RoomEntry = {
+    room,
+    gameState,
     gameResults,
     activeVoteKick: activeVoteKick !== undefined ? activeVoteKick : (existing?.activeVoteKick || null),
-    chatMessages: chatMessages !== undefined ? chatMessages : (existing?.chatMessages || [])
+    chatMessages: chatMessages !== undefined ? chatMessages : (existing?.chatMessages || []),
+    dbUpdatedAt: dbUpdatedAt !== undefined ? dbUpdatedAt : existing?.dbUpdatedAt,
   };
   memoryRooms.set(cleanCode, entry);
   if (room.id) {
@@ -85,11 +88,10 @@ export function addPlayerToMemoryRoom(codeOrId: string, player: Player): RoomInf
   if (existingIndex >= 0) {
     room.players[existingIndex] = { ...room.players[existingIndex], ...player };
   } else {
-    // If full, check if there is a bot that can be replaced
     const isSixPlayerGame =
       room.settings.gameId === 'impostor-desa' ||
       room.settings.gameId === 'hidden-team';
-    const maxCapacity = isSixPlayerGame ? 6 : room.settings.maxPlayers;
+    const maxCapacity = isSixPlayerGame ? 6 : (room.settings.maxPlayers || 6);
 
     if (room.players.length >= maxCapacity) {
       const botIndex = room.players.findIndex((p) => p.isBot);
@@ -101,7 +103,7 @@ export function addPlayerToMemoryRoom(codeOrId: string, player: Player): RoomInf
     room.players.push(player);
   }
 
-  saveMemoryRoom(room, entry.gameState, entry.gameResults);
+  saveMemoryRoom(room, entry.gameState, entry.gameResults, entry.activeVoteKick, entry.chatMessages, entry.dbUpdatedAt);
   return room;
 }
 
@@ -118,7 +120,7 @@ export function updateMemoryRoom(
   if (gameState !== undefined) entry.gameState = gameState;
   if (gameResults !== undefined) entry.gameResults = gameResults;
 
-  saveMemoryRoom(entry.room, entry.gameState, entry.gameResults);
+  saveMemoryRoom(entry.room, entry.gameState, entry.gameResults, entry.activeVoteKick, entry.chatMessages, entry.dbUpdatedAt);
   return entry.room;
 }
 
@@ -130,15 +132,25 @@ export async function getRoomByCode(
   const raw = code.trim().toUpperCase();
   const cleanCode = raw.replace(/[^A-Za-z0-9]/g, '');
 
-  // In-memory cache for transient data like vote kicks and chat
   const memoryEntry = getMemoryRoom(cleanCode) || getMemoryRoom(raw);
 
   // 1. First priority: Query MySQL database (single shared source of truth across all serverless instances)
   try {
-    const [[roomRows], [playerRows]] = await Promise.all([
+    await ensureAuxTables();
+    const chatCutoff = Date.now() - 15000;
+
+    const [[roomRows], [playerRows], [chatRows], [voteRows]] = await Promise.all([
       safeDbQuery<any[]>('SELECT * FROM gh_rooms WHERE code = ? LIMIT 1', [cleanCode]),
       safeDbQuery<any[]>(
         'SELECT * FROM gh_players WHERE room_code = ? ORDER BY joined_at ASC',
+        [cleanCode]
+      ),
+      safeDbQuery<any[]>(
+        'SELECT id, player_id as playerId, nickname, color, avatar, message, timestamp FROM gh_chats WHERE room_code = ? AND timestamp > ? ORDER BY timestamp ASC',
+        [cleanCode, chatCutoff]
+      ),
+      safeDbQuery<any[]>(
+        'SELECT data_json FROM gh_vote_kicks WHERE room_code = ? LIMIT 1',
         [cleanCode]
       ),
     ]);
@@ -155,6 +167,7 @@ export async function getRoomByCode(
         isReady: Boolean(p.is_ready),
         isConnected: Boolean(p.is_connected),
         joinedAt: Number(p.joined_at),
+        isBot: Boolean(p.is_bot) || String(p.id).startsWith('bot_'),
       }));
 
       const settings: RoomSettings = {
@@ -177,7 +190,7 @@ export async function getRoomByCode(
       };
 
       let gameState = null;
-      if (r.game_state_json) {
+      if (room.status !== 'lobby' && r.game_state_json) {
         try {
           gameState = JSON.parse(r.game_state_json);
         } catch {
@@ -186,7 +199,7 @@ export async function getRoomByCode(
       }
 
       let gameResults = null;
-      if (r.game_results_json) {
+      if (room.status !== 'lobby' && r.game_results_json) {
         try {
           gameResults = JSON.parse(r.game_results_json);
         } catch {
@@ -194,19 +207,38 @@ export async function getRoomByCode(
         }
       }
 
-      // If the current lambda has an in-memory entry with a newer stateVersion, prefer it
-      const dbVersion = gameState?.stateVersion || 0;
-      const memVersion = memoryEntry?.gameState?.stateVersion || 0;
-      const finalGameState = memVersion > dbVersion ? memoryEntry!.gameState : gameState;
+      let activeVoteKick: VoteKickState | null = null;
+      if (voteRows && voteRows.length > 0 && voteRows[0]?.data_json) {
+        try {
+          const parsed = JSON.parse(voteRows[0].data_json) as VoteKickState;
+          if (parsed && Date.now() <= parsed.expiresAt) {
+            activeVoteKick = parsed;
+          }
+        } catch {
+          activeVoteKick = null;
+        }
+      }
 
+      const chatMessages: ChatMessage[] = (chatRows || []).map((c) => ({
+        id: c.id,
+        playerId: c.playerId,
+        nickname: c.nickname,
+        color: c.color || undefined,
+        avatar: c.avatar as AvatarId,
+        message: c.message,
+        timestamp: Number(c.timestamp),
+      }));
+
+      const dbUpdatedAt = Number(r.updated_at) || 0;
       const entry: RoomEntry = {
         room,
-        gameState: finalGameState,
+        gameState,
         gameResults,
-        activeVoteKick: memoryEntry?.activeVoteKick || null,
-        chatMessages: memoryEntry?.chatMessages || [],
+        activeVoteKick,
+        chatMessages,
+        dbUpdatedAt,
       };
-      saveMemoryRoom(room, finalGameState, gameResults, entry.activeVoteKick, entry.chatMessages);
+      saveMemoryRoom(room, gameState, gameResults, activeVoteKick, chatMessages, dbUpdatedAt);
       return entry;
     }
   } catch (err) {

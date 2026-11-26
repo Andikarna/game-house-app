@@ -229,19 +229,24 @@ export class Room {
     }
 
     const BOT_PRESETS: Array<{ nickname: string; avatar: any }> = [
-      { nickname: 'Bot Joko', avatar: 'joko' },
+      { nickname: 'Bot Rara', avatar: 'rara' },
       { nickname: 'Bot Siti', avatar: 'siti' },
-      { nickname: 'Bot Andi', avatar: 'climber-yellow' },
-      { nickname: 'Bot Rina', avatar: 'rina' },
+      { nickname: 'Bot Koko', avatar: 'koko' },
+      { nickname: 'Bot Bayu', avatar: 'bayu' },
+      { nickname: 'Bot Jaya', avatar: 'jaya' },
+      { nickname: 'Bot Jago', avatar: 'jago' },
+      { nickname: 'Bot Ujang', avatar: 'ujang' },
       { nickname: 'Bot Budi', avatar: 'budi' },
-      { nickname: 'Bot Ujang', avatar: 'climber-green' },
     ];
 
     const currentNicknames = new Set(Array.from(this.players.values()).map(p => p.nickname));
-    const availablePreset = BOT_PRESETS.find(p => !currentNicknames.has(p.nickname));
+    const usedAvatars = new Set(Array.from(this.players.values()).map(p => p.avatar));
+    const availablePreset =
+      BOT_PRESETS.find(p => !currentNicknames.has(p.nickname) && !usedAvatars.has(p.avatar)) ||
+      BOT_PRESETS.find(p => !currentNicknames.has(p.nickname));
     const botNum = this.players.size + 1;
     const nickname = availablePreset?.nickname || `Bot Warga ${botNum}`;
-    const avatar = availablePreset?.avatar || 'joko';
+    const avatar = availablePreset?.avatar || 'rara';
 
     const botId = `bot_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
     const botPlayer: Player = {
@@ -258,6 +263,13 @@ export class Room {
 
     this.players.set(botId, botPlayer);
     return { success: true, bot: botPlayer };
+  }
+
+  public updatePlayerAvatar(playerId: string, avatar: string): boolean {
+    const player = this.players.get(playerId);
+    if (!player) return false;
+    player.avatar = avatar as any;
+    return true;
   }
 
   public removeBot(botId?: string): { success: boolean; error?: string } {

@@ -49,6 +49,28 @@ export async function initDatabase() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `);
 
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS gh_chats (
+        id VARCHAR(64) PRIMARY KEY,
+        room_code VARCHAR(16) NOT NULL,
+        player_id VARCHAR(64) NOT NULL,
+        nickname VARCHAR(64) NOT NULL,
+        color VARCHAR(16),
+        avatar VARCHAR(32) NOT NULL,
+        message VARCHAR(128) NOT NULL,
+        timestamp BIGINT NOT NULL,
+        INDEX idx_room_chats (room_code, timestamp)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS gh_vote_kicks (
+        room_code VARCHAR(16) PRIMARY KEY,
+        data_json TEXT,
+        updated_at BIGINT NOT NULL
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
     console.log('[MySQL] GameHouse tables initialized successfully!');
   } finally {
     conn.release();

@@ -1,10 +1,72 @@
 import { NextResponse } from 'next/server';
-import { safeDbQuery } from '../../../../../lib/db';
-import { getRoomByCode, saveMemoryRoom } from '../../../../../lib/room-service';
+import { safeDbQuery, ensureAuxTables } from '../../../../../lib/db';
+import { getRoomByCode, saveMemoryRoom, RoomEntry } from '../../../../../lib/room-service';
 import { createInitialGameState, processLudoAction, processPanjatAction, removeLudoPlayer } from '../../../../../lib/game-runner';
-import { ChatMessage, VoteKickState } from '../../../../../shared';
+import { AvatarId, ChatMessage, VoteKickState } from '../../../../../shared';
 
 export const dynamic = 'force-dynamic';
+export const preferredRegion = 'sin1';
+
+const BOT_NAMES = ['Budi (Bot)', 'Siti (Bot)', 'Jago (Bot)', 'Rara (Bot)', 'Bayu (Bot)'];
+const BOT_AVATARS: AvatarId[] = ['budi', 'siti', 'jago', 'rara', 'bayu'];
+
+async function persistLudoTransition(
+  code: string,
+  roomData: RoomEntry,
+  playerId: string,
+  body: any
+): Promise<{ gameState: any; results: any | null }> {
+  const { gameState: newGameState, results } = processLudoAction(
+    roomData.room,
+    roomData.gameState,
+    playerId,
+    body
+  );
+  const resultsJson = results ? JSON.stringify(results) : null;
+  const newStatus = results ? 'finished' : 'in-game';
+  const expectedUpdatedAt = roomData.dbUpdatedAt || 0;
+  const nextUpdatedAt = Math.max(Date.now(), expectedUpdatedAt + 1);
+
+  if (expectedUpdatedAt > 0) {
+    const [res] = await safeDbQuery<any>(
+      'UPDATE gh_rooms SET game_state_json = ?, game_results_json = ?, status = ?, updated_at = ? WHERE code = ? AND updated_at = ?',
+      [JSON.stringify(newGameState), resultsJson, newStatus, nextUpdatedAt, code, expectedUpdatedAt]
+    );
+    if (res && typeof res.affectedRows === 'number' && res.affectedRows === 0) {
+      // Concurrent update (e.g. timeout poll); reload fresh state and retry once
+      const fresh = await getRoomByCode(code);
+      if (fresh) {
+        const retry = processLudoAction(fresh.room, fresh.gameState, playerId, body);
+        const retryResultsJson = retry.results ? JSON.stringify(retry.results) : null;
+        const retryStatus = retry.results ? 'finished' : 'in-game';
+        const retryUpdatedAt = Math.max(Date.now(), (fresh.dbUpdatedAt || 0) + 1);
+        fresh.room.status = retryStatus;
+        saveMemoryRoom(fresh.room, retry.gameState, retry.results, fresh.activeVoteKick, fresh.chatMessages, retryUpdatedAt);
+        await safeDbQuery(
+          'UPDATE gh_rooms SET game_state_json = ?, game_results_json = ?, status = ?, updated_at = ? WHERE code = ?',
+          [JSON.stringify(retry.gameState), retryResultsJson, retryStatus, retryUpdatedAt, code]
+        );
+        return retry;
+      }
+    }
+  } else {
+    await safeDbQuery(
+      'UPDATE gh_rooms SET game_state_json = ?, game_results_json = ?, status = ?, updated_at = ? WHERE code = ?',
+      [JSON.stringify(newGameState), resultsJson, newStatus, nextUpdatedAt, code]
+    );
+  }
+
+  roomData.room.status = newStatus;
+  saveMemoryRoom(
+    roomData.room,
+    newGameState,
+    results,
+    roomData.activeVoteKick,
+    roomData.chatMessages,
+    nextUpdatedAt
+  );
+  return { gameState: newGameState, results };
+}
 
 export async function POST(
   req: Request,
@@ -40,10 +102,10 @@ export async function POST(
         player.isReady = isReady;
         saveMemoryRoom(room, gameState, roomData.gameResults);
       }
-      safeDbQuery(
+      await safeDbQuery(
         'UPDATE gh_players SET is_ready = ?, last_seen_at = ? WHERE id = ? AND room_code = ?',
         [isReady ? 1 : 0, now, playerId, code]
-      ).catch(() => {});
+      );
       return NextResponse.json({ success: true, room });
     }
 
@@ -55,10 +117,10 @@ export async function POST(
         player.avatar = avatar;
         saveMemoryRoom(room, gameState, roomData.gameResults);
       }
-      safeDbQuery(
+      await safeDbQuery(
         'UPDATE gh_players SET avatar = ?, last_seen_at = ? WHERE id = ? AND room_code = ?',
         [avatar, now, playerId, code]
-      ).catch(() => {});
+      );
       return NextResponse.json({ success: true, room });
     }
 
@@ -68,12 +130,13 @@ export async function POST(
       if (body.gameMode) room.settings.gameMode = body.gameMode;
       if (body.durationSeconds) room.settings.durationSeconds = Number(body.durationSeconds);
       if (body.maxPlayers) room.settings.maxPlayers = Number(body.maxPlayers);
-      saveMemoryRoom(room, gameState, roomData.gameResults);
+      const nextUpdatedAt = Math.max(now, (roomData.dbUpdatedAt || 0) + 1);
+      saveMemoryRoom(room, gameState, roomData.gameResults, roomData.activeVoteKick, roomData.chatMessages, nextUpdatedAt);
 
-      safeDbQuery(
+      await safeDbQuery(
         'UPDATE gh_rooms SET game_id = ?, game_mode = ?, duration_seconds = ?, max_players = ?, updated_at = ? WHERE code = ?',
-        [room.settings.gameId, room.settings.gameMode, room.settings.durationSeconds, room.settings.maxPlayers, now, code]
-      ).catch(() => {});
+        [room.settings.gameId, room.settings.gameMode, room.settings.durationSeconds, room.settings.maxPlayers, nextUpdatedAt, code]
+      );
       return NextResponse.json({ success: true, room });
     }
 
@@ -82,14 +145,11 @@ export async function POST(
       room.players = room.players.filter((p) => p.id !== body.targetId);
       saveMemoryRoom(room, gameState, roomData.gameResults);
 
-      safeDbQuery('DELETE FROM gh_players WHERE id = ? AND room_code = ?', [body.targetId, code]).catch(() => {});
+      await safeDbQuery('DELETE FROM gh_players WHERE id = ? AND room_code = ?', [body.targetId, code]);
       return NextResponse.json({ success: true, room });
     }
 
     // BOT ACTIONS (Single player / Practice mode)
-    const BOT_NAMES = ['Budi (Bot)', 'Siti (Bot)', 'Joko (Bot)', 'Rian (Bot)', 'Dewi (Bot)'];
-    const BOT_AVATARS: any[] = ['budi', 'siti', 'joko', 'rara', 'budi'];
-
     if (action === 'add_bot' || action === 'add-bot') {
       if (room.hostId !== playerId) {
         return NextResponse.json({ success: false, error: 'Only host can add bots.' }, { status: 403 });
@@ -97,13 +157,15 @@ export async function POST(
       const isSixPlayerGame = room.settings.gameId === 'impostor-desa' || room.settings.gameId === 'hidden-team';
       const maxCap = isSixPlayerGame ? 6 : (room.settings.maxPlayers || 4);
       if (room.players.length < maxCap) {
-        const botIndex = room.players.filter(p => p.isBot).length;
-        const botId = `bot_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+        const botIndex = room.players.filter((p) => p.isBot).length;
+        const botId = `bot_${now}_${Math.random().toString(36).substring(2, 6)}`;
+        const botNick = BOT_NAMES[botIndex % BOT_NAMES.length];
+        const botAvatar = BOT_AVATARS[botIndex % BOT_AVATARS.length];
         room.players.push({
           id: botId,
           socketId: botId,
-          nickname: BOT_NAMES[botIndex % BOT_NAMES.length],
-          avatar: BOT_AVATARS[botIndex % BOT_AVATARS.length],
+          nickname: botNick,
+          avatar: botAvatar,
           isHost: false,
           isReady: true,
           isConnected: true,
@@ -111,6 +173,12 @@ export async function POST(
           isBot: true,
         });
         saveMemoryRoom(room, gameState, roomData.gameResults);
+        await safeDbQuery(
+          `INSERT INTO gh_players 
+            (id, room_code, nickname, avatar, is_host, is_ready, is_connected, last_seen_at, joined_at)
+           VALUES (?, ?, ?, ?, 0, 1, 1, ?, ?)`,
+          [botId, code, botNick, botAvatar, now, now]
+        );
       }
       return NextResponse.json({ success: true, room });
     }
@@ -121,22 +189,39 @@ export async function POST(
       }
       const isSixPlayerGame = room.settings.gameId === 'impostor-desa' || room.settings.gameId === 'hidden-team';
       const maxCap = isSixPlayerGame ? 6 : (room.settings.maxPlayers || 4);
+      const insertPromises: Promise<any>[] = [];
+      let offset = 0;
       while (room.players.length < maxCap) {
-        const botIndex = room.players.filter(p => p.isBot).length;
-        const botId = `bot_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+        const botIndex = room.players.filter((p) => p.isBot).length;
+        const botId = `bot_${now}_${offset}_${Math.random().toString(36).substring(2, 6)}`;
+        const botNick = BOT_NAMES[botIndex % BOT_NAMES.length];
+        const botAvatar = BOT_AVATARS[botIndex % BOT_AVATARS.length];
+        const joinedAt = now + offset;
+        offset++;
         room.players.push({
           id: botId,
           socketId: botId,
-          nickname: BOT_NAMES[botIndex % BOT_NAMES.length],
-          avatar: BOT_AVATARS[botIndex % BOT_AVATARS.length],
+          nickname: botNick,
+          avatar: botAvatar,
           isHost: false,
           isReady: true,
           isConnected: true,
-          joinedAt: now,
+          joinedAt,
           isBot: true,
         });
+        insertPromises.push(
+          safeDbQuery(
+            `INSERT INTO gh_players 
+              (id, room_code, nickname, avatar, is_host, is_ready, is_connected, last_seen_at, joined_at)
+             VALUES (?, ?, ?, ?, 0, 1, 1, ?, ?)`,
+            [botId, code, botNick, botAvatar, now, joinedAt]
+          )
+        );
       }
       saveMemoryRoom(room, gameState, roomData.gameResults);
+      if (insertPromises.length > 0) {
+        await Promise.all(insertPromises);
+      }
       return NextResponse.json({ success: true, room });
     }
 
@@ -144,10 +229,13 @@ export async function POST(
       if (room.hostId !== playerId) {
         return NextResponse.json({ success: false, error: 'Only host can remove bots.' }, { status: 403 });
       }
-      const lastBotIndex = room.players.map(p => Boolean(p.isBot)).lastIndexOf(true);
+      const lastBotIndex = room.players.map((p) => Boolean(p.isBot)).lastIndexOf(true);
       if (lastBotIndex >= 0) {
-        room.players.splice(lastBotIndex, 1);
+        const [removedBot] = room.players.splice(lastBotIndex, 1);
         saveMemoryRoom(room, gameState, roomData.gameResults);
+        if (removedBot) {
+          await safeDbQuery('DELETE FROM gh_players WHERE id = ? AND room_code = ?', [removedBot.id, code]);
+        }
       }
       return NextResponse.json({ success: true, room });
     }
@@ -156,8 +244,9 @@ export async function POST(
       if (room.hostId !== playerId) {
         return NextResponse.json({ success: false, error: 'Only host can clear bots.' }, { status: 403 });
       }
-      room.players = room.players.filter(p => !p.isBot);
+      room.players = room.players.filter((p) => !p.isBot);
       saveMemoryRoom(room, gameState, roomData.gameResults);
+      await safeDbQuery('DELETE FROM gh_players WHERE id LIKE "bot_%" AND room_code = ?', [code]);
       return NextResponse.json({ success: true, room });
     }
 
@@ -168,13 +257,17 @@ export async function POST(
       }
 
       const initialGameState = createInitialGameState(room);
+      const nextUpdatedAt = Math.max(now, (roomData.dbUpdatedAt || 0) + 1);
       room.status = 'in-game';
-      saveMemoryRoom(room, initialGameState, null);
+      saveMemoryRoom(room, initialGameState, null, null, roomData.chatMessages, nextUpdatedAt);
 
-      await safeDbQuery(
-        'UPDATE gh_rooms SET status = "in-game", game_state_json = ?, game_results_json = NULL, updated_at = ? WHERE code = ?',
-        [JSON.stringify(initialGameState), now, code]
-      ).catch(() => {});
+      await Promise.all([
+        safeDbQuery(
+          'UPDATE gh_rooms SET status = "in-game", game_state_json = ?, game_results_json = NULL, updated_at = ? WHERE code = ?',
+          [JSON.stringify(initialGameState), nextUpdatedAt, code]
+        ),
+        safeDbQuery('DELETE FROM gh_vote_kicks WHERE room_code = ?', [code]),
+      ]);
 
       return NextResponse.json({ success: true, room, gameState: initialGameState });
     }
@@ -185,47 +278,28 @@ export async function POST(
       (room.settings.gameId === 'ludo' &&
         (body.action === 'roll-dice' || body.action === 'move-token' || body.action === 'pass-turn'))
     ) {
-      const { gameState: newGameState, results } = processLudoAction(room, gameState, playerId, body);
-      const resultsJson = results ? JSON.stringify(results) : null;
-      const newStatus = results ? 'finished' : 'in-game';
-      room.status = newStatus;
-      saveMemoryRoom(room, newGameState, results);
-
-      await safeDbQuery(
-        'UPDATE gh_rooms SET game_state_json = ?, game_results_json = ?, status = ?, updated_at = ? WHERE code = ?',
-        [JSON.stringify(newGameState), resultsJson, newStatus, now, code]
-      ).catch(() => {});
-
+      const { gameState: newGameState, results } = await persistLudoTransition(code, roomData, playerId, body);
       return NextResponse.json({ success: true, gameState: newGameState, results });
     }
 
     // 4. PANJAT PINANG INPUT ACTION
     if (action === 'input') {
       if (room.settings.gameId === 'ludo') {
-        const { gameState: newGameState, results } = processLudoAction(room, gameState, playerId, body);
-        const resultsJson = results ? JSON.stringify(results) : null;
-        const newStatus = results ? 'finished' : 'in-game';
-        room.status = newStatus;
-        saveMemoryRoom(room, newGameState, results);
-
-        await safeDbQuery(
-          'UPDATE gh_rooms SET game_state_json = ?, game_results_json = ?, status = ?, updated_at = ? WHERE code = ?',
-          [JSON.stringify(newGameState), resultsJson, newStatus, now, code]
-        ).catch(() => {});
-
+        const { gameState: newGameState, results } = await persistLudoTransition(code, roomData, playerId, body);
         return NextResponse.json({ success: true, gameState: newGameState, results });
       }
 
       const { gameState: newGameState, results } = processPanjatAction(room, gameState, playerId, body);
       const resultsJson = results ? JSON.stringify(results) : null;
       const newStatus = results ? 'finished' : 'in-game';
+      const nextUpdatedAt = Math.max(now, (roomData.dbUpdatedAt || 0) + 1);
       room.status = newStatus;
-      saveMemoryRoom(room, newGameState, results);
+      saveMemoryRoom(room, newGameState, results, roomData.activeVoteKick, roomData.chatMessages, nextUpdatedAt);
 
-      safeDbQuery(
+      await safeDbQuery(
         'UPDATE gh_rooms SET game_state_json = ?, game_results_json = ?, status = ?, updated_at = ? WHERE code = ?',
-        [JSON.stringify(newGameState), resultsJson, newStatus, now, code]
-      ).catch(() => {});
+        [JSON.stringify(newGameState), resultsJson, newStatus, nextUpdatedAt, code]
+      );
 
       return NextResponse.json({ success: true, gameState: newGameState, results });
     }
@@ -238,13 +312,14 @@ export async function POST(
       });
       const resultsJson = results ? JSON.stringify(results) : null;
       const newStatus = results ? 'finished' : 'in-game';
+      const nextUpdatedAt = Math.max(now, (roomData.dbUpdatedAt || 0) + 1);
       room.status = newStatus;
-      saveMemoryRoom(room, newGameState, results);
+      saveMemoryRoom(room, newGameState, results, roomData.activeVoteKick, roomData.chatMessages, nextUpdatedAt);
 
-      safeDbQuery(
+      await safeDbQuery(
         'UPDATE gh_rooms SET game_state_json = ?, game_results_json = ?, status = ?, updated_at = ? WHERE code = ?',
-        [JSON.stringify(newGameState), resultsJson, newStatus, now, code]
-      ).catch(() => {});
+        [JSON.stringify(newGameState), resultsJson, newStatus, nextUpdatedAt, code]
+      );
 
       return NextResponse.json({ success: true, gameState: newGameState, results });
     }
@@ -253,15 +328,20 @@ export async function POST(
     if (action === 'restart') {
       room.status = 'lobby';
       room.players.forEach((p) => {
-        p.isReady = p.isHost;
+        p.isReady = p.isHost || Boolean(p.isBot);
       });
-      saveMemoryRoom(room, null, null);
+      const nextUpdatedAt = Math.max(now, (roomData.dbUpdatedAt || 0) + 1);
+      saveMemoryRoom(room, null, null, null, [], nextUpdatedAt);
 
-      safeDbQuery(
-        'UPDATE gh_rooms SET status = "lobby", game_state_json = NULL, game_results_json = NULL, updated_at = ? WHERE code = ?',
-        [now, code]
-      ).catch(() => {});
-      safeDbQuery('UPDATE gh_players SET is_ready = is_host WHERE room_code = ?', [code]).catch(() => {});
+      await Promise.all([
+        safeDbQuery(
+          'UPDATE gh_rooms SET status = "lobby", game_state_json = NULL, game_results_json = NULL, updated_at = ? WHERE code = ?',
+          [nextUpdatedAt, code]
+        ),
+        safeDbQuery('UPDATE gh_players SET is_ready = (is_host OR id LIKE "bot_%") WHERE room_code = ?', [code]),
+        safeDbQuery('DELETE FROM gh_vote_kicks WHERE room_code = ?', [code]),
+        safeDbQuery('DELETE FROM gh_chats WHERE room_code = ?', [code]),
+      ]);
       return NextResponse.json({ success: true, room });
     }
 
@@ -271,10 +351,10 @@ export async function POST(
       const player = room.players.find((p) => p.id === playerId);
       const id = `emote_${now}_${Math.random().toString(36).substring(2, 6)}`;
 
-      safeDbQuery(
+      await safeDbQuery(
         'INSERT INTO gh_emotes (id, room_code, player_id, nickname, emote_id, timestamp) VALUES (?, ?, ?, ?, ?, ?)',
         [id, code, playerId, player?.nickname || 'Player', emoteId, now]
-      ).catch(() => {});
+      );
 
       return NextResponse.json({ success: true });
     }
@@ -308,6 +388,12 @@ export async function POST(
       const existingChats = (roomData.chatMessages || []).filter((c) => now - c.timestamp < 15000);
       existingChats.push(chatMessage);
       saveMemoryRoom(room, gameState, roomData.gameResults, roomData.activeVoteKick, existingChats);
+
+      await ensureAuxTables();
+      await safeDbQuery(
+        'INSERT INTO gh_chats (id, room_code, player_id, nickname, color, avatar, message, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [chatMessage.id, code, playerId, player.nickname, color || null, player.avatar, rawMessage, now]
+      );
 
       return NextResponse.json({ success: true, chatMessage });
     }
@@ -355,20 +441,31 @@ export async function POST(
         expiresAt: now + 25000,
       };
 
+      await ensureAuxTables();
+
       if (voteState.yesCount >= requiredVotes) {
-        if (room.settings.gameId === 'ludo' && gameState) {
-          const updatedState = removeLudoPlayer(room, gameState, target.id);
-          room.players = room.players.filter((p) => p.id !== target.id);
-          saveMemoryRoom(room, updatedState, roomData.gameResults, null);
-          return NextResponse.json({ success: true, kicked: true, room, gameState: updatedState });
-        } else {
-          room.players = room.players.filter((p) => p.id !== target.id);
-          saveMemoryRoom(room, gameState, roomData.gameResults, null);
-          return NextResponse.json({ success: true, kicked: true, room });
-        }
+        const updatedState = room.settings.gameId === 'ludo' && gameState
+          ? removeLudoPlayer(room, gameState, target.id)
+          : gameState;
+        room.players = room.players.filter((p) => p.id !== target.id);
+        const nextUpdatedAt = Math.max(now, (roomData.dbUpdatedAt || 0) + 1);
+        saveMemoryRoom(room, updatedState, roomData.gameResults, null, roomData.chatMessages, nextUpdatedAt);
+        await Promise.all([
+          safeDbQuery('DELETE FROM gh_players WHERE id = ? AND room_code = ?', [target.id, code]),
+          safeDbQuery('DELETE FROM gh_vote_kicks WHERE room_code = ?', [code]),
+          updatedState
+            ? safeDbQuery('UPDATE gh_rooms SET game_state_json = ?, updated_at = ? WHERE code = ?', [JSON.stringify(updatedState), nextUpdatedAt, code])
+            : Promise.resolve(),
+        ]);
+        return NextResponse.json({ success: true, kicked: true, room, gameState: updatedState });
       }
 
       saveMemoryRoom(room, gameState, roomData.gameResults, voteState);
+      await safeDbQuery(
+        `INSERT INTO gh_vote_kicks (room_code, data_json, updated_at) VALUES (?, ?, ?)
+         ON DUPLICATE KEY UPDATE data_json = VALUES(data_json), updated_at = VALUES(updated_at)`,
+        [code, JSON.stringify(voteState), now]
+      );
       return NextResponse.json({ success: true, voteKick: voteState });
     }
 
@@ -394,28 +491,39 @@ export async function POST(
       activeVote.noCount = noCount;
 
       const targetId = activeVote.targetPlayerId;
+      await ensureAuxTables();
 
       if (yesCount >= activeVote.requiredVotes) {
-        if (room.settings.gameId === 'ludo' && gameState) {
-          const updatedState = removeLudoPlayer(room, gameState, targetId);
-          room.players = room.players.filter((p) => p.id !== targetId);
-          saveMemoryRoom(room, updatedState, roomData.gameResults, null);
-          return NextResponse.json({ success: true, kicked: true, room, gameState: updatedState });
-        } else {
-          room.players = room.players.filter((p) => p.id !== targetId);
-          saveMemoryRoom(room, gameState, roomData.gameResults, null);
-          return NextResponse.json({ success: true, kicked: true, room });
-        }
+        const updatedState = room.settings.gameId === 'ludo' && gameState
+          ? removeLudoPlayer(room, gameState, targetId)
+          : gameState;
+        room.players = room.players.filter((p) => p.id !== targetId);
+        const nextUpdatedAt = Math.max(now, (roomData.dbUpdatedAt || 0) + 1);
+        saveMemoryRoom(room, updatedState, roomData.gameResults, null, roomData.chatMessages, nextUpdatedAt);
+        await Promise.all([
+          safeDbQuery('DELETE FROM gh_players WHERE id = ? AND room_code = ?', [targetId, code]),
+          safeDbQuery('DELETE FROM gh_vote_kicks WHERE room_code = ?', [code]),
+          updatedState
+            ? safeDbQuery('UPDATE gh_rooms SET game_state_json = ?, updated_at = ? WHERE code = ?', [JSON.stringify(updatedState), nextUpdatedAt, code])
+            : Promise.resolve(),
+        ]);
+        return NextResponse.json({ success: true, kicked: true, room, gameState: updatedState });
       }
 
       const eligibleCount = room.players.length - 1;
       const maxPossibleYes = eligibleCount - noCount;
       if (maxPossibleYes < activeVote.requiredVotes) {
         saveMemoryRoom(room, gameState, roomData.gameResults, null);
+        await safeDbQuery('DELETE FROM gh_vote_kicks WHERE room_code = ?', [code]);
         return NextResponse.json({ success: true, kicked: false, voteKick: null });
       }
 
       saveMemoryRoom(room, gameState, roomData.gameResults, activeVote);
+      await safeDbQuery(
+        `INSERT INTO gh_vote_kicks (room_code, data_json, updated_at) VALUES (?, ?, ?)
+         ON DUPLICATE KEY UPDATE data_json = VALUES(data_json), updated_at = VALUES(updated_at)`,
+        [code, JSON.stringify(activeVote), now]
+      );
       return NextResponse.json({ success: true, voteKick: activeVote });
     }
 
@@ -424,19 +532,28 @@ export async function POST(
       room.players = room.players.filter((p) => p.id !== playerId);
 
       if (room.players.length === 0) {
-        saveMemoryRoom(room, null, null);
-        safeDbQuery('DELETE FROM gh_rooms WHERE code = ?', [code]).catch(() => {});
-        safeDbQuery('DELETE FROM gh_players WHERE room_code = ?', [code]).catch(() => {});
-        safeDbQuery('DELETE FROM gh_emotes WHERE room_code = ?', [code]).catch(() => {});
+        saveMemoryRoom(room, null, null, null, []);
+        await Promise.all([
+          safeDbQuery('DELETE FROM gh_rooms WHERE code = ?', [code]),
+          safeDbQuery('DELETE FROM gh_players WHERE room_code = ?', [code]),
+          safeDbQuery('DELETE FROM gh_emotes WHERE room_code = ?', [code]),
+          safeDbQuery('DELETE FROM gh_chats WHERE room_code = ?', [code]),
+          safeDbQuery('DELETE FROM gh_vote_kicks WHERE room_code = ?', [code]),
+        ]);
       } else {
         if (room.hostId === playerId) {
-          room.hostId = room.players[0].id;
-          room.players[0].isHost = true;
-          room.players[0].isReady = true;
+          const nextHuman = room.players.find((p) => !p.isBot) || room.players[0];
+          room.hostId = nextHuman.id;
+          nextHuman.isHost = true;
+          nextHuman.isReady = true;
         }
-        saveMemoryRoom(room, gameState, roomData.gameResults);
-        safeDbQuery('DELETE FROM gh_players WHERE id = ? AND room_code = ?', [playerId, code]).catch(() => {});
-        safeDbQuery('UPDATE gh_rooms SET host_id = ?, updated_at = ? WHERE code = ?', [room.hostId, now, code]).catch(() => {});
+        const nextUpdatedAt = Math.max(now, (roomData.dbUpdatedAt || 0) + 1);
+        saveMemoryRoom(room, gameState, roomData.gameResults, roomData.activeVoteKick, roomData.chatMessages, nextUpdatedAt);
+        await Promise.all([
+          safeDbQuery('DELETE FROM gh_players WHERE id = ? AND room_code = ?', [playerId, code]),
+          safeDbQuery('UPDATE gh_players SET is_host = 1, is_ready = 1 WHERE id = ? AND room_code = ?', [room.hostId, code]),
+          safeDbQuery('UPDATE gh_rooms SET host_id = ?, updated_at = ? WHERE code = ?', [room.hostId, nextUpdatedAt, code]),
+        ]);
       }
 
       return NextResponse.json({ success: true, room });

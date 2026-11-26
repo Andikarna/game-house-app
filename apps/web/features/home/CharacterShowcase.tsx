@@ -50,20 +50,23 @@ export const CharacterShowcase: React.FC = () => {
                     : 'bg-surface/80 border-slate-800 hover:border-slate-700 hover:bg-surface-elevated/60'
                 }`}
               >
-                {/* Character Avatar Circle */}
-                <div
-                  className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl mb-2 flex items-center justify-center p-1 relative border transition-transform duration-300 group-hover:scale-110"
-                  style={{
-                    backgroundColor: `${char.color}20`,
-                    borderColor: `${char.color}60`,
-                  }}
-                >
-                  <img
-                    src={`${char.spriteBase}/avatar.png`}
-                    alt={char.name}
-                    className="w-full h-full object-contain"
-                  />
-                  <span className="absolute -top-1 -right-1 text-sm drop-shadow">
+                {/* Character Avatar Frame */}
+                <div className="relative mb-2">
+                  <div
+                    className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden relative border-2 shadow-lg transition-transform duration-300 group-hover:scale-105"
+                    style={{
+                      backgroundColor: `${char.color}25`,
+                      borderColor: isSelected ? char.color : `${char.color}70`,
+                    }}
+                  >
+                    <img
+                      src={`${char.spriteBase}/avatar.png`}
+                      alt={char.name}
+                      className="w-full h-full object-cover object-center"
+                    />
+                    <div className="absolute inset-0 rounded-2xl ring-1 ring-inset ring-white/20 pointer-events-none" />
+                  </div>
+                  <span className="absolute -top-1.5 -right-1.5 text-sm bg-slate-900/95 rounded-full w-6 h-6 flex items-center justify-center border border-slate-700 shadow">
                     {char.badge}
                   </span>
                 </div>
@@ -89,19 +92,22 @@ export const CharacterShowcase: React.FC = () => {
           />
 
           <div className="flex items-center gap-4 mb-4">
-            <div
-              className="w-20 h-20 rounded-2xl p-2 border-2 flex items-center justify-center shadow-xl relative"
-              style={{
-                backgroundColor: `${selectedChar.color}25`,
-                borderColor: selectedChar.color,
-              }}
-            >
-              <img
-                src={`${selectedChar.spriteBase}/avatar.png`}
-                alt={selectedChar.name}
-                className="w-full h-full object-contain animate-bounce-subtle"
-              />
-              <span className="absolute -top-1.5 -right-1.5 text-lg">
+            <div className="relative shrink-0">
+              <div
+                className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden border-2 flex items-center justify-center shadow-xl relative"
+                style={{
+                  backgroundColor: `${selectedChar.color}25`,
+                  borderColor: selectedChar.color,
+                }}
+              >
+                <img
+                  src={`${selectedChar.spriteBase}/avatar.png`}
+                  alt={selectedChar.name}
+                  className="w-full h-full object-cover object-center"
+                />
+                <div className="absolute inset-0 rounded-2xl ring-1 ring-inset ring-white/25 pointer-events-none" />
+              </div>
+              <span className="absolute -top-2 -right-2 text-lg bg-slate-900/95 rounded-full w-7 h-7 flex items-center justify-center border border-slate-700 shadow-lg">
                 {selectedChar.badge}
               </span>
             </div>

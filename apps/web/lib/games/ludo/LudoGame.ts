@@ -33,6 +33,7 @@ export class LudoGame implements GameModule {
   private validMoves: number[] = [];
   private turnTimeRemaining: number = 20; // 20s per turn
   private turnStartedAt: number = Date.now();
+  private rolledAt: number | null = null;
   private passAt: number | null = null;
   private autoTurnTimeout: any = null;
   private winnerId: string | null = null;
@@ -283,6 +284,7 @@ export class LudoGame implements GameModule {
       hasRolled: this.hasRolled,
       turnTimeRemaining: remaining,
       turnStartedAt: this.turnStartedAt,
+      rolledAt: this.rolledAt,
       passAt: this.passAt,
       consecutiveSixes: this.consecutiveSixes,
       players: playersRecord,
@@ -323,6 +325,7 @@ export class LudoGame implements GameModule {
     // Server-Authoritative Dice Roll (1 to 6)
     this.diceValue = Math.floor(Math.random() * 6) + 1;
     this.hasRolled = true;
+    this.rolledAt = Date.now();
     player.hasRolled = true;
     player.canRoll = false;
     this.stateVersion++;
@@ -570,27 +573,40 @@ export class LudoGame implements GameModule {
   public checkTimeouts(now: number = Date.now()): boolean {
     if (this.finished) return false;
 
-    if (this.passAt && now >= this.passAt) {
-      this.passAt = null;
-      this.passToNextPlayer();
-      return true;
+    if (this.passAt) {
+      if (now >= this.passAt) {
+        this.passAt = null;
+        this.passToNextPlayer();
+        return true;
+      }
+      // Wait until passAt expires so players can see the dice result before turn switches
+      return false;
     }
 
     const currentPlayerId = this.playerOrder[this.currentTurnIndex];
     const player = this.players.get(currentPlayerId);
     if (player && player.isBot) {
       if (!this.hasRolled && player.canRoll) {
-        this.handleRollDice(player);
-        return true;
+        if (now - (this.turnStartedAt || 0) >= 850) {
+          this.handleRollDice(player);
+          return true;
+        }
+        return false;
       }
       if (this.hasRolled && this.validMoves.length > 0) {
-        const bestMove = this.chooseBestBotMove(player, this.validMoves, this.diceValue || 1);
-        this.handleMoveToken(player, bestMove);
-        return true;
+        if (now - (this.rolledAt || 0) >= 900) {
+          const bestMove = this.chooseBestBotMove(player, this.validMoves, this.diceValue || 1);
+          this.handleMoveToken(player, bestMove);
+          return true;
+        }
+        return false;
       }
       if (this.hasRolled && this.validMoves.length === 0) {
-        this.passToNextPlayer();
-        return true;
+        if (now - (this.rolledAt || 0) >= 1200) {
+          this.passToNextPlayer();
+          return true;
+        }
+        return false;
       }
     }
 
@@ -762,6 +778,7 @@ export class LudoGame implements GameModule {
 
   private resetTurnTimer(): void {
     this.turnStartedAt = Date.now();
+    this.rolledAt = null;
     this.passAt = null;
     this.turnTimeRemaining = 20; // 20 seconds
   }

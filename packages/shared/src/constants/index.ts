@@ -51,13 +51,18 @@ export const PRIMARY_AVATARS: AvatarId[] = [
 
 export function normalizeAvatarId(avatar?: string | null): AvatarId {
   if (!avatar) return 'budi';
-  if (avatar === 'climber-red') return 'budi';
-  if (avatar === 'climber-blue') return 'rara';
-  if (avatar === 'climber-green') return 'koko';
-  if (avatar === 'climber-yellow') return 'ujang';
-  if (avatar === 'climber-purple') return 'siti';
-  if (avatar === 'climber-orange') return 'jaya';
-  return avatar as AvatarId;
+  const key = avatar.toLowerCase();
+  if (key === 'climber-red') return 'budi';
+  if (key === 'climber-blue' || key === 'rina') return 'rara';
+  if (key === 'climber-green' || key === 'andi') return 'koko';
+  if (key === 'climber-yellow') return 'ujang';
+  if (key === 'climber-purple') return 'siti';
+  if (key === 'climber-orange') return 'jaya';
+  if (key === 'joko') return 'jago';
+  if (PRIMARY_AVATARS.includes(key as AvatarId)) {
+    return key as AvatarId;
+  }
+  return 'budi';
 }
 
 export const AVATAR_OPTIONS: AvatarOption[] = [
