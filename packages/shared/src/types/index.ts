@@ -187,6 +187,7 @@ export interface LudoGameState {
   gameId: 'ludo';
   gameMode: GameMode;
   stateVersion?: number;
+  boardLayout?: 'square' | 'hex'; // 'square' for 4-player, 'hex' for 2/3/5/6-player
   status: RoomStatus;
   currentTurnPlayerId: string;
   currentTurnColor: LudoColor;
