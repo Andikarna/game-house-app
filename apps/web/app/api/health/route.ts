@@ -11,6 +11,7 @@ export async function GET() {
 
     return NextResponse.json({
       status: 'healthy',
+      dbConnected: true,
       uptime: process.uptime(),
       timestamp: Date.now(),
       stats: {
@@ -20,12 +21,14 @@ export async function GET() {
     });
   } catch (error: any) {
     return NextResponse.json({
-      status: 'healthy',
+      status: 'degraded',
+      dbConnected: false,
+      dbError: error?.code || error?.message || 'DB_ERROR',
       uptime: process.uptime(),
       timestamp: Date.now(),
       stats: {
-        activeRooms: 1,
-        onlinePlayers: 4,
+        activeRooms: 0,
+        onlinePlayers: 0,
       },
     });
   }

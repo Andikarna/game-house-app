@@ -1,4 +1,4 @@
-import { dbQuery, safeDbQuery, ensureAuxTables } from './db';
+import { withConnection, ensureTables } from './db';
 import {
   RoomInfo,
   Player,
@@ -137,21 +137,62 @@ export async function getRoomByCode(
 
   const memoryEntry = getMemoryRoom(cleanCode) || getMemoryRoom(raw);
 
-  // 1. Atomic single-connection multi-statement query for room + players
+  // 1. Query MySQL using strictly ONE pooled connection and standard single statements
   try {
-    const [coreResults] = await dbQuery<any[]>(
-      `SELECT * FROM gh_rooms WHERE code = ? LIMIT 1;
-       SELECT * FROM gh_players WHERE room_code = ? ORDER BY joined_at ASC;`,
-      [cleanCode, cleanCode]
-    );
+    await ensureTables();
 
-    const roomRows: any[] = Array.isArray(coreResults?.[0]) ? coreResults[0] : [];
-    const playerRows: any[] = Array.isArray(coreResults?.[1]) ? coreResults[1] : [];
+    const dbResult = await withConnection(async (conn) => {
+      const [roomRows] = await conn.query<any[]>(
+        'SELECT * FROM gh_rooms WHERE code = ? LIMIT 1',
+        [cleanCode]
+      );
+      if (!Array.isArray(roomRows) || roomRows.length === 0) {
+        return null;
+      }
 
-    if (roomRows.length > 0) {
-      const r = roomRows[0];
+      const [playerRows] = await conn.query<any[]>(
+        'SELECT * FROM gh_players WHERE room_code = ? ORDER BY joined_at ASC',
+        [cleanCode]
+      );
 
-      const players: Player[] = playerRows.map((p) => ({
+      let chatRows: any[] = [];
+      let voteRows: any[] = [];
+      let emoteRows: any[] = [];
+
+      if (includeAux) {
+        const now = Date.now();
+        try {
+          const [cRows] = await conn.query<any[]>(
+            'SELECT id, player_id as playerId, nickname, color, avatar, message, timestamp FROM gh_chats WHERE room_code = ? AND timestamp > ? ORDER BY timestamp ASC',
+            [cleanCode, now - 15000]
+          );
+          if (Array.isArray(cRows)) chatRows = cRows;
+        } catch {}
+
+        try {
+          const [vRows] = await conn.query<any[]>(
+            'SELECT data_json FROM gh_vote_kicks WHERE room_code = ? LIMIT 1',
+            [cleanCode]
+          );
+          if (Array.isArray(vRows)) voteRows = vRows;
+        } catch {}
+
+        try {
+          const [eRows] = await conn.query<any[]>(
+            'SELECT id, player_id as playerId, nickname, emote_id as emoteId, timestamp FROM gh_emotes WHERE room_code = ? AND timestamp > ? ORDER BY timestamp ASC',
+            [cleanCode, now - 10000]
+          );
+          if (Array.isArray(eRows)) emoteRows = eRows;
+        } catch {}
+      }
+
+      return { roomRows, playerRows: Array.isArray(playerRows) ? playerRows : [], chatRows, voteRows, emoteRows };
+    });
+
+    if (dbResult && dbResult.roomRows.length > 0) {
+      const r = dbResult.roomRows[0];
+
+      const players: Player[] = dbResult.playerRows.map((p) => ({
         id: p.id,
         socketId: p.id,
         nickname: p.nickname,
@@ -205,29 +246,15 @@ export async function getRoomByCode(
         }
       }
 
-      // Fetch auxiliary data (chats, vote kick, emotes) in one non-blocking query
       let activeVoteKick: VoteKickState | null = memoryEntry?.activeVoteKick || null;
       let chatMessages: ChatMessage[] = memoryEntry?.chatMessages || [];
-      let emotes: any[] = [];
+      const emotes: any[] = dbResult.emoteRows;
 
       if (includeAux) {
-        await ensureAuxTables();
-        const now = Date.now();
-        const [auxResults] = await safeDbQuery<any[]>(
-          `SELECT id, player_id as playerId, nickname, color, avatar, message, timestamp FROM gh_chats WHERE room_code = ? AND timestamp > ? ORDER BY timestamp ASC;
-           SELECT data_json FROM gh_vote_kicks WHERE room_code = ? LIMIT 1;
-           SELECT id, player_id as playerId, nickname, emote_id as emoteId, timestamp FROM gh_emotes WHERE room_code = ? AND timestamp > ? ORDER BY timestamp ASC;`,
-          [cleanCode, now - 15000, cleanCode, cleanCode, now - 10000]
-        );
-
-        const chatRows: any[] = Array.isArray(auxResults?.[0]) ? auxResults[0] : [];
-        const voteRows: any[] = Array.isArray(auxResults?.[1]) ? auxResults[1] : [];
-        const emoteRows: any[] = Array.isArray(auxResults?.[2]) ? auxResults[2] : [];
-
         activeVoteKick = null;
-        if (voteRows.length > 0 && voteRows[0]?.data_json) {
+        if (dbResult.voteRows.length > 0 && dbResult.voteRows[0]?.data_json) {
           try {
-            const parsed = JSON.parse(voteRows[0].data_json) as VoteKickState;
+            const parsed = JSON.parse(dbResult.voteRows[0].data_json) as VoteKickState;
             if (parsed && Date.now() <= parsed.expiresAt) {
               activeVoteKick = parsed;
             }
@@ -236,7 +263,7 @@ export async function getRoomByCode(
           }
         }
 
-        chatMessages = chatRows.map((c) => ({
+        chatMessages = dbResult.chatRows.map((c) => ({
           id: c.id,
           playerId: c.playerId,
           nickname: c.nickname,
@@ -245,8 +272,6 @@ export async function getRoomByCode(
           message: c.message,
           timestamp: Number(c.timestamp),
         }));
-
-        emotes = emoteRows;
       }
 
       const dbUpdatedAt = Number(r.updated_at) || 0;

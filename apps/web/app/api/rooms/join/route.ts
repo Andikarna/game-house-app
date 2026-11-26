@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { safeDbQuery } from '../../../../lib/db';
-import { getRoomByCode, addPlayerToMemoryRoom, saveMemoryRoom } from '../../../../lib/room-service';
+import { getRoomByCode, addPlayerToMemoryRoom, saveMemoryRoom, RoomEntry } from '../../../../lib/room-service';
 import { AvatarId, Player } from '../../../../shared';
 
 export const dynamic = 'force-dynamic';
@@ -23,9 +23,21 @@ export async function POST(req: Request) {
     }
 
     // Try finding by clean code first, then raw code
-    let roomData = await getRoomByCode(cleanCode);
-    if (!roomData && cleanCode !== rawCode) {
-      roomData = await getRoomByCode(rawCode);
+    let roomData: RoomEntry | null = null;
+    try {
+      roomData = await getRoomByCode(cleanCode, { includeAux: false, throwOnDbError: true });
+      if (!roomData && cleanCode !== rawCode) {
+        roomData = await getRoomByCode(rawCode, { includeAux: false, throwOnDbError: true });
+      }
+    } catch (dbErr: any) {
+      console.error('[API join DB error]:', dbErr?.code || dbErr?.message || dbErr);
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Koneksi database sedang sibuk (${dbErr?.code || 'DB_ERROR'}). Silakan klik Join lagi.`,
+        },
+        { status: 503 }
+      );
     }
 
     if (!roomData) {
@@ -111,7 +123,16 @@ export async function POST(req: Request) {
     await safeDbQuery(
       `INSERT INTO gh_players 
         (id, room_code, nickname, avatar, is_host, is_ready, is_connected, last_seen_at, joined_at)
-       VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)
+       ON DUPLICATE KEY UPDATE
+        room_code = VALUES(room_code),
+        nickname = VALUES(nickname),
+        avatar = VALUES(avatar),
+        is_host = VALUES(is_host),
+        is_ready = VALUES(is_ready),
+        is_connected = 1,
+        last_seen_at = VALUES(last_seen_at),
+        joined_at = VALUES(joined_at)`,
       [newPlayerId, room.code, finalNickname, avatar, newPlayer.isHost ? 1 : 0, newPlayer.isReady ? 1 : 0, now, now]
     );
 
