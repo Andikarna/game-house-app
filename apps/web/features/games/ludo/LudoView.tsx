@@ -312,6 +312,7 @@ export const LudoView: React.FC = () => {
       <footer className="w-full max-w-xl flex flex-col items-center justify-center pt-2 z-20">
         <LudoDice
           value={ludoState.diceValue}
+          moveSeq={ludoState.stateVersion ?? 0}
           canRoll={Boolean(myPlayer?.canRoll)}
           isMyTurn={isMyTurn}
           onRoll={handleRollDice}

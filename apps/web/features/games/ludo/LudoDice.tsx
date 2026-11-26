@@ -5,6 +5,7 @@ import { soundManager } from '../../../components/audio/SoundManager';
 
 interface LudoDiceProps {
   value: number | null;
+  moveSeq: number;
   canRoll: boolean;
   isMyTurn: boolean;
   onRoll: () => void;
@@ -113,6 +114,7 @@ const DiceFacePips: React.FC<{ face: number }> = ({ face }) => {
 
 export const LudoDice: React.FC<LudoDiceProps> = ({
   value,
+  moveSeq,
   canRoll,
   isMyTurn,
   onRoll,
@@ -149,6 +151,7 @@ export const LudoDice: React.FC<LudoDiceProps> = ({
   // RAF spin loop — keeps the cube tumbling until the server value arrives
   const rollingRafRef = useRef<number | null>(null);
   const isRollingRef = useRef(false);
+  const prevSeqRef = useRef<number>(moveSeq);
 
   // Computes next forward Euler angle aligned modulo 360 to targetDeg
   const nextForwardAngle = (current: number, targetDeg: number, extraTurns: number = 1): number => {
@@ -240,10 +243,10 @@ export const LudoDice: React.FC<LudoDiceProps> = ({
     }, 2400);
   };
 
-  // Sync with incoming server value changes
+  // Sync with incoming server value changes — triggered by moveSeq (state version)
   useEffect(() => {
-    if (value !== null && value !== prevValueRef.current) {
-      prevValueRef.current = value;
+    if (moveSeq > prevSeqRef.current && value !== null) {
+      prevSeqRef.current = moveSeq;
       if (safetyTimeoutRef.current) {
         clearTimeout(safetyTimeoutRef.current);
         safetyTimeoutRef.current = null;
@@ -252,30 +255,23 @@ export const LudoDice: React.FC<LudoDiceProps> = ({
       if (isAwaitingServerResultRef.current) {
         isAwaitingServerResultRef.current = false;
         const elapsed = Date.now() - rollStartTimeRef.current;
-        const minFlightDuration = 120;
+        const minFlightDuration = 320;
         const remaining = Math.max(0, minFlightDuration - elapsed);
 
         if (landTimeoutRef.current) clearTimeout(landTimeoutRef.current);
-        if (remaining === 0) {
+        landTimeoutRef.current = setTimeout(() => {
           landOnAuthoritativeNumber(value);
-        } else {
-          landTimeoutRef.current = setTimeout(() => {
-            landOnAuthoritativeNumber(value);
-          }, remaining);
-        }
+        }, remaining);
       } else {
-        // Opponent or Bot rolled
+        // Opponent or Bot rolled — tumble then land
         if (landTimeoutRef.current) clearTimeout(landTimeoutRef.current);
         startTumbling();
         landTimeoutRef.current = setTimeout(() => {
           landOnAuthoritativeNumber(value);
-        }, 200);
+        }, 320);
       }
-    } else if (value === null) {
-      prevValueRef.current = null;
-      isAwaitingServerResultRef.current = false;
     }
-  }, [value]);
+  }, [moveSeq, value]);
 
   const handleClick = () => {
     if (!canRoll || !isMyTurn || isRolling || isLanding) return;
