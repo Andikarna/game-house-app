@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { safeDbQuery, ensureAuxTables } from '../../../../../lib/db';
+import { dbQuery, safeDbQuery, ensureAuxTables } from '../../../../../lib/db';
 import { getRoomByCode, saveMemoryRoom, RoomEntry } from '../../../../../lib/room-service';
 import { createInitialGameState, processLudoAction, processPanjatAction, removeLudoPlayer } from '../../../../../lib/game-runner';
 import { AvatarId, ChatMessage, VoteKickState, GAME_AVAILABILITY, GameId } from '../../../../../shared';
@@ -28,30 +28,30 @@ async function persistLudoTransition(
   const nextUpdatedAt = Math.max(Date.now(), expectedUpdatedAt + 1);
 
   if (expectedUpdatedAt > 0) {
-    const [res] = await safeDbQuery<any>(
+    const [res] = await dbQuery<any>(
       'UPDATE gh_rooms SET game_state_json = ?, game_results_json = ?, status = ?, updated_at = ? WHERE code = ? AND updated_at = ?',
       [JSON.stringify(newGameState), resultsJson, newStatus, nextUpdatedAt, code, expectedUpdatedAt]
     );
     if (res && typeof res.affectedRows === 'number' && res.affectedRows === 0) {
       // Concurrent update (e.g. timeout poll); reload fresh state and retry once
-      const fresh = await getRoomByCode(code);
+      const fresh = await getRoomByCode(code, { includeAux: false, throwOnDbError: true });
       if (fresh) {
         const retry = processLudoAction(fresh.room, fresh.gameState, playerId, body);
         const retryResultsJson = retry.results ? JSON.stringify(retry.results) : null;
         const retryStatus = retry.results ? 'finished' : 'in-game';
         const retryUpdatedAt = Math.max(Date.now(), (fresh.dbUpdatedAt || 0) + 1);
-        fresh.room.status = retryStatus;
-        saveMemoryRoom(fresh.room, retry.gameState, retry.results, fresh.activeVoteKick, fresh.chatMessages, retryUpdatedAt);
-        await safeDbQuery(
+        await dbQuery(
           'UPDATE gh_rooms SET game_state_json = ?, game_results_json = ?, status = ?, updated_at = ? WHERE code = ?',
           [JSON.stringify(retry.gameState), retryResultsJson, retryStatus, retryUpdatedAt, code]
         );
+        fresh.room.status = retryStatus;
+        saveMemoryRoom(fresh.room, retry.gameState, retry.results, fresh.activeVoteKick, fresh.chatMessages, retryUpdatedAt);
         roomData.dbUpdatedAt = retryUpdatedAt;
         return retry;
       }
     }
   } else {
-    await safeDbQuery(
+    await dbQuery(
       'UPDATE gh_rooms SET game_state_json = ?, game_results_json = ?, status = ?, updated_at = ? WHERE code = ?',
       [JSON.stringify(newGameState), resultsJson, newStatus, nextUpdatedAt, code]
     );

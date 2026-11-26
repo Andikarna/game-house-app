@@ -627,9 +627,9 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
             return;
           }
 
-          displayedStepsRef.current[key] = 0;
-          targetStepsRef.current[key] = 0;
-          setAnimatedSteps((prev) => ({ ...prev, [key]: 0 }));
+          displayedStepsRef.current[key] = serverTarget;
+          targetStepsRef.current[key] = serverTarget;
+          setAnimatedSteps((prev) => ({ ...prev, [key]: serverTarget }));
           return;
         }
 

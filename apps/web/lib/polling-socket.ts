@@ -21,6 +21,8 @@ class PollingSocket {
   private isMyTurnActive: boolean = false;
   private lastRoomStateStr: string = '';
   private lastVoteKickStr: string = '';
+  private inFlightActionCount: number = 0;
+  private minExpectedVersion: number = 0;
   private processedEmoteIds: Set<string> = new Set();
   private processedChatIds: Set<string> = new Set();
 
@@ -306,29 +308,58 @@ class PollingSocket {
       if (event === 'game:input') {
         const isLudoAction = payload?.action === 'roll-dice' || payload?.action === 'move-token' || payload?.action === 'pass-turn';
         const actionName = isLudoAction ? 'ludo_action' : 'input';
-        const res = await fetch(`/api/rooms/${roomCode}/action`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: actionName, playerId, ...payload }),
-        });
-        const data = await res.json();
-        if (data.success && data.gameState) {
-          if (data.gameState.stateVersion) {
-            this.lastGameStateVersion = data.gameState.stateVersion;
+        this.inFlightActionCount++;
+        if (isLudoAction && this.lastGameStateVersion > 0) {
+          this.minExpectedVersion = Math.max(this.minExpectedVersion, this.lastGameStateVersion + 1);
+        }
+
+        const sendInput = async () => {
+          const res = await fetch(`/api/rooms/${roomCode}/action`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: actionName, playerId, ...payload }),
+          });
+          if (!res.ok) {
+            throw new Error(`HTTP ${res.status}`);
           }
-          if (data.u) {
-            this.lastDbUpdatedAt = Number(data.u);
+          return res.json();
+        };
+
+        try {
+          let data: any = null;
+          try {
+            data = await sendInput();
+          } catch {
+            // Transient network / DB contention retry once
+            await new Promise((r) => setTimeout(r, 180));
+            data = await sendInput();
           }
-          this.isMyTurnActive = data.gameState.currentTurnPlayerId === this.currentPlayerId;
-          this.lastGameStateStr = JSON.stringify(data.gameState);
-          if (isLudoAction) {
-            this.emitInternal('game:ludo_state', data.gameState);
-          } else {
-            this.emitInternal('game:state', data.gameState);
+
+          if (data?.success && data.gameState) {
+            if (data.gameState.stateVersion) {
+              this.lastGameStateVersion = data.gameState.stateVersion;
+              this.minExpectedVersion = Math.max(this.minExpectedVersion, data.gameState.stateVersion);
+            }
+            if (data.u) {
+              this.lastDbUpdatedAt = Number(data.u);
+            }
+            this.isMyTurnActive = data.gameState.currentTurnPlayerId === this.currentPlayerId;
+            this.lastGameStateStr = JSON.stringify(data.gameState);
+            if (isLudoAction) {
+              this.emitInternal('game:ludo_state', data.gameState);
+            } else {
+              this.emitInternal('game:state', data.gameState);
+            }
+            if (data.results) {
+              this.emitInternal('game:finished', data.results);
+            }
           }
-          if (data.results) {
-            this.emitInternal('game:finished', data.results);
-          }
+        } catch (actionErr) {
+          console.error('[PollingSocket game:input error]:', actionErr);
+          this.minExpectedVersion = 0;
+          await this.pollOnce(true);
+        } finally {
+          this.inFlightActionCount = Math.max(0, this.inFlightActionCount - 1);
         }
         return;
       }
@@ -548,6 +579,7 @@ class PollingSocket {
         this.lastRoomStateStr = roomStr;
         if (room.status === 'lobby') {
           this.lastGameStateVersion = 0;
+          this.minExpectedVersion = 0;
           this.lastGameStateStr = '';
           this.isMyTurnActive = false;
         }
@@ -557,10 +589,14 @@ class PollingSocket {
       // Handle Game State
       if (data.gameState) {
         const incomingVersion = data.gameState.stateVersion || 0;
-        const isStale = incomingVersion > 0 && incomingVersion < this.lastGameStateVersion;
+        const blockedByOptimistic = this.inFlightActionCount > 0 || (this.minExpectedVersion > 0 && incomingVersion > 0 && incomingVersion < this.minExpectedVersion);
+        const isStale = blockedByOptimistic || (incomingVersion > 0 && incomingVersion < this.lastGameStateVersion);
         if (!isStale) {
           if (incomingVersion > 0) {
             this.lastGameStateVersion = incomingVersion;
+            if (incomingVersion >= this.minExpectedVersion) {
+              this.minExpectedVersion = 0;
+            }
           }
           this.isMyTurnActive = data.gameState.currentTurnPlayerId === this.currentPlayerId;
           const gameStr = JSON.stringify(data.gameState);
