@@ -47,7 +47,7 @@ export const SnakeLadderView: React.FC = () => {
     lastNotifiedSeqRef.current = move.seq;
 
     const moverName = snakeState.players[move.playerId]?.nickname || 'Pemain';
-    const walkDelay = move.walkPath.length * 165 + 120;
+    const walkDelay = 1450 + move.walkPath.length * 165 + 120;
 
     if (move.trigger?.type === 'ladder') {
       const trig = move.trigger;

@@ -59,6 +59,13 @@ interface ActivePawnAnim {
   lastHopIndex: number;
 }
 
+interface QueuedPawnMove {
+  move: SnakeLadderMoveEvent;
+  readyAt: number;
+}
+
+const PAWN_START_DELAY_MS = 1450; // ~450ms dice land & reveal + 1000ms pause so players can read the number
+
 const BOARD_SIZE = 1000;
 const CELL_SIZE = 100;
 
@@ -152,7 +159,7 @@ export const SnakeLadderBoard25D: React.FC<SnakeLadderBoard25DProps> = ({
   const gameStateRef = useRef(gameState);
   gameStateRef.current = gameState;
 
-  const moveQueueRef = useRef<SnakeLadderMoveEvent[]>([]);
+  const moveQueueRef = useRef<QueuedPawnMove[]>([]);
   const activeAnimRef = useRef<ActivePawnAnim | null>(null);
   const lastQueuedSeqRef = useRef<number>(gameState.lastMove?.seq || 0);
   const visualPositionsRef = useRef<Record<string, number>>({});
@@ -198,8 +205,12 @@ export const SnakeLadderBoard25D: React.FC<SnakeLadderBoard25DProps> = ({
     if (!activeAnimRef.current && moveQueueRef.current.length === 0) {
       visualPositionsRef.current[move.playerId] = move.fromTile;
     }
-    moveQueueRef.current.push(move);
-  }, [gameState.lastMove]);
+    onAnimationBusyChange?.(true);
+    moveQueueRef.current.push({
+      move,
+      readyAt: performance.now() + PAWN_START_DELAY_MS,
+    });
+  }, [gameState.lastMove, onAnimationBusyChange]);
 
   const spawnBurst = (
     x: number,
@@ -284,8 +295,8 @@ export const SnakeLadderBoard25D: React.FC<SnakeLadderBoard25DProps> = ({
       // ------------------------------------------------------------------
       // 1. ADVANCE ACTIVE PAWN ANIMATION QUEUE
       // ------------------------------------------------------------------
-      if (!activeAnimRef.current && moveQueueRef.current.length > 0) {
-        const nextMove = moveQueueRef.current.shift()!;
+      if (!activeAnimRef.current && moveQueueRef.current.length > 0 && nowMs >= moveQueueRef.current[0].readyAt) {
+        const { move: nextMove } = moveQueueRef.current.shift()!;
         visualPositionsRef.current[nextMove.playerId] = nextMove.fromTile;
         activeLadderIdRef.current = null;
         angrySnakeIdRef.current = null;
