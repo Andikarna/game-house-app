@@ -393,15 +393,16 @@ export const PlayableGamesShowcase: React.FC<PlayableGamesProps> = ({ onSelectGa
             <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-emerald-500 via-teal-400 to-amber-400 z-20" />
 
             <div className="flex flex-col flex-1">
-              <div className="relative w-full aspect-[16/9] sm:h-64 bg-gradient-to-br from-emerald-950 via-teal-900 to-amber-950 overflow-hidden flex items-center justify-center">
-                {/* 2.5D Decorative Board Preview */}
-                <div className="absolute inset-0 opacity-25 bg-[radial-gradient(#34d399_1.5px,transparent_1.5px)] [background-size:18px_18px]" />
-                <div className="relative flex items-center gap-4 z-10 group-hover:scale-105 transition-transform duration-500">
-                  <span className="text-6xl sm:text-7xl drop-shadow-[0_12px_20px_rgba(0,0,0,0.6)]">🐍</span>
-                  <span className="text-5xl sm:text-6xl drop-shadow-[0_12px_20px_rgba(0,0,0,0.6)]">🪜</span>
-                  <span className="text-5xl sm:text-6xl drop-shadow-[0_12px_20px_rgba(0,0,0,0.6)]">🎲</span>
-                </div>
+              {/* Visual Banner Area */}
+              <div className="relative w-full aspect-[16/9] sm:h-64 bg-slate-950 overflow-hidden">
+                <img
+                  src="/assets/gameplay/snake_ladder_banner.jpg"
+                  alt="Ular Tangga 2.5D"
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out opacity-95"
+                />
+                {/* Vignette Gradients */}
                 <div className="absolute inset-0 bg-gradient-to-t from-surface via-surface/35 to-transparent z-10" />
+                <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent z-10 pointer-events-none" />
 
                 <div className="absolute top-3 left-3 sm:top-4 sm:left-4 flex flex-wrap gap-1.5 sm:gap-2 z-20">
                   <span className="px-3 py-1 rounded-full bg-emerald-500/90 text-white text-[11px] font-black uppercase tracking-wider backdrop-blur-md shadow-md flex items-center gap-1.5">

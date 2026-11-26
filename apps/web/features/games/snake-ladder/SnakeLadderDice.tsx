@@ -134,6 +134,9 @@ export const SnakeLadderDice: React.FC<SnakeLadderDiceProps> = ({
   const landTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const bannerTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const safetyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // RAF spin loop — keeps the cube tumbling until the server value arrives
+  const rollingRafRef = useRef<number | null>(null);
+  const isRollingRef = useRef(false);
 
   const nextForwardAngle = (current: number, targetDeg: number, extraTurns: number = 1) => {
     const mod = ((current % 360) + 360) % 360;
@@ -143,22 +146,44 @@ export const SnakeLadderDice: React.FC<SnakeLadderDiceProps> = ({
     return current + delta + extraTurns * 360;
   };
 
+  const stopRafSpin = () => {
+    if (rollingRafRef.current !== null) {
+      cancelAnimationFrame(rollingRafRef.current);
+      rollingRafRef.current = null;
+    }
+  };
+
   const startTumbling = () => {
+    isRollingRef.current = true;
     setIsRolling(true);
     setIsLanding(false);
     setShowBanner(false);
     setShowShockwave(false);
     soundManager.playDiceRoll();
 
-    const cur = cubeRotRef.current;
-    setCubeRotation({
-      rx: cur.rx + 540 + Math.floor(Math.random() * 140),
-      ry: cur.ry + 640 + Math.floor(Math.random() * 140),
-      rz: cur.rz + 360,
-    });
+    // Kick off a continuous RAF loop — increments rotation every frame
+    // so the cube never freezes while waiting for the server response.
+    const spin = () => {
+      if (!isRollingRef.current) return;
+      const cur = cubeRotRef.current;
+      const next = {
+        rx: cur.rx + 5.5,
+        ry: cur.ry + 7.5,
+        rz: cur.rz + 3.5,
+      };
+      cubeRotRef.current = next;
+      setCubeRotation(next);
+      rollingRafRef.current = requestAnimationFrame(spin);
+    };
+    stopRafSpin(); // cancel any stale loop before starting
+    rollingRafRef.current = requestAnimationFrame(spin);
   };
 
   const landOnNumber = (finalVal: number) => {
+    // Stop the continuous spin loop before snapping to the face
+    isRollingRef.current = false;
+    stopRafSpin();
+
     if (landTimeoutRef.current) clearTimeout(landTimeoutRef.current);
     if (safetyTimeoutRef.current) clearTimeout(safetyTimeoutRef.current);
 
@@ -227,6 +252,8 @@ export const SnakeLadderDice: React.FC<SnakeLadderDiceProps> = ({
     if (safetyTimeoutRef.current) clearTimeout(safetyTimeoutRef.current);
     safetyTimeoutRef.current = setTimeout(() => {
       isAwaitingServerRef.current = false;
+      isRollingRef.current = false;
+      stopRafSpin();
       setIsRolling(false);
       setIsLanding(false);
     }, 4500);
@@ -249,6 +276,8 @@ export const SnakeLadderDice: React.FC<SnakeLadderDiceProps> = ({
 
   useEffect(() => {
     return () => {
+      isRollingRef.current = false;
+      stopRafSpin();
       if (landTimeoutRef.current) clearTimeout(landTimeoutRef.current);
       if (bannerTimeoutRef.current) clearTimeout(bannerTimeoutRef.current);
       if (safetyTimeoutRef.current) clearTimeout(safetyTimeoutRef.current);
@@ -361,7 +390,7 @@ export const SnakeLadderDice: React.FC<SnakeLadderDiceProps> = ({
               }}
               transition={
                 isRolling
-                  ? { duration: 0.42, ease: [0.3, 0.85, 0.4, 1] }
+                  ? { duration: 0.012, ease: 'linear' }
                   : { duration: 0.42, ease: [0.18, 1.15, 0.32, 1] }
               }
               style={{ transformStyle: 'preserve-3d' }}

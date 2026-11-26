@@ -146,6 +146,10 @@ export const LudoDice: React.FC<LudoDiceProps> = ({
   const rollStartTimeRef = useRef<number>(0);
   const prevValueRef = useRef<number | null>(value);
 
+  // RAF spin loop — keeps the cube tumbling until the server value arrives
+  const rollingRafRef = useRef<number | null>(null);
+  const isRollingRef = useRef(false);
+
   // Computes next forward Euler angle aligned modulo 360 to targetDeg
   const nextForwardAngle = (current: number, targetDeg: number, extraTurns: number = 1): number => {
     const mod = ((current % 360) + 360) % 360;
@@ -155,8 +159,16 @@ export const LudoDice: React.FC<LudoDiceProps> = ({
     return current + delta + extraTurns * 360;
   };
 
-  // 1. Launch dice into fluid 3D spin
+  const stopRafSpin = () => {
+    if (rollingRafRef.current !== null) {
+      cancelAnimationFrame(rollingRafRef.current);
+      rollingRafRef.current = null;
+    }
+  };
+
+  // 1. Launch dice into continuous 3D spin — RAF loop keeps it moving every frame
   const startTumbling = () => {
+    isRollingRef.current = true;
     setIsRolling(true);
     setIsLanding(false);
     setShowNumberBanner(false);
@@ -165,16 +177,30 @@ export const LudoDice: React.FC<LudoDiceProps> = ({
 
     soundManager.playDiceRoll();
 
-    const cur = cubeRotRef.current;
-    // Spin forward along all 3 axes smoothly
-    const spinRx = cur.rx + 360 + Math.floor(Math.random() * 120);
-    const spinRy = cur.ry + 420 + Math.floor(Math.random() * 140);
-    const spinRz = cur.rz + 180;
-    setCubeRotation({ rx: spinRx, ry: spinRy, rz: spinRz });
+    // Continuous RAF spin loop — increments rotation every animation frame
+    // so the cube never freezes while awaiting the server response.
+    const spin = () => {
+      if (!isRollingRef.current) return;
+      const cur = cubeRotRef.current;
+      const next = {
+        rx: cur.rx + 5.5,
+        ry: cur.ry + 7.5,
+        rz: cur.rz + 3.5,
+      };
+      cubeRotRef.current = next;
+      setCubeRotation(next);
+      rollingRafRef.current = requestAnimationFrame(spin);
+    };
+    stopRafSpin(); // cancel any stale loop before starting
+    rollingRafRef.current = requestAnimationFrame(spin);
   };
 
   // 2. Smoothly ease onto the authoritative 3D face + subtle impact bounce
   const landOnAuthoritativeNumber = (finalVal: number) => {
+    // Stop the continuous spin loop before snapping to the face
+    isRollingRef.current = false;
+    stopRafSpin();
+
     if (landTimeoutRef.current) {
       clearTimeout(landTimeoutRef.current);
       landTimeoutRef.current = null;
@@ -264,6 +290,8 @@ export const LudoDice: React.FC<LudoDiceProps> = ({
     safetyTimeoutRef.current = setTimeout(() => {
       if (isAwaitingServerResultRef.current) {
         isAwaitingServerResultRef.current = false;
+        isRollingRef.current = false;
+        stopRafSpin();
         setIsRolling(false);
         setIsLanding(false);
       }
@@ -272,6 +300,8 @@ export const LudoDice: React.FC<LudoDiceProps> = ({
 
   useEffect(() => {
     return () => {
+      isRollingRef.current = false;
+      stopRafSpin();
       if (landTimeoutRef.current) clearTimeout(landTimeoutRef.current);
       if (safetyTimeoutRef.current) clearTimeout(safetyTimeoutRef.current);
       if (bannerTimeoutRef.current) clearTimeout(bannerTimeoutRef.current);
@@ -417,7 +447,7 @@ export const LudoDice: React.FC<LudoDiceProps> = ({
               }}
               transition={
                 isRolling
-                  ? { duration: 0.24, ease: [0.25, 0.85, 0.35, 1] }
+                  ? { duration: 0.012, ease: 'linear' }
                   : { duration: 0.24, ease: [0.18, 1.15, 0.32, 1] }
               }
               style={{ transformStyle: 'preserve-3d' }}
