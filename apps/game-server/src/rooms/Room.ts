@@ -337,8 +337,8 @@ export class Room {
       return { canStart: false, reason: 'At least 2 players are required to start.' };
     }
 
-    if (this.settings.gameId === 'ludo' && this.players.size > 4) {
-      return { canStart: false, reason: 'Ludo Party supports a maximum of 4 players.' };
+    if (this.settings.gameId === 'ludo' && this.players.size > 6) {
+      return { canStart: false, reason: 'Ludo Party supports a maximum of 6 players.' };
     }
 
     const nonHostPlayers = Array.from(this.players.values()).filter(p => !p.isHost && !p.isBot);

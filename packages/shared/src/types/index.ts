@@ -156,7 +156,7 @@ export interface GameResultData {
 // LUDO BOARD GAME TYPES
 // =========================================================================
 
-export type LudoColor = 'red' | 'green' | 'yellow' | 'blue';
+export type LudoColor = 'red' | 'blue' | 'purple' | 'green' | 'yellow' | 'orange';
 
 export type LudoTokenState = 'base' | 'track' | 'home-stretch' | 'finished';
 
@@ -164,8 +164,8 @@ export interface LudoToken {
   id: number; // 0, 1, 2, 3
   color: LudoColor;
   state: LudoTokenState;
-  stepCount: number; // 0 = base, 1-51 = track, 52-56 = home stretch, 57 = finished (center)
-  trackPosition: number; // 0 to 51 on global track when state === 'track'
+  stepCount: number; // 0 = base, 1-77 = track, 78-82 = home stretch, 83 = finished (center)
+  trackPosition: number; // 0 to 77 on global track when state === 'track'
 }
 
 export interface LudoPlayerState {

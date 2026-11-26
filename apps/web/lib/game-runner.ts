@@ -65,7 +65,7 @@ export function processLudoAction(
 
   // Handle actions
   if (actionData.action === 'pass-turn' || actionData.type === 'pass-turn') {
-    ludo.passToNextPlayer();
+    ludo.handleInput(playerId, { action: 'pass-turn' });
   } else if (actionData.action === 'roll-dice' || actionData.type === 'roll') {
     ludo.handleInput(playerId, { action: 'roll-dice' });
   } else if (actionData.action === 'move-token') {

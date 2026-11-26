@@ -240,6 +240,8 @@ class PollingSocket {
         });
         const data = await res.json();
         if (data.success && data.gameState) {
+          this.lastGameStateVersion = data.gameState.stateVersion || 1;
+          this.lastGameStateStr = JSON.stringify(data.gameState);
           if (data.room) {
             this.emitInternal('room:updated', data.room);
           }
@@ -390,6 +392,8 @@ class PollingSocket {
 
       // 9. RESTART GAME
       if (event === 'game:restart') {
+        this.lastGameStateVersion = 0;
+        this.lastGameStateStr = '';
         await fetch(`/api/rooms/${roomCode}/action`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -477,26 +481,29 @@ class PollingSocket {
       const roomStr = JSON.stringify(room);
       if (roomStr !== this.lastRoomStateStr) {
         this.lastRoomStateStr = roomStr;
+        if (room.status === 'lobby') {
+          this.lastGameStateVersion = 0;
+          this.lastGameStateStr = '';
+        }
         this.emitInternal('room:updated', room);
       }
 
       // Handle Game State
       if (data.gameState) {
         const incomingVersion = data.gameState.stateVersion || 0;
-        if (incomingVersion > 0 && incomingVersion < this.lastGameStateVersion) {
-          // Stale out-of-order poll response, ignore to prevent state rewind
-          return;
-        }
-        if (incomingVersion > 0) {
-          this.lastGameStateVersion = incomingVersion;
-        }
-        const gameStr = JSON.stringify(data.gameState);
-        if (gameStr !== this.lastGameStateStr) {
-          this.lastGameStateStr = gameStr;
-          if (room.settings.gameId === 'ludo') {
-            this.emitInternal('game:ludo_state', data.gameState);
-          } else {
-            this.emitInternal('game:state', data.gameState);
+        const isStale = incomingVersion > 0 && incomingVersion < this.lastGameStateVersion;
+        if (!isStale) {
+          if (incomingVersion > 0) {
+            this.lastGameStateVersion = incomingVersion;
+          }
+          const gameStr = JSON.stringify(data.gameState);
+          if (gameStr !== this.lastGameStateStr) {
+            this.lastGameStateStr = gameStr;
+            if (room.settings.gameId === 'ludo') {
+              this.emitInternal('game:ludo_state', data.gameState);
+            } else {
+              this.emitInternal('game:state', data.gameState);
+            }
           }
         }
       }

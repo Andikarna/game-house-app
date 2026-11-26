@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  LudoGameState, 
-  LudoColor, 
+import {
+  LudoGameState,
+  LudoColor,
   LudoToken,
-  AvatarId
+  AvatarId,
 } from '@gamehouse/shared';
-import { Star, Crown, ChevronDown, ChevronLeft, ChevronUp, ChevronRight, RotateCcw, Sparkles } from 'lucide-react';
+import { Star, Crown, RotateCcw, Sparkles } from 'lucide-react';
 import { soundManager } from '../../../components/audio/SoundManager';
 import { useGameStore } from '../../../stores/useGameStore';
 import { ClimberAvatarIcon } from '../../../components/ui/AvatarSelector';
@@ -18,123 +18,145 @@ interface LudoBoardProps {
 }
 
 // ============================================================================
-// 1. BOARD COORDINATES & GEOMETRY (15x15 Standard Ludo Grid)
-// Matches user reference:
-// - Top-Left: Blue (0..5, 0..5)
-// - Top-Right: Green (0..5, 9..14)
-// - Bottom-Right: Yellow (9..14, 9..14)
-// - Bottom-Left: Red (9..14, 0..5)
-// Clockwise Track: Red (0) -> Blue (13) -> Green (26) -> Yellow (39)
+// 1. 6-PLAYER HEXAGONAL BOARD GEOMETRY (1000 x 1000 SVG Space)
+// Clockwise Arms:
+//   0: Red (6 o'clock, 90°)
+//   1: Blue (8 o'clock, 150°)
+//   2: Purple (10 o'clock, 210°)
+//   3: Green (12 o'clock, 270°)
+//   4: Yellow (2 o'clock, 330°)
+//   5: Orange (4 o'clock, 30°)
+// Total Track: 6 * 13 = 78 tiles (steps 1..77)
+// Home Stretch: 5 tiles per arm (steps 78..82)
+// Center Finish: step 83
 // ============================================================================
 
-export const TRACK_COORDS: [number, number][] = [
-  // Bottom Arm (going UP col 6):
-  [13, 6], // 0: Red Start (Red star)
-  [12, 6], // 1
-  [11, 6], // 2
-  [10, 6], // 3
-  [9, 6],  // 4
-  // Left Arm (going LEFT row 8):
-  [8, 5],  // 5
-  [8, 4],  // 6
-  [8, 3],  // 7
-  [8, 2],  // 8: Safe Star (Gray star)
-  [8, 1],  // 9
-  [8, 0],  // 10
-  // Left Arm Tip:
-  [7, 0],  // 11: Entrance arrow (Blue >)
-  [6, 0],  // 12
-  // Left Arm (going RIGHT row 6):
-  [6, 1],  // 13: Blue Start (Blue star)
-  [6, 2],  // 14
-  [6, 3],  // 15
-  [6, 4],  // 16
-  [6, 5],  // 17
-  // Top Arm (going UP col 6):
-  [5, 6],  // 18
-  [4, 6],  // 19
-  [3, 6],  // 20
-  [2, 6],  // 21: Safe Star (Gray star)
-  [1, 6],  // 22
-  [0, 6],  // 23
-  // Top Arm Tip:
-  [0, 7],  // 24: Entrance arrow (Green v)
-  [0, 8],  // 25
-  // Top Arm (going DOWN col 8):
-  [1, 8],  // 26: Green Start (Green star)
-  [2, 8],  // 27
-  [3, 8],  // 28
-  [4, 8],  // 29
-  [5, 8],  // 30
-  // Right Arm (going RIGHT row 6):
-  [6, 9],  // 31
-  [6, 10], // 32
-  [6, 11], // 33
-  [6, 12], // 34: Safe Star (Gray star)
-  [6, 13], // 35
-  [6, 14], // 36
-  // Right Arm Tip:
-  [7, 14], // 37: Entrance arrow (Yellow <)
-  [8, 14], // 38
-  // Right Arm (going LEFT row 8):
-  [8, 13], // 39: Yellow Start (Yellow star)
-  [8, 12], // 40
-  [8, 11], // 41
-  [8, 10], // 42
-  [8, 9],  // 43
-  // Bottom Arm (going DOWN col 8):
-  [9, 8],  // 44
-  [10, 8], // 45
-  [11, 8], // 46
-  [12, 8], // 47: Safe Star (Gray star)
-  [13, 8], // 48
-  [14, 8], // 49
-  // Bottom Arm Tip:
-  [14, 7], // 50: Entrance arrow (Red ^)
-  [14, 6], // 51
-];
+export const HEX_COLORS: LudoColor[] = ['red', 'blue', 'purple', 'green', 'yellow', 'orange'];
 
-// Home stretch private tiles (steps 52 to 56) + center finish (57)
-export const HOME_STRETCHES: Record<LudoColor, [number, number][]> = {
-  red: [
-    [13, 7], [12, 7], [11, 7], [10, 7], [9, 7], [8, 7]
-  ],
-  blue: [
-    [7, 1], [7, 2], [7, 3], [7, 4], [7, 5], [7, 6]
-  ],
-  green: [
-    [1, 7], [2, 7], [3, 7], [4, 7], [5, 7], [6, 7]
-  ],
-  yellow: [
-    [7, 13], [7, 12], [7, 11], [7, 10], [7, 9], [7, 8]
-  ],
+const CENTER = 500;
+const W_ARM = 144;
+const CELL_W = W_ARM / 3; // 48
+const R_CENTER = W_ARM; // 144
+const A_CENTER = (R_CENTER * Math.sqrt(3)) / 2; // ~124.7076
+const CELL_H = 52;
+const D_BASE = 328;
+const BASE_RADIUS = 78;
+const BASE_INNER_RADIUS = 56;
+const BASE_SLOT_OFFSET = 22;
+
+const COLOR_HEX: Record<LudoColor, { main: string; light: string; border: string; slotBg: string }> = {
+  red: { main: '#dc2626', light: '#fef2f2', border: '#fecaca', slotBg: '#fee2e2' },
+  blue: { main: '#0070f3', light: '#f0f9ff', border: '#bae6fd', slotBg: '#dbeafe' },
+  purple: { main: '#9333ea', light: '#faf5ff', border: '#e9d5ff', slotBg: '#f3e8ff' },
+  green: { main: '#16a34a', light: '#f0fdf4', border: '#bbf7d0', slotBg: '#dcfce7' },
+  yellow: { main: '#eab308', light: '#fefce8', border: '#fef08a', slotBg: '#fef9c3' },
+  orange: { main: '#ea580c', light: '#fff7ed', border: '#fed7aa', slotBg: '#ffedd5' },
 };
 
-// Base slots center coordinates inside the white rounded capsule (2x2 grid per color)
-// Each base is 6x6. With p-[7%] and p-[8%] gap-[8%], circle centers are exactly at offset +/- 1.2 from base center.
-export const BASE_SLOTS: Record<LudoColor, [number, number][]> = {
-  blue: [
-    [1.8, 1.8], [1.8, 4.2], [4.2, 1.8], [4.2, 4.2]
-  ],
-  green: [
-    [1.8, 10.8], [1.8, 13.2], [4.2, 10.8], [4.2, 13.2]
-  ],
-  yellow: [
-    [10.8, 10.8], [10.8, 13.2], [13.2, 10.8], [13.2, 13.2]
-  ],
-  red: [
-    [10.8, 1.8], [10.8, 4.2], [13.2, 1.8], [13.2, 4.2]
-  ],
-};
+function degToRad(deg: number): number {
+  return (deg * Math.PI) / 180;
+}
+
+// Returns [y, x] in 0..1000 board space for a cell on Arm k (0..5)
+// lane: +1 = clockwise-leading (incoming), 0 = center (home stretch), -1 = outgoing
+// row: 0 (innermost, adjacent to center hexagon) .. 5 (outermost tip)
+function getArmCellCenter(armIndex: number, lane: -1 | 0 | 1, row: number): [number, number] {
+  const alphaDeg = 90 + armIndex * 60;
+  const rad = degToRad(alphaDeg);
+  const cosA = Math.cos(rad);
+  const sinA = Math.sin(rad);
+  const r = A_CENTER + (row + 0.5) * CELL_H;
+  const lat = lane * CELL_W;
+  const x = CENTER + r * cosA - lat * sinA;
+  const y = CENTER + r * sinA + lat * cosA;
+  return [y, x];
+}
+
+// 78 Global Track Coordinates [y, x] in 0..1000 space
+export const TRACK_COORDS: [number, number][] = (() => {
+  const coords: [number, number][] = [];
+  for (let k = 0; k < 6; k++) {
+    const nextK = (k + 1) % 6;
+    // +0..+4: Arm k incoming lane (+1), rows 4 down to 0
+    coords.push(getArmCellCenter(k, 1, 4)); // k*13 + 0: Start Tile of color k
+    coords.push(getArmCellCenter(k, 1, 3)); // +1
+    coords.push(getArmCellCenter(k, 1, 2)); // +2
+    coords.push(getArmCellCenter(k, 1, 1)); // +3
+    coords.push(getArmCellCenter(k, 1, 0)); // +4
+    // +5..+10: Arm nextK outgoing lane (-1), rows 0 up to 5
+    coords.push(getArmCellCenter(nextK, -1, 0)); // +5
+    coords.push(getArmCellCenter(nextK, -1, 1)); // +6
+    coords.push(getArmCellCenter(nextK, -1, 2)); // +7
+    coords.push(getArmCellCenter(nextK, -1, 3)); // +8: Safe Star Tile
+    coords.push(getArmCellCenter(nextK, -1, 4)); // +9
+    coords.push(getArmCellCenter(nextK, -1, 5)); // +10
+    // +11..+12: Arm nextK tip
+    coords.push(getArmCellCenter(nextK, 0, 5));  // +11: Home Stretch Arrow Tip for nextK
+    coords.push(getArmCellCenter(nextK, 1, 5));  // +12: Corner Tip
+  }
+  return coords;
+})();
+
+// Home stretch private tiles (steps 78..82) + finish triangle center (step 83)
+export const HOME_STRETCHES: Record<LudoColor, [number, number][]> = (() => {
+  const map = {} as Record<LudoColor, [number, number][]>;
+  HEX_COLORS.forEach((color, k) => {
+    const alphaRad = degToRad(90 + k * 60);
+    const finishR = A_CENTER * 0.56;
+    const finishCoord: [number, number] = [
+      CENTER + finishR * Math.sin(alphaRad),
+      CENTER + finishR * Math.cos(alphaRad),
+    ];
+    map[color] = [
+      getArmCellCenter(k, 0, 4), // step 78
+      getArmCellCenter(k, 0, 3), // step 79
+      getArmCellCenter(k, 0, 2), // step 80
+      getArmCellCenter(k, 0, 1), // step 81
+      getArmCellCenter(k, 0, 0), // step 82
+      finishCoord,               // step 83
+    ];
+  });
+  return map;
+})();
+
+// Base centers [y, x] in 0..1000 space
+export const BASE_CENTERS: Record<LudoColor, [number, number]> = (() => {
+  const map = {} as Record<LudoColor, [number, number]>;
+  HEX_COLORS.forEach((color, k) => {
+    const betaRad = degToRad(120 + k * 60);
+    map[color] = [
+      CENTER + D_BASE * Math.sin(betaRad),
+      CENTER + D_BASE * Math.cos(betaRad),
+    ];
+  });
+  return map;
+})();
+
+// Base token slots [y, x] in 0..1000 space (4 slots per base)
+export const BASE_SLOTS: Record<LudoColor, [number, number][]> = (() => {
+  const map = {} as Record<LudoColor, [number, number][]>;
+  HEX_COLORS.forEach((color) => {
+    const [cy, cx] = BASE_CENTERS[color];
+    map[color] = [
+      [cy - BASE_SLOT_OFFSET, cx - BASE_SLOT_OFFSET],
+      [cy - BASE_SLOT_OFFSET, cx + BASE_SLOT_OFFSET],
+      [cy + BASE_SLOT_OFFSET, cx - BASE_SLOT_OFFSET],
+      [cy + BASE_SLOT_OFFSET, cx + BASE_SLOT_OFFSET],
+    ];
+  });
+  return map;
+})();
 
 const START_OFFSETS: Record<LudoColor, number> = {
   red: 0,
   blue: 13,
-  green: 26,
-  yellow: 39,
+  purple: 26,
+  green: 39,
+  yellow: 52,
+  orange: 65,
 };
 
-// Calculates the exact (centerRow, centerCol) coordinates for any step count from 0 to 57
+// Returns [y, x] in 0..1000 board space for any step count from 0 to 83
 export function getTokenCoordinate(
   color: LudoColor,
   tokenId: number,
@@ -144,18 +166,15 @@ export function getTokenCoordinate(
   if (state === 'base' || stepCount <= 0) {
     return BASE_SLOTS[color][tokenId];
   }
-  if (stepCount >= 1 && stepCount <= 51) {
-    const trackIndex = (START_OFFSETS[color] + (stepCount - 1)) % 52;
-    const [r, c] = TRACK_COORDS[trackIndex];
-    return [r + 0.5, c + 0.5];
+  if (stepCount >= 1 && stepCount <= 77) {
+    const trackIndex = (START_OFFSETS[color] + (stepCount - 1)) % 78;
+    return TRACK_COORDS[trackIndex];
   }
-  if (stepCount >= 52 && stepCount <= 56) {
-    const stretchIdx = stepCount - 52;
-    const [r, c] = HOME_STRETCHES[color][stretchIdx];
-    return [r + 0.5, c + 0.5];
+  if (stepCount >= 78 && stepCount <= 82) {
+    const stretchIdx = stepCount - 78;
+    return HOME_STRETCHES[color][stretchIdx];
   }
-  const [r, c] = HOME_STRETCHES[color][5];
-  return [r + 0.5, c + 0.5];
+  return HOME_STRETCHES[color][5];
 }
 
 // ============================================================================
@@ -177,6 +196,15 @@ const TOKEN_COLOR_CONFIG: Record<LudoColor, {
   bodyGradEnd: string;
   rimShadow: string;
 }> = {
+  red: {
+    headGradStart: '#fee2e2',
+    headGradMid: '#ef4444',
+    headGradEnd: '#b91c1c',
+    bodyGradStart: '#f87171',
+    bodyGradMid: '#dc2626',
+    bodyGradEnd: '#7f1d1d',
+    rimShadow: '#450a0a',
+  },
   blue: {
     headGradStart: '#e0f2fe',
     headGradMid: '#0ea5e9',
@@ -185,6 +213,15 @@ const TOKEN_COLOR_CONFIG: Record<LudoColor, {
     bodyGradMid: '#0284c7',
     bodyGradEnd: '#0c4a6e',
     rimShadow: '#082f49',
+  },
+  purple: {
+    headGradStart: '#f3e8ff',
+    headGradMid: '#a855f7',
+    headGradEnd: '#7e22ce',
+    bodyGradStart: '#c084fc',
+    bodyGradMid: '#9333ea',
+    bodyGradEnd: '#581c87',
+    rimShadow: '#3b0764',
   },
   green: {
     headGradStart: '#dcfce7',
@@ -204,14 +241,14 @@ const TOKEN_COLOR_CONFIG: Record<LudoColor, {
     bodyGradEnd: '#854d0e',
     rimShadow: '#713f12',
   },
-  red: {
-    headGradStart: '#fee2e2',
-    headGradMid: '#ef4444',
-    headGradEnd: '#b91c1c',
-    bodyGradStart: '#f87171',
-    bodyGradMid: '#dc2626',
-    bodyGradEnd: '#7f1d1d',
-    rimShadow: '#450a0a',
+  orange: {
+    headGradStart: '#ffedd5',
+    headGradMid: '#fb923c',
+    headGradEnd: '#c2410c',
+    bodyGradStart: '#fdba74',
+    bodyGradMid: '#ea580c',
+    bodyGradEnd: '#7c2d12',
+    rimShadow: '#431407',
   },
 };
 
@@ -220,17 +257,16 @@ const HDTokenPawn: React.FC<HDTokenProps> = ({ color, isValid, stackCount }) => 
   const uniqueId = `pawn_grad_${color}`;
 
   return (
-    <div className="relative w-6 h-6 sm:w-7.5 sm:h-7.5 flex items-center justify-center select-none pointer-events-none">
+    <div className="relative w-5 h-5 sm:w-6.5 sm:h-6.5 flex items-center justify-center select-none pointer-events-none">
       <svg
         viewBox="0 0 44 54"
         className={`w-full h-full filter ${
           isValid
             ? 'drop-shadow-[0_0_8px_rgba(250,204,21,1)] scale-105'
-            : 'drop-shadow-[0_3px_5px_rgba(0,0,0,0.4)]'
+            : 'drop-shadow-[0_3px_5px_rgba(0,0,0,0.45)]'
         } transition-transform duration-200`}
       >
         <defs>
-          {/* Radial Head Gradient (Glossy sphere highlight) */}
           <radialGradient
             id={`${uniqueId}_head`}
             cx="35%"
@@ -244,7 +280,6 @@ const HDTokenPawn: React.FC<HDTokenProps> = ({ color, isValid, stackCount }) => 
             <stop offset="100%" stopColor={conf.headGradEnd} />
           </radialGradient>
 
-          {/* Linear Body Gradient (Glossy cone/teardrop bell body) */}
           <linearGradient
             id={`${uniqueId}_body`}
             x1="20%"
@@ -257,7 +292,6 @@ const HDTokenPawn: React.FC<HDTokenProps> = ({ color, isValid, stackCount }) => 
             <stop offset="100%" stopColor={conf.bodyGradEnd} />
           </linearGradient>
 
-          {/* Rim Shadow Gradient */}
           <linearGradient
             id={`${uniqueId}_rim`}
             x1="0%"
@@ -270,16 +304,13 @@ const HDTokenPawn: React.FC<HDTokenProps> = ({ color, isValid, stackCount }) => 
           </linearGradient>
         </defs>
 
-        {/* 1. Ambient Ground Shadow */}
         <ellipse cx="22" cy="49" rx="15" ry="4.5" fill="rgba(0,0,0,0.4)" />
 
-        {/* 2. Pawn Teardrop Base Body */}
         <path
           d="M 14 26 C 11 33, 7 40, 8 45 C 8.5 48, 35.5 48, 36 45 C 37 40, 33 33, 30 26 Z"
           fill={`url(#${uniqueId}_body)`}
         />
 
-        {/* Bottom Rim Bevel Accent */}
         <ellipse
           cx="22"
           cy="45.5"
@@ -289,7 +320,6 @@ const HDTokenPawn: React.FC<HDTokenProps> = ({ color, isValid, stackCount }) => 
           opacity="0.85"
         />
 
-        {/* 3. Curved Body Specular Highlight Glint */}
         <path
           d="M 13 30 C 11 36, 11 41, 13 44"
           stroke="white"
@@ -299,7 +329,6 @@ const HDTokenPawn: React.FC<HDTokenProps> = ({ color, isValid, stackCount }) => 
           fill="none"
         />
 
-        {/* 4. Collar Neck Ring */}
         <ellipse
           cx="22"
           cy="26"
@@ -310,7 +339,6 @@ const HDTokenPawn: React.FC<HDTokenProps> = ({ color, isValid, stackCount }) => 
           strokeWidth="0.8"
         />
 
-        {/* 5. Head Sphere */}
         <circle
           cx="22"
           cy="15"
@@ -318,7 +346,6 @@ const HDTokenPawn: React.FC<HDTokenProps> = ({ color, isValid, stackCount }) => 
           fill={`url(#${uniqueId}_head)`}
         />
 
-        {/* Head Primary Specular Highlight */}
         <ellipse
           cx="19"
           cy="12"
@@ -330,7 +357,6 @@ const HDTokenPawn: React.FC<HDTokenProps> = ({ color, isValid, stackCount }) => 
         />
       </svg>
 
-      {/* Stack Count Badge (e.g. x2, x3) */}
       {stackCount && stackCount > 1 && (
         <span className="absolute -top-1 -right-1 px-1.5 py-0.2 rounded-full bg-slate-950/90 text-white font-mono font-black text-[9px] border border-amber-400 shadow-md">
           {stackCount}
@@ -341,7 +367,7 @@ const HDTokenPawn: React.FC<HDTokenProps> = ({ color, isValid, stackCount }) => 
 };
 
 // ============================================================================
-// 2b. BASE SPEECH BUBBLE COMPONENT (Pops up at base corner square, upright)
+// 2b. BASE SPEECH BUBBLE COMPONENT (Pops up at base, always upright)
 // ============================================================================
 
 interface ActiveBaseChat {
@@ -361,16 +387,17 @@ const BaseSpeechBubble: React.FC<{
   const colorStyles: Record<LudoColor, { border: string; text: string; glow: string; tailBorder: string }> = {
     red: { border: 'border-red-500', text: 'text-red-400', glow: 'shadow-red-500/40', tailBorder: 'border-red-500' },
     blue: { border: 'border-blue-500', text: 'text-blue-400', glow: 'shadow-blue-500/40', tailBorder: 'border-blue-500' },
+    purple: { border: 'border-purple-500', text: 'text-purple-400', glow: 'shadow-purple-500/40', tailBorder: 'border-purple-500' },
     green: { border: 'border-emerald-500', text: 'text-emerald-400', glow: 'shadow-emerald-500/40', tailBorder: 'border-emerald-500' },
-    yellow: { border: 'border-amber-400', text: 'text-amber-400', glow: 'shadow-amber-400/40', tailBorder: 'border-amber-400' },
+    yellow: { border: 'border-yellow-400', text: 'text-yellow-400', glow: 'shadow-yellow-400/40', tailBorder: 'border-yellow-400' },
+    orange: { border: 'border-orange-500', text: 'text-orange-400', glow: 'shadow-orange-500/40', tailBorder: 'border-orange-500' },
   };
 
   const style = colorStyles[color] || colorStyles.red;
 
   return (
-    <div className="absolute inset-0 flex items-center justify-center z-50 pointer-events-none">
-      {/* Regular non-motion wrapper with explicit CSS counter-rotation so Framer Motion never clobbers it */}
-      <div 
+    <div className="flex items-center justify-center pointer-events-none">
+      <div
         className="transition-transform duration-700 ease-out flex items-center justify-center pointer-events-auto"
         style={{ transform: `rotate(${-boardRotationDeg}deg)` }}
       >
@@ -386,7 +413,7 @@ const BaseSpeechBubble: React.FC<{
               className="relative select-none cursor-pointer"
               title="Klik untuk menutup balon chat"
             >
-              <div className={`px-2.5 py-1.5 rounded-2xl bg-slate-950/95 border-2 ${style.border} shadow-2xl ${style.glow} backdrop-blur-md max-w-[145px] sm:max-w-[180px]`}>
+              <div className={`px-2.5 py-1.5 rounded-2xl bg-slate-950/95 border-2 ${style.border} shadow-2xl ${style.glow} backdrop-blur-md max-w-[140px] sm:max-w-[175px]`}>
                 <div className="flex items-center gap-1.5 mb-1">
                   <ClimberAvatarIcon avatar={chat.avatar} size={18} />
                   <span className={`text-[10px] font-black truncate ${style.text}`}>
@@ -396,7 +423,6 @@ const BaseSpeechBubble: React.FC<{
                 <p className="text-[11px] sm:text-xs font-bold text-white leading-tight break-words">
                   {chat.message}
                 </p>
-                {/* Comic Speech Bubble Tail */}
                 <div className={`absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-slate-950 border-r-2 border-b-2 ${style.tailBorder} rotate-45`} />
               </div>
             </motion.div>
@@ -408,14 +434,16 @@ const BaseSpeechBubble: React.FC<{
 };
 
 // ============================================================================
-// 3. MAIN LUDO BOARD COMPONENT
+// 3. MAIN 6-PLAYER HEXAGONAL LUDO BOARD COMPONENT
 // ============================================================================
 
 const ROTATION_BY_COLOR: Record<LudoColor, number> = {
   red: 0,
-  blue: 270,
+  blue: 300,
+  purple: 240,
   green: 180,
-  yellow: 90,
+  yellow: 120,
+  orange: 60,
 };
 
 export const LudoBoard: React.FC<LudoBoardProps> = ({
@@ -427,14 +455,12 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
   const myPlayer = gameState.players[myPlayerId];
   const validMoves = gameState.validMoves || [];
 
-  // Default to player POV: local player base is always at Bottom-Left
+  // Default to player POV: local player's arm is always oriented at the Bottom
   const [povMode, setPovMode] = useState<'player' | 'global'>('player');
   const myColor: LudoColor = myPlayer?.color || 'red';
   const boardRotationDeg = povMode === 'player' ? ROTATION_BY_COLOR[myColor] : 0;
 
-  // =========================================================================
-  // STEP-BY-STEP (SATU-PER-SATU) TOKEN MOVEMENT ANIMATION ENGINE
-  // =========================================================================
+  // Step-by-step token movement animation engine
   const [animatedSteps, setAnimatedSteps] = useState<Record<string, number>>({});
   const displayedStepsRef = useRef<Record<string, number>>({});
   const targetStepsRef = useRef<Record<string, number>>({});
@@ -450,16 +476,20 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
   const [activeBaseChats, setActiveBaseChats] = useState<Record<LudoColor, ActiveBaseChat | null>>({
     red: null,
     blue: null,
+    purple: null,
     green: null,
     yellow: null,
+    orange: null,
   });
 
   const lastProcessedChatIdRef = useRef<string | null>(null);
   const chatTimeoutsRef = useRef<Record<LudoColor, NodeJS.Timeout | null>>({
     red: null,
     blue: null,
+    purple: null,
     green: null,
     yellow: null,
+    orange: null,
   });
   const gameStatePlayersRef = useRef(gameState.players);
   gameStatePlayersRef.current = gameState.players;
@@ -480,15 +510,13 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
     const latestChat = chatMessages[chatMessages.length - 1];
     if (!latestChat) return;
 
-    // Prevent re-processing identical chat when other state updates/re-renders occur
     if (latestChat.id === lastProcessedChatIdRef.current) return;
     lastProcessedChatIdRef.current = latestChat.id;
 
-    // Ignore stale chats older than 5 seconds (e.g. from previous games or reloads)
     if (Date.now() - latestChat.timestamp > 5000) return;
 
     let targetColor: LudoColor | undefined = undefined;
-    if (latestChat.color && ['red', 'blue', 'green', 'yellow'].includes(latestChat.color as string)) {
+    if (latestChat.color && HEX_COLORS.includes(latestChat.color as LudoColor)) {
       targetColor = latestChat.color as LudoColor;
     } else if (gameStatePlayersRef.current?.[latestChat.playerId]?.color) {
       targetColor = gameStatePlayersRef.current[latestChat.playerId].color;
@@ -504,7 +532,6 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
       timestamp: latestChat.timestamp,
     };
 
-    // Clear previous dismiss timer for this base if active
     if (chatTimeoutsRef.current[targetColor]) {
       clearTimeout(chatTimeoutsRef.current[targetColor]!);
       chatTimeoutsRef.current[targetColor] = null;
@@ -515,7 +542,6 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
       [targetColor!]: chatInfo,
     }));
 
-    // Auto-dismiss smoothly after 4 seconds (strict standalone timer)
     chatTimeoutsRef.current[targetColor] = setTimeout(() => {
       setActiveBaseChats((prev) => ({
         ...prev,
@@ -538,7 +564,6 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
 
   // Synchronize token movements whenever gameState updates
   useEffect(() => {
-    // 0. Compute walking duration of any advancing token in this turn
     let maxWalkDuration = 0;
     Object.values(gameState.players).forEach((p) => {
       p.tokens.forEach((t) => {
@@ -574,7 +599,6 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
           }
 
           if (captureTimeoutsRef.current[key]) {
-            // Already scheduled and awaiting capturer arrival! Do not reset.
             return;
           }
 
@@ -583,23 +607,18 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
             player.color !== gameState.currentTurnColor
           );
 
-          // If another token is currently walking to capture this token, delay return until it arrives!
           if (maxWalkDuration > 0 && isActualCapture) {
             const capturedCoord = getTokenCoordinate(player.color, token.id, currentDisplayed, 'track');
             targetStepsRef.current[key] = 0;
 
             captureTimeoutsRef.current[key] = setTimeout(() => {
-              // 1. Play dramatic comic BONK & slide whistle sound effect
               soundManager.playTokenCapture();
-
-              // 2. Spawn visual comic KAPOW impact burst on that exact square
               setImpactBurst({
                 coord: capturedCoord,
                 id: Date.now(),
               });
               setTimeout(() => setImpactBurst(null), 700);
 
-              // 3. Now send the captured token flying back to its base!
               displayedStepsRef.current[key] = 0;
               targetStepsRef.current[key] = 0;
               setAnimatedSteps((prev) => ({ ...prev, [key]: 0 }));
@@ -648,14 +667,13 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
                 const next = cur + 1;
                 displayedStepsRef.current[key] = next;
                 setAnimatedSteps((prev) => ({ ...prev, [key]: next }));
-                soundManager.playTokenMove(); // Sound hop at each single tile!
+                soundManager.playTokenMove();
 
                 if (next >= target) {
                   clearInterval(activeIntervalsRef.current[key]);
                   delete activeIntervalsRef.current[key];
 
-                  // Triumphant fanfare sound effect when entering finish (step 57)
-                  if (next === 57 || token.state === 'finished') {
+                  if (next === 83 || token.state === 'finished') {
                     soundManager.playTokenFinish();
                     setFinishCelebrate({
                       color: player.color,
@@ -679,8 +697,8 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
   const tokensOnBoard: Array<{
     token: LudoToken;
     player: typeof myPlayer;
-    row: number;
-    col: number;
+    y: number;
+    x: number;
     isValid: boolean;
   }> = [];
 
@@ -690,7 +708,6 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
       const serverStep = token.state === 'base' ? 0 : token.stepCount;
       const animStep = animatedSteps[key];
 
-      // If token is currently captured and waiting for capturer to arrive, keep displaying on track!
       const isAwaitingCaptureArrival = captureTimeoutsRef.current[key] !== undefined;
 
       const currentStep = isAwaitingCaptureArrival
@@ -701,15 +718,15 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
         ? 'track'
         : token.state;
 
-      const [r, c] = getTokenCoordinate(player.color, token.id, currentStep, effectiveState);
+      const [y, x] = getTokenCoordinate(player.color, token.id, currentStep, effectiveState);
 
       const isValid = isMyTurn && player.playerId === myPlayerId && validMoves.includes(token.id);
 
       tokensOnBoard.push({
         token,
         player,
-        row: r,
-        col: c,
+        y,
+        x,
         isValid,
       });
     });
@@ -721,10 +738,30 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
     onSelectToken(tokenIndex);
   };
 
+  // Precompute center hexagon vertices (angles 60°, 120°, 180°, 240°, 300°, 0°)
+  const centerHexVertices: [number, number][] = HEX_COLORS.map((_, k) => {
+    const rad = degToRad(60 + k * 60);
+    return [CENTER + R_CENTER * Math.cos(rad), CENTER + R_CENTER * Math.sin(rad)];
+  });
+
+  // Outer hexagonal board frame vertices (radius 480)
+  const outerHexPoints = Array.from({ length: 6 })
+    .map((_, k) => {
+      const rad = degToRad(k * 60);
+      return `${CENTER + 480 * Math.cos(rad)},${CENTER + 480 * Math.sin(rad)}`;
+    })
+    .join(' ');
+
+  // Map color -> player occupying that base (if any)
+  const playerByColor = {} as Partial<Record<LudoColor, typeof myPlayer>>;
+  Object.values(gameState.players).forEach((p) => {
+    playerByColor[p.color] = p;
+  });
+
   return (
-    <div className="relative w-full max-w-[480px] sm:max-w-[560px] aspect-square bg-[#0c121e] border-[6px] border-slate-700/80 rounded-[2.5rem] shadow-[0_20px_60px_rgba(0,0,0,0.85)] p-2 sm:p-3 select-none touch-manipulation overflow-hidden">
+    <div className="relative w-full max-w-[500px] sm:max-w-[580px] aspect-square bg-[#0c121e] border-[5px] border-slate-700/80 rounded-[2.5rem] shadow-[0_20px_60px_rgba(0,0,0,0.85)] p-2 sm:p-3 select-none touch-manipulation overflow-hidden">
       {/* POV CAMERA BADGE */}
-      <div className="absolute top-3.5 right-3.5 z-30 pointer-events-auto">
+      <div className="absolute top-3 right-3 z-30 pointer-events-auto">
         <button
           type="button"
           onClick={() => setPovMode((prev) => (prev === 'player' ? 'global' : 'player'))}
@@ -732,538 +769,395 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
           title="Ubah Sudut Pandang Kamera Ludo"
         >
           <RotateCcw className="w-3 h-3 text-amber-400" />
-          <span>POV: {povMode === 'player' ? `${myColor.toUpperCase()} (KIRI BAWAH)` : 'GLOBAL'}</span>
+          <span>POV: {povMode === 'player' ? `${myColor.toUpperCase()} (BAWAH)` : 'GLOBAL'}</span>
         </button>
       </div>
 
-      {/* ROTATABLE BOARD WRAPPER (Local player's home base is always oriented at Bottom-Left) */}
-      <div 
+      {/* ROTATABLE BOARD WRAPPER */}
+      <div
         className="relative w-full h-full transition-transform duration-700 ease-out"
         style={{ transform: `rotate(${boardRotationDeg}deg)` }}
       >
-        {/* RIGID 15x15 BOARD GRID CONTAINER WITH EXPLICIT CSS INLINE GRID SPANS */}
-        <div 
-          className="relative w-full h-full rounded-[2rem] overflow-hidden bg-white shadow-2xl border-2 border-slate-400/40"
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(15, minmax(0, 1fr))',
-            gridTemplateRows: 'repeat(15, minmax(0, 1fr))',
-            width: '100%',
-            height: '100%',
-          }}
-        >
-          
-          {/* ================================================================= */}
-          {/* 1. TOP-LEFT BASE: BLUE (grid lines: col 1..7, row 1..7)           */}
-          {/* ================================================================= */}
-          <div 
-            style={{ gridColumn: '1 / 7', gridRow: '1 / 7' }}
-            className="bg-[#0070f3] p-[7%] flex items-center justify-center relative rounded-tl-[1.8rem]"
-          >
-            <div className="w-full h-full rounded-[1.4rem] sm:rounded-[1.8rem] bg-white border border-slate-200/90 p-[8%] gap-[8%] grid grid-cols-2 grid-rows-2 shadow-[inset_0_2px_8px_rgba(0,0,0,0.12),0_4px_12px_rgba(0,0,0,0.18)]">
-              {[0, 1, 2, 3].map((i) => {
-                const isTokenValid = myColor === 'blue' && isMyTurn && validMoves.includes(i) && myPlayer?.tokens[i]?.state === 'base';
-                return (
-                  <button 
-                    key={i} 
-                    type="button"
-                    disabled={!isTokenValid}
-                    onClick={() => handleTokenClick(i)}
-                    className={`rounded-full bg-[#f0f9ff] border-2 flex items-center justify-center shadow-inner aspect-square transition-all ${
-                      isTokenValid 
-                        ? 'border-amber-400 shadow-[0_0_12px_rgba(251,191,36,0.9)] cursor-pointer active:scale-95' 
-                        : 'border-[#bae6fd] cursor-default'
-                    }`}
-                  />
-                );
-              })}
-            </div>
-            {/* Pop-up Speech Bubble at Blue Base */}
-            <BaseSpeechBubble
-              chat={activeBaseChats.blue}
-              color="blue"
-              boardRotationDeg={boardRotationDeg}
-              onDismiss={() => handleDismissChat('blue')}
-            />
-          </div>
+        {/* 1. HEXAGONAL 6-PLAYER SVG BOARD */}
+        <svg viewBox="0 0 1000 1000" className="w-full h-full drop-shadow-2xl">
+          <defs>
+            <radialGradient id="hexBoardBg" cx="50%" cy="50%" r="60%">
+              <stop offset="0%" stopColor="#1e293b" />
+              <stop offset="100%" stopColor="#0f172a" />
+            </radialGradient>
+          </defs>
 
-          {/* ================================================================= */}
-          {/* 2. TOP ARM (grid lines: col 7..10, row 1..7)                       */}
-          {/* ================================================================= */}
-          <div 
-            style={{ 
-              gridColumn: '7 / 10', 
-              gridRow: '1 / 7',
-              display: 'grid',
-              gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-              gridTemplateRows: 'repeat(6, minmax(0, 1fr))',
-            }}
-            className="bg-white border-x border-slate-300"
-          >
-            {Array.from({ length: 18 }).map((_, idx) => {
-              const r = Math.floor(idx / 3);
-              const c = 6 + (idx % 3);
+          {/* Outer Hexagonal Frame */}
+          <polygon
+            points={outerHexPoints}
+            fill="url(#hexBoardBg)"
+            stroke="#475569"
+            strokeWidth="8"
+            strokeLinejoin="round"
+          />
 
-              const isGreenArrow = r === 0 && c === 7;
-              const isGreenPath = c === 7 && r >= 1 && r <= 5;
-              const isGreenStart = r === 1 && c === 8;
-              const isSafeStar = r === 2 && c === 6;
+          {/* 6 Radial Arms (each rotated by k * 60° around 500,500) */}
+          {HEX_COLORS.map((color, k) => {
+            const palette = COLOR_HEX[color];
+            const rot = k * 60;
+            return (
+              <g key={`arm_${color}`} transform={`rotate(${rot} 500 500)`}>
+                {/* 3 lanes x 6 rows = 18 cells */}
+                {([-1, 0, 1] as const).map((lane) =>
+                  [0, 1, 2, 3, 4, 5].map((row) => {
+                    // In local coords (arm pointing DOWN):
+                    // lane = +1 is Left (x = 500 - 1.5 * CELL_W)
+                    // lane = 0  is Middle (x = 500 - 0.5 * CELL_W)
+                    // lane = -1 is Right (x = 500 + 0.5 * CELL_W)
+                    const cellX = CENTER - (lane + 0.5) * CELL_W;
+                    const cellY = CENTER + A_CENTER + row * CELL_H;
 
-              return (
-                <div
-                  key={idx}
-                  className={`border border-slate-300 flex items-center justify-center relative ${
-                    isGreenStart
-                      ? 'bg-[#16a34a]'
-                      : isGreenPath
-                      ? 'bg-[#16a34a]'
-                      : 'bg-white'
-                  }`}
-                >
-                  {isGreenArrow && (
-                    <ChevronDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#16a34a] stroke-[3.5] animate-bounce" />
-                  )}
+                    const isStartTile = lane === 1 && row === 4;
+                    const isHomeStretch = lane === 0 && row >= 0 && row <= 4;
+                    const isEntryArrow = lane === 0 && row === 5;
+                    const isSafeStar = lane === -1 && row === 3;
 
-                  {isGreenStart && (
-                    <div style={{ transform: `rotate(${-boardRotationDeg}deg)` }} className="transition-transform duration-700">
-                      <Star className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-white fill-white drop-shadow" />
-                    </div>
-                  )}
+                    const fill = isStartTile || isHomeStretch ? palette.main : '#ffffff';
 
-                  {isSafeStar && (
-                    <div style={{ transform: `rotate(${-boardRotationDeg}deg)` }} className="transition-transform duration-700">
-                      <Star className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-400 fill-slate-400 drop-shadow-sm" />
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          {/* ================================================================= */}
-          {/* 3. TOP-RIGHT BASE: GREEN (grid lines: col 10..16, row 1..7)        */}
-          {/* ================================================================= */}
-          <div 
-            style={{ gridColumn: '10 / 16', gridRow: '1 / 7' }}
-            className="bg-[#16a34a] p-[7%] flex items-center justify-center relative rounded-tr-[1.8rem]"
-          >
-            <div className="w-full h-full rounded-[1.4rem] sm:rounded-[1.8rem] bg-white border border-slate-200/90 p-[8%] gap-[8%] grid grid-cols-2 grid-rows-2 shadow-[inset_0_2px_8px_rgba(0,0,0,0.12),0_4px_12px_rgba(0,0,0,0.18)]">
-              {[0, 1, 2, 3].map((i) => {
-                const isTokenValid = myColor === 'green' && isMyTurn && validMoves.includes(i) && myPlayer?.tokens[i]?.state === 'base';
-                return (
-                  <button 
-                    key={i} 
-                    type="button"
-                    disabled={!isTokenValid}
-                    onClick={() => handleTokenClick(i)}
-                    className={`rounded-full bg-[#f0fdf4] border-2 flex items-center justify-center shadow-inner aspect-square transition-all ${
-                      isTokenValid 
-                        ? 'border-amber-400 shadow-[0_0_12px_rgba(251,191,36,0.9)] cursor-pointer active:scale-95' 
-                        : 'border-[#bbf7d0] cursor-default'
-                    }`}
-                  />
-                );
-              })}
-            </div>
-            {/* Pop-up Speech Bubble at Green Base */}
-            <BaseSpeechBubble
-              chat={activeBaseChats.green}
-              color="green"
-              boardRotationDeg={boardRotationDeg}
-              onDismiss={() => handleDismissChat('green')}
-            />
-          </div>
-
-          {/* ================================================================= */}
-          {/* 4. LEFT ARM (grid lines: col 1..7, row 7..10)                      */}
-          {/* ================================================================= */}
-          <div 
-            style={{ 
-              gridColumn: '1 / 7', 
-              gridRow: '7 / 10',
-              display: 'grid',
-              gridTemplateColumns: 'repeat(6, minmax(0, 1fr))',
-              gridTemplateRows: 'repeat(3, minmax(0, 1fr))',
-            }}
-            className="bg-white border-y border-slate-300"
-          >
-            {Array.from({ length: 18 }).map((_, idx) => {
-              const r = 6 + Math.floor(idx / 6);
-              const c = idx % 6;
-
-              const isBlueArrow = r === 7 && c === 0;
-              const isBluePath = r === 7 && c >= 1 && c <= 5;
-              const isBlueStart = r === 6 && c === 1;
-              const isSafeStar = r === 8 && c === 2;
-
-              return (
-                <div
-                  key={idx}
-                  className={`border border-slate-300 flex items-center justify-center relative ${
-                    isBlueStart
-                      ? 'bg-[#0070f3]'
-                      : isBluePath
-                      ? 'bg-[#0070f3]'
-                      : 'bg-white'
-                  }`}
-                >
-                  {isBlueArrow && (
-                    <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#0070f3] stroke-[3.5] animate-pulse" />
-                  )}
-
-                  {isBlueStart && (
-                    <div style={{ transform: `rotate(${-boardRotationDeg}deg)` }} className="transition-transform duration-700">
-                      <Star className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-white fill-white drop-shadow" />
-                    </div>
-                  )}
-
-                  {isSafeStar && (
-                    <div style={{ transform: `rotate(${-boardRotationDeg}deg)` }} className="transition-transform duration-700">
-                      <Star className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-400 fill-slate-400 drop-shadow-sm" />
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          {/* ================================================================= */}
-          {/* 5. CENTER 3x3: 4 HOME TRIANGLES & VICTORY CROWN (col 7..10, row 7..10) */}
-          {/* ================================================================= */}
-          <div 
-            style={{ gridColumn: '7 / 10', gridRow: '7 / 10' }}
-            className="relative bg-white border border-slate-400/80 overflow-hidden flex items-center justify-center shadow-inner"
-          >
-            <div className="absolute inset-0">
-              <svg viewBox="0 0 100 100" className="w-full h-full" preserveAspectRatio="none">
-                <polygon points="0,0 100,0 50,50" fill="#16a34a" />
-                <polygon points="100,0 100,100 50,50" fill="#f59e0b" />
-                <polygon points="100,100 0,100 50,50" fill="#dc2626" />
-                <polygon points="0,100 0,0 50,50" fill="#0070f3" />
-              </svg>
-            </div>
-
-            <div 
-              className="relative z-10 w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-slate-950/85 backdrop-blur-sm border-2 border-amber-300 flex items-center justify-center shadow-[0_0_15px_rgba(251,191,36,0.85)] transition-transform duration-700"
-              style={{ transform: `rotate(${-boardRotationDeg}deg)` }}
-            >
-              <Crown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-300 fill-amber-300 animate-pulse" />
-            </div>
-          </div>
-
-          {/* ================================================================= */}
-          {/* 6. RIGHT ARM (grid lines: col 10..16, row 7..10)                   */}
-          {/* ================================================================= */}
-          <div 
-            style={{ 
-              gridColumn: '10 / 16', 
-              gridRow: '7 / 10',
-              display: 'grid',
-              gridTemplateColumns: 'repeat(6, minmax(0, 1fr))',
-              gridTemplateRows: 'repeat(3, minmax(0, 1fr))',
-            }}
-            className="bg-white border-y border-slate-300"
-          >
-            {Array.from({ length: 18 }).map((_, idx) => {
-              const r = 6 + Math.floor(idx / 6);
-              const c = 9 + (idx % 6);
-
-              const isYellowArrow = r === 7 && c === 14;
-              const isYellowPath = r === 7 && c >= 9 && c <= 13;
-              const isYellowStart = r === 8 && c === 13;
-              const isSafeStar = r === 6 && c === 12;
-
-              return (
-                <div
-                  key={idx}
-                  className={`border border-slate-300 flex items-center justify-center relative ${
-                    isYellowStart
-                      ? 'bg-[#f59e0b]'
-                      : isYellowPath
-                      ? 'bg-[#f59e0b]'
-                      : 'bg-white'
-                  }`}
-                >
-                  {isYellowArrow && (
-                    <ChevronLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#f59e0b] stroke-[3.5] animate-pulse" />
-                  )}
-
-                  {isYellowStart && (
-                    <div style={{ transform: `rotate(${-boardRotationDeg}deg)` }} className="transition-transform duration-700">
-                      <Star className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-white fill-white drop-shadow" />
-                    </div>
-                  )}
-
-                  {isSafeStar && (
-                    <div style={{ transform: `rotate(${-boardRotationDeg}deg)` }} className="transition-transform duration-700">
-                      <Star className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-400 fill-slate-400 drop-shadow-sm" />
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          {/* ================================================================= */}
-          {/* 7. BOTTOM-LEFT BASE: RED (grid lines: col 1..7, row 10..16)        */}
-          {/* ================================================================= */}
-          <div 
-            style={{ gridColumn: '1 / 7', gridRow: '10 / 16' }}
-            className="bg-[#dc2626] p-[7%] flex items-center justify-center relative rounded-bl-[1.8rem]"
-          >
-            <div className="w-full h-full rounded-[1.4rem] sm:rounded-[1.8rem] bg-white border border-slate-200/90 p-[8%] gap-[8%] grid grid-cols-2 grid-rows-2 shadow-[inset_0_2px_8px_rgba(0,0,0,0.12),0_4px_12px_rgba(0,0,0,0.18)]">
-              {[0, 1, 2, 3].map((i) => {
-                const isTokenValid = myColor === 'red' && isMyTurn && validMoves.includes(i) && myPlayer?.tokens[i]?.state === 'base';
-                return (
-                  <button 
-                    key={i} 
-                    type="button"
-                    disabled={!isTokenValid}
-                    onClick={() => handleTokenClick(i)}
-                    className={`rounded-full bg-[#fef2f2] border-2 flex items-center justify-center shadow-inner aspect-square transition-all ${
-                      isTokenValid 
-                        ? 'border-amber-400 shadow-[0_0_12px_rgba(251,191,36,0.9)] cursor-pointer active:scale-95' 
-                        : 'border-[#fecaca] cursor-default'
-                    }`}
-                  />
-                );
-              })}
-            </div>
-            {/* Pop-up Speech Bubble at Red Base */}
-            <BaseSpeechBubble
-              chat={activeBaseChats.red}
-              color="red"
-              boardRotationDeg={boardRotationDeg}
-              onDismiss={() => handleDismissChat('red')}
-            />
-          </div>
-
-          {/* ================================================================= */}
-          {/* 8. BOTTOM ARM (grid lines: col 7..10, row 10..16)                  */}
-          {/* ================================================================= */}
-          <div 
-            style={{ 
-              gridColumn: '7 / 10', 
-              gridRow: '10 / 16',
-              display: 'grid',
-              gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-              gridTemplateRows: 'repeat(6, minmax(0, 1fr))',
-            }}
-            className="bg-white border-x border-slate-300"
-          >
-            {Array.from({ length: 18 }).map((_, idx) => {
-              const r = 9 + Math.floor(idx / 3);
-              const c = 6 + (idx % 3);
-
-              const isRedArrow = r === 14 && c === 7;
-              const isRedPath = c === 7 && r >= 9 && r <= 13;
-              const isRedStart = r === 13 && c === 6;
-              const isSafeStar = r === 11 && c === 8;
-
-              return (
-                <div
-                  key={idx}
-                  className={`border border-slate-300 flex items-center justify-center relative ${
-                    isRedStart
-                      ? 'bg-[#dc2626]'
-                      : isRedPath
-                      ? 'bg-[#dc2626]'
-                      : 'bg-white'
-                  }`}
-                >
-                  {isRedArrow && (
-                    <ChevronUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#dc2626] stroke-[3.5] animate-bounce" />
-                  )}
-
-                  {isRedStart && (
-                    <div style={{ transform: `rotate(${-boardRotationDeg}deg)` }} className="transition-transform duration-700">
-                      <Star className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-white fill-white drop-shadow" />
-                    </div>
-                  )}
-
-                  {isSafeStar && (
-                    <div style={{ transform: `rotate(${-boardRotationDeg}deg)` }} className="transition-transform duration-700">
-                      <Star className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-400 fill-slate-400 drop-shadow-sm" />
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          {/* ================================================================= */}
-          {/* 9. BOTTOM-RIGHT BASE: YELLOW (grid lines: col 10..16, row 10..16)  */}
-          {/* ================================================================= */}
-          <div 
-            style={{ gridColumn: '10 / 16', gridRow: '10 / 16' }}
-            className="bg-[#f59e0b] p-[7%] flex items-center justify-center relative rounded-br-[1.8rem]"
-          >
-            <div className="w-full h-full rounded-[1.4rem] sm:rounded-[1.8rem] bg-white border border-slate-200/90 p-[8%] gap-[8%] grid grid-cols-2 grid-rows-2 shadow-[inset_0_2px_8px_rgba(0,0,0,0.12),0_4px_12px_rgba(0,0,0,0.18)]">
-              {[0, 1, 2, 3].map((i) => {
-                const isTokenValid = myColor === 'yellow' && isMyTurn && validMoves.includes(i) && myPlayer?.tokens[i]?.state === 'base';
-                return (
-                  <button 
-                    key={i} 
-                    type="button"
-                    disabled={!isTokenValid}
-                    onClick={() => handleTokenClick(i)}
-                    className={`rounded-full bg-[#fefce8] border-2 flex items-center justify-center shadow-inner aspect-square transition-all ${
-                      isTokenValid 
-                        ? 'border-amber-400 shadow-[0_0_12px_rgba(251,191,36,0.9)] cursor-pointer active:scale-95' 
-                        : 'border-[#fef08a] cursor-default'
-                    }`}
-                  />
-                );
-              })}
-            </div>
-            {/* Pop-up Speech Bubble at Yellow Base */}
-            <BaseSpeechBubble
-              chat={activeBaseChats.yellow}
-              color="yellow"
-              boardRotationDeg={boardRotationDeg}
-              onDismiss={() => handleDismissChat('yellow')}
-            />
-          </div>
-
-          {/* =================================================================== */}
-          {/* 10. ANIMATED 3D GLOSSY TOKENS OVERLAY (Inside 15x15 grid padding box) */}
-          {/* =================================================================== */}
-          <div className="absolute inset-0 pointer-events-none">
-            {(() => {
-              // Track occupancy to stagger multiple pawns sharing the exact same track tile
-              const occupancy: Record<string, number> = {};
-              tokensOnBoard.forEach((item) => {
-                const k = `${item.row.toFixed(2)}_${item.col.toFixed(2)}`;
-                occupancy[k] = (occupancy[k] || 0) + 1;
-              });
-
-              const counters: Record<string, number> = {};
-
-              return tokensOnBoard.map((item) => {
-                const { token, player, row, col, isValid } = item;
-                const k = `${row.toFixed(2)}_${col.toFixed(2)}`;
-                const totalOnTile = occupancy[k] || 1;
-                const indexOnTile = counters[k] || 0;
-                counters[k] = indexOnTile + 1;
-
-                let offsetX = 0;
-                let offsetY = 0;
-                if (totalOnTile > 1 && token.state !== 'base') {
-                  const angle = (indexOnTile / totalOnTile) * Math.PI * 2;
-                  offsetX = Math.cos(angle) * 1.1; // 1.1% of board width
-                  offsetY = Math.sin(angle) * 1.1;
-                }
-
-                // col and row are already exact center coordinates in 0..15 space
-                const leftPercent = (col / 15) * 100 + offsetX;
-                const topPercent = (row / 15) * 100 + offsetY;
-
-                return (
-                  <motion.div
-                    key={`${player.playerId}_${token.id}`}
-                    animate={{
-                      left: `${leftPercent}%`,
-                      top: `${topPercent}%`,
-                      x: '-50%',
-                      y: '-50%',
-                      scale: isValid ? [1, 1.12, 1] : 1,
-                    }}
-                    transition={{
-                      left: { type: 'spring', stiffness: 450, damping: 28 },
-                      top: { type: 'spring', stiffness: 450, damping: 28 },
-                      x: { duration: 0 },
-                      y: { duration: 0 },
-                      scale: isValid ? { repeat: Infinity, duration: 0.85 } : undefined,
-                    }}
-                    style={{
-                      x: '-50%',
-                      y: '-50%',
-                    }}
-                    className="absolute z-20 pointer-events-auto cursor-pointer"
-                  >
-                    <button
-                      type="button"
-                      disabled={!isValid}
-                      onClick={() => handleTokenClick(token.id)}
-                      className={`relative flex items-center justify-center p-0.5 focus:outline-none transition-transform ${
-                        isValid ? 'cursor-pointer active:scale-95' : 'cursor-default'
-                      }`}
-                      title={`${player.nickname}'s Token #${token.id + 1} (${token.state})`}
-                    >
-                      {/* Glowing selection halo when it is valid to move */}
-                      {isValid && (
-                        <span className="absolute -inset-1 rounded-full bg-amber-400/35 border-2 border-amber-400 animate-ping pointer-events-none" />
-                      )}
-                      {isValid && (
-                        <span className="absolute -inset-1 rounded-full border-2 border-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.9)] animate-pulse pointer-events-none" />
-                      )}
-                      <div
-                        className="transition-transform duration-700"
-                        style={{ transform: `rotate(${-boardRotationDeg}deg)` }}
-                      >
-                        <HDTokenPawn
-                          color={player.color}
-                          isValid={isValid}
+                    return (
+                      <g key={`cell_${color}_${lane}_${row}`}>
+                        <rect
+                          x={cellX}
+                          y={cellY}
+                          width={CELL_W}
+                          height={CELL_H}
+                          fill={fill}
+                          stroke="#cbd5e1"
+                          strokeWidth="1.6"
                         />
-                      </div>
-                    </button>
-                  </motion.div>
-                );
-              });
-            })()}
 
-            {/* Comic KAPOW Impact Burst Effect when our pawn knocks out opponent */}
-            {impactBurst && (
-              <motion.div
-                key={impactBurst.id}
-                initial={{ scale: 0.2, opacity: 1, rotate: -20, x: '-50%', y: '-50%' }}
-                animate={{ scale: [0.2, 1.35, 1.1], opacity: [1, 1, 0], rotate: [-20, 10, 0], x: '-50%', y: '-50%' }}
-                transition={{ duration: 0.65, ease: 'easeOut' }}
-                style={{
-                  left: `${(impactBurst.coord[1] / 15) * 100}%`,
-                  top: `${(impactBurst.coord[0] / 15) * 100}%`,
-                  x: '-50%',
-                  y: '-50%',
-                }}
-                className="absolute z-40 pointer-events-none flex flex-col items-center justify-center select-none"
-              >
-                <div className="relative flex items-center justify-center">
-                  <span className="absolute w-12 h-12 rounded-full border-4 border-amber-400 bg-amber-400/30 animate-ping" />
-                  <span className="relative text-3xl filter drop-shadow-[0_0_12px_rgba(239,68,68,1)]">
-                    💥
-                  </span>
-                  <span className="absolute -top-3.5 font-black text-[9px] tracking-widest text-amber-300 uppercase bg-slate-950/95 px-2 py-0.5 rounded-full border border-amber-400 shadow-xl">
-                    BONK!
-                  </span>
-                </div>
-              </motion.div>
-            )}
+                        {/* Start Tile White Star */}
+                        {isStartTile && (
+                          <g transform={`translate(${cellX + CELL_W / 2}, ${cellY + CELL_H / 2}) rotate(${-rot - boardRotationDeg})`}>
+                            <polygon
+                              points="0,-13 3.8,-4.5 13,-4.5 5.6,1.2 8.2,10.5 0,5.2 -8.2,10.5 -5.6,1.2 -13,-4.5 -3.8,-4.5"
+                              fill="#ffffff"
+                              opacity="0.95"
+                            />
+                          </g>
+                        )}
 
-            {/* Celebratory Finish Crown / Sparkles Burst when entering HOME */}
-            {finishCelebrate && (
-              <motion.div
-                key={finishCelebrate.id}
-                initial={{ scale: 0, opacity: 0, x: '-50%', y: '-50%' }}
-                animate={{ scale: [0, 1.25, 1], opacity: [0, 1, 1, 0], x: '-50%', y: '-50%' }}
-                transition={{ duration: 2.3, ease: 'easeOut' }}
-                style={{
-                  left: '50%',
-                  top: '50%',
-                  x: '-50%',
-                  y: '-50%',
-                }}
-                className="absolute z-40 pointer-events-none flex flex-col items-center justify-center select-none"
-              >
-                <div className="relative flex flex-col items-center justify-center">
-                  <span className="absolute w-24 h-24 rounded-full border-4 border-amber-400 bg-amber-400/25 animate-ping" />
-                  <Sparkles className="w-12 h-12 text-amber-300 fill-amber-300 animate-spin filter drop-shadow-[0_0_20px_rgba(251,191,36,1)]" />
-                  <span className="mt-1 font-black text-[11px] sm:text-xs text-amber-300 uppercase bg-slate-950/95 px-2.5 py-1 rounded-full border-2 border-amber-400 shadow-2xl tracking-wider animate-bounce">
-                    GOAL! HOME! 🎉
-                  </span>
+                        {/* Safe Star Tile */}
+                        {isSafeStar && (
+                          <g transform={`translate(${cellX + CELL_W / 2}, ${cellY + CELL_H / 2}) rotate(${-rot - boardRotationDeg})`}>
+                            <polygon
+                              points="0,-12 3.5,-4.2 12,-4.2 5.2,1.1 7.6,9.8 0,4.8 -7.6,9.8 -5.2,1.1 -12,-4.2 -3.5,-4.2"
+                              fill="#94a3b8"
+                            />
+                          </g>
+                        )}
+
+                        {/* Home Stretch Entry Arrow (pointing UP toward center) */}
+                        {isEntryArrow && (
+                          <g transform={`translate(${cellX + CELL_W / 2}, ${cellY + CELL_H / 2})`}>
+                            <path
+                              d="M -10 5 L 0 -8 L 10 5"
+                              fill="none"
+                              stroke={palette.main}
+                              strokeWidth="4.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </g>
+                        )}
+                      </g>
+                    );
+                  })
+                )}
+              </g>
+            );
+          })}
+
+          {/* Center Hexagon: 6 Colored Home Triangles */}
+          {HEX_COLORS.map((color, k) => {
+            const v1 = centerHexVertices[k];
+            const v2 = centerHexVertices[(k + 1) % 6];
+            return (
+              <polygon
+                key={`tri_${color}`}
+                points={`${CENTER},${CENTER} ${v1[0]},${v1[1]} ${v2[0]},${v2[1]}`}
+                fill={COLOR_HEX[color].main}
+                stroke="#f8fafc"
+                strokeWidth="2.5"
+              />
+            );
+          })}
+
+          {/* 6 Colored Bases (Yards) in the 60° Wedges */}
+          {HEX_COLORS.map((color) => {
+            const [cy, cx] = BASE_CENTERS[color];
+            const palette = COLOR_HEX[color];
+            const occupant = playerByColor[color];
+            const isCurrentTurnBase = occupant && gameState.currentTurnPlayerId === occupant.playerId;
+
+            return (
+              <g key={`base_${color}`}>
+                {/* Active Turn Glow Ring */}
+                {isCurrentTurnBase && (
+                  <circle
+                    cx={cx}
+                    cy={cy}
+                    r={BASE_RADIUS + 8}
+                    fill="none"
+                    stroke="#fbbf24"
+                    strokeWidth="5"
+                    strokeDasharray="12 6"
+                  />
+                )}
+
+                {/* Outer Colored Base */}
+                <circle
+                  cx={cx}
+                  cy={cy}
+                  r={BASE_RADIUS}
+                  fill={palette.main}
+                  stroke="#f8fafc"
+                  strokeWidth="3.5"
+                  opacity={occupant ? 1 : 0.45}
+                />
+
+                {/* Inner White Capsule */}
+                <circle
+                  cx={cx}
+                  cy={cy}
+                  r={BASE_INNER_RADIUS}
+                  fill="#ffffff"
+                  stroke={palette.border}
+                  strokeWidth="2"
+                />
+
+                {/* 4 Token Slot Circles */}
+                {BASE_SLOTS[color].map(([sy, sx], idx) => (
+                  <circle
+                    key={`slot_${color}_${idx}`}
+                    cx={sx}
+                    cy={sy}
+                    r={16}
+                    fill={palette.slotBg}
+                    stroke={palette.main}
+                    strokeWidth="2"
+                    opacity={occupant ? 1 : 0.5}
+                  />
+                ))}
+              </g>
+            );
+          })}
+        </svg>
+
+        {/* 2. CENTER CROWN BADGE (HTML overlay for crisp icon & counter-rotation) */}
+        <div
+          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 w-7 h-7 sm:w-9 sm:h-9 rounded-full bg-slate-950/90 backdrop-blur-sm border-2 border-amber-300 flex items-center justify-center shadow-[0_0_16px_rgba(251,191,36,0.9)] transition-transform duration-700 pointer-events-none"
+          style={{ transform: `translate(-50%, -50%) rotate(${-boardRotationDeg}deg)` }}
+        >
+          <Crown className="w-4 h-4 sm:w-5 sm:h-5 text-amber-300 fill-amber-300 animate-pulse" />
+        </div>
+
+        {/* 3. CLICKABLE BASE SLOT OVERLAYS + BASE SPEECH BUBBLES */}
+        <div className="absolute inset-0 pointer-events-none">
+          {HEX_COLORS.map((color) => {
+            const [cy, cx] = BASE_CENTERS[color];
+            const occupant = playerByColor[color];
+
+            return (
+              <React.Fragment key={`overlay_${color}`}>
+                {/* Player Name Tag on Occupied Base */}
+                {occupant && (
+                  <div
+                    className="absolute z-10 pointer-events-none transition-transform duration-700"
+                    style={{
+                      left: `${(cx / 1000) * 100}%`,
+                      top: `${((cy + BASE_RADIUS + 14) / 1000) * 100}%`,
+                      transform: `translate(-50%, -50%) rotate(${-boardRotationDeg}deg)`,
+                    }}
+                  >
+                    <span className="px-1.5 py-0.5 rounded-full bg-slate-950/90 border border-slate-700 text-[8px] sm:text-[9px] font-black text-white whitespace-nowrap shadow-md">
+                      {occupant.nickname}
+                    </span>
+                  </div>
+                )}
+
+                {/* Clickable Base Slots for Local Player */}
+                {myColor === color &&
+                  isMyTurn &&
+                  BASE_SLOTS[color].map(([sy, sx], i) => {
+                    const isTokenValid =
+                      validMoves.includes(i) && myPlayer?.tokens[i]?.state === 'base';
+                    if (!isTokenValid) return null;
+                    return (
+                      <button
+                        key={`base_btn_${color}_${i}`}
+                        type="button"
+                        onClick={() => handleTokenClick(i)}
+                        style={{
+                          left: `${(sx / 1000) * 100}%`,
+                          top: `${(sy / 1000) * 100}%`,
+                          transform: 'translate(-50%, -50%)',
+                        }}
+                        className="absolute z-20 w-7 h-7 sm:w-8 sm:h-8 rounded-full border-2 border-amber-400 shadow-[0_0_12px_rgba(251,191,36,0.95)] pointer-events-auto cursor-pointer active:scale-95"
+                        title={`Keluarkan Bidak #${i + 1}`}
+                      />
+                    );
+                  })}
+
+                {/* Pop-up Speech Bubble at Base */}
+                <div
+                  className="absolute z-40 pointer-events-none"
+                  style={{
+                    left: `${(cx / 1000) * 100}%`,
+                    top: `${(cy / 1000) * 100}%`,
+                    transform: 'translate(-50%, -50%)',
+                  }}
+                >
+                  <BaseSpeechBubble
+                    chat={activeBaseChats[color]}
+                    color={color}
+                    boardRotationDeg={boardRotationDeg}
+                    onDismiss={() => handleDismissChat(color)}
+                  />
                 </div>
-              </motion.div>
-            )}
-          </div>
+              </React.Fragment>
+            );
+          })}
+        </div>
+
+        {/* 4. ANIMATED 3D GLOSSY TOKENS OVERLAY */}
+        <div className="absolute inset-0 pointer-events-none">
+          {(() => {
+            const occupancy: Record<string, number> = {};
+            tokensOnBoard.forEach((item) => {
+              const k = `${item.y.toFixed(1)}_${item.x.toFixed(1)}`;
+              occupancy[k] = (occupancy[k] || 0) + 1;
+            });
+
+            const counters: Record<string, number> = {};
+
+            return tokensOnBoard.map((item) => {
+              const { token, player, y, x, isValid } = item;
+              const k = `${y.toFixed(1)}_${x.toFixed(1)}`;
+              const totalOnTile = occupancy[k] || 1;
+              const indexOnTile = counters[k] || 0;
+              counters[k] = indexOnTile + 1;
+
+              let offsetX = 0;
+              let offsetY = 0;
+              if (totalOnTile > 1 && token.state !== 'base') {
+                const angle = (indexOnTile / totalOnTile) * Math.PI * 2;
+                offsetX = Math.cos(angle) * 1.1;
+                offsetY = Math.sin(angle) * 1.1;
+              }
+
+              const leftPercent = (x / 1000) * 100 + offsetX;
+              const topPercent = (y / 1000) * 100 + offsetY;
+
+              return (
+                <motion.div
+                  key={`${player.playerId}_${token.id}`}
+                  animate={{
+                    left: `${leftPercent}%`,
+                    top: `${topPercent}%`,
+                    x: '-50%',
+                    y: '-50%',
+                    scale: isValid ? [1, 1.14, 1] : 1,
+                  }}
+                  transition={{
+                    left: { type: 'spring', stiffness: 450, damping: 28 },
+                    top: { type: 'spring', stiffness: 450, damping: 28 },
+                    x: { duration: 0 },
+                    y: { duration: 0 },
+                    scale: isValid ? { repeat: Infinity, duration: 0.85 } : undefined,
+                  }}
+                  style={{
+                    x: '-50%',
+                    y: '-50%',
+                  }}
+                  className="absolute z-20 pointer-events-auto cursor-pointer"
+                >
+                  <button
+                    type="button"
+                    disabled={!isValid}
+                    onClick={() => handleTokenClick(token.id)}
+                    className={`relative flex items-center justify-center p-0.5 focus:outline-none transition-transform ${
+                      isValid ? 'cursor-pointer active:scale-95' : 'cursor-default'
+                    }`}
+                    title={`${player.nickname}'s Token #${token.id + 1} (${token.state})`}
+                  >
+                    {isValid && (
+                      <span className="absolute -inset-1 rounded-full bg-amber-400/35 border-2 border-amber-400 animate-ping pointer-events-none" />
+                    )}
+                    {isValid && (
+                      <span className="absolute -inset-1 rounded-full border-2 border-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.9)] animate-pulse pointer-events-none" />
+                    )}
+                    <div
+                      className="transition-transform duration-700"
+                      style={{ transform: `rotate(${-boardRotationDeg}deg)` }}
+                    >
+                      <HDTokenPawn
+                        color={player.color}
+                        isValid={isValid}
+                      />
+                    </div>
+                  </button>
+                </motion.div>
+              );
+            });
+          })()}
+
+          {/* Comic KAPOW Impact Burst Effect */}
+          {impactBurst && (
+            <motion.div
+              key={impactBurst.id}
+              initial={{ scale: 0.2, opacity: 1, rotate: -20, x: '-50%', y: '-50%' }}
+              animate={{ scale: [0.2, 1.35, 1.1], opacity: [1, 1, 0], rotate: [-20, 10, 0], x: '-50%', y: '-50%' }}
+              transition={{ duration: 0.65, ease: 'easeOut' }}
+              style={{
+                left: `${(impactBurst.coord[1] / 1000) * 100}%`,
+                top: `${(impactBurst.coord[0] / 1000) * 100}%`,
+                x: '-50%',
+                y: '-50%',
+              }}
+              className="absolute z-40 pointer-events-none flex flex-col items-center justify-center select-none"
+            >
+              <div className="relative flex items-center justify-center">
+                <span className="absolute w-12 h-12 rounded-full border-4 border-amber-400 bg-amber-400/30 animate-ping" />
+                <span className="relative text-3xl filter drop-shadow-[0_0_12px_rgba(239,68,68,1)]">
+                  💥
+                </span>
+                <span className="absolute -top-3.5 font-black text-[9px] tracking-widest text-amber-300 uppercase bg-slate-950/95 px-2 py-0.5 rounded-full border border-amber-400 shadow-xl">
+                  BONK!
+                </span>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Celebratory Finish Crown / Sparkles Burst */}
+          {finishCelebrate && (
+            <motion.div
+              key={finishCelebrate.id}
+              initial={{ scale: 0, opacity: 0, x: '-50%', y: '-50%' }}
+              animate={{ scale: [0, 1.25, 1], opacity: [0, 1, 1, 0], x: '-50%', y: '-50%' }}
+              transition={{ duration: 2.3, ease: 'easeOut' }}
+              style={{
+                left: '50%',
+                top: '50%',
+                x: '-50%',
+                y: '-50%',
+              }}
+              className="absolute z-40 pointer-events-none flex flex-col items-center justify-center select-none"
+            >
+              <div className="relative flex flex-col items-center justify-center">
+                <span className="absolute w-24 h-24 rounded-full border-4 border-amber-400 bg-amber-400/25 animate-ping" />
+                <Sparkles className="w-12 h-12 text-amber-300 fill-amber-300 animate-spin filter drop-shadow-[0_0_20px_rgba(251,191,36,1)]" />
+                <span className="mt-1 font-black text-[11px] sm:text-xs text-amber-300 uppercase bg-slate-950/95 px-2.5 py-1 rounded-full border-2 border-amber-400 shadow-2xl tracking-wider animate-bounce">
+                  GOAL! HOME! 🎉
+                </span>
+              </div>
+            </motion.div>
+          )}
         </div>
       </div>
     </div>

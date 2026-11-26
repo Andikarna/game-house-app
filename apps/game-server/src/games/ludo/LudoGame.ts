@@ -18,7 +18,7 @@ export class LudoGame implements GameModule {
   public readonly id: GameId = 'ludo';
   public readonly name: string = 'Ludo Party';
   public readonly minPlayers: number = 2;
-  public readonly maxPlayers: number = 4;
+  public readonly maxPlayers: number = 6;
   public readonly availableModes: GameMode[] = ['classic', 'quick'];
 
   private roomId: string = '';
@@ -44,16 +44,21 @@ export class LudoGame implements GameModule {
   private botTimer: number = 0;
   private botState: 'idle' | 'waiting-roll' | 'waiting-move' | 'waiting-pass' = 'idle';
 
-  // Standard Ludo Board Constants
-  private static readonly TRACK_LENGTH = 52;
+  // 6-Player Hexagonal Ludo Board Constants (6 arms x 13 tiles = 78 track tiles)
+  private static readonly TRACK_LENGTH = 78;
+  private static readonly TRACK_MAX_STEP = 77;
+  private static readonly HOME_STRETCH_START = 78;
+  private static readonly FINISH_STEP = 83;
   private static readonly START_TILES: Record<LudoColor, number> = {
     red: 0,
     blue: 13,
-    green: 26,
-    yellow: 39,
+    purple: 26,
+    green: 39,
+    yellow: 52,
+    orange: 65,
   };
   private static readonly SAFE_TILES = new Set<number>([
-    0, 8, 13, 21, 26, 34, 39, 47 // 4 Start tiles + 4 Star tiles
+    0, 8, 13, 21, 26, 34, 39, 47, 52, 60, 65, 73 // 6 Start tiles + 6 Star tiles
   ]);
 
   public initialize(
@@ -77,17 +82,19 @@ export class LudoGame implements GameModule {
     this.stateVersion = 1;
     this.lastMoveNotice = 'Game started! Roll the dice to begin.';
 
-    // Assign colors in balanced classic layout matching board corners:
-    // Bottom-Left (Red) -> Top-Left (Blue) -> Top-Right (Green) -> Bottom-Right (Yellow)
-    // 2 players: Red vs Green (diagonally opposite sides)
-    // 3 players: Red, Blue, Green
-    // 4 players: Red, Blue, Green, Yellow
-    const colors: LudoColor[] = 
+    // Assign colors in balanced hexagonal layout (clockwise):
+    // 0: Red (6 o'clock), 1: Blue (8 o'clock), 2: Purple (10 o'clock),
+    // 3: Green (12 o'clock), 4: Yellow (2 o'clock), 5: Orange (4 o'clock)
+    const colors: LudoColor[] =
       players.length === 2
         ? ['red', 'green']
         : players.length === 3
-        ? ['red', 'blue', 'green']
-        : ['red', 'blue', 'green', 'yellow'];
+        ? ['red', 'purple', 'yellow']
+        : players.length === 4
+        ? ['red', 'blue', 'green', 'yellow']
+        : players.length === 5
+        ? ['red', 'blue', 'purple', 'green', 'yellow']
+        : ['red', 'blue', 'purple', 'green', 'yellow', 'orange'];
 
     players.forEach((p, idx) => {
       const color = colors[idx % colors.length];
@@ -359,8 +366,8 @@ export class LudoGame implements GameModule {
         }
       } else if (token.state === 'track' || token.state === 'home-stretch') {
         const targetStep = token.stepCount + dice;
-        // Total steps to finish is 57. Must not overshoot 57.
-        if (targetStep <= 57) {
+        // Total steps to finish is FINISH_STEP (83). Must not overshoot.
+        if (targetStep <= LudoGame.FINISH_STEP) {
           valid.push(token.id);
         }
       }
@@ -394,22 +401,22 @@ export class LudoGame implements GameModule {
       this.lastMoveNotice = `🎲 ${player.nickname} mengeluarkan bidak dari markas!`;
     } else {
       const newStep = token.stepCount + dice;
-      if (newStep <= 51) {
-        // Advancing along standard track
+      if (newStep <= LudoGame.TRACK_MAX_STEP) {
+        // Advancing along standard track (steps 1..77)
         token.state = 'track';
         token.stepCount = newStep;
         token.trackPosition = (LudoGame.START_TILES[player.color] + (newStep - 1)) % LudoGame.TRACK_LENGTH;
         this.lastMoveNotice = `${player.nickname} melangkah ${dice} kotak.`;
-      } else if (newStep >= 52 && newStep < 57) {
-        // Entering or advancing inside private home stretch
+      } else if (newStep >= LudoGame.HOME_STRETCH_START && newStep < LudoGame.FINISH_STEP) {
+        // Entering or advancing inside private home stretch (steps 78..82)
         token.state = 'home-stretch';
         token.stepCount = newStep;
         token.trackPosition = -1; // off common track
         this.lastMoveNotice = `${player.nickname} memasuki jalur home!`;
-      } else if (newStep === 57) {
-        // Reached HOME!
+      } else if (newStep === LudoGame.FINISH_STEP) {
+        // Reached HOME! (step 83)
         token.state = 'finished';
-        token.stepCount = 57;
+        token.stepCount = LudoGame.FINISH_STEP;
         token.trackPosition = -1;
         player.finishedCount++;
         didFinishToken = true;
@@ -462,16 +469,15 @@ export class LudoGame implements GameModule {
         finalHeight: 100,
         fallCount: 0,
         skillsUsedCount: 0,
-        score: (5 - player.rank) * 250,
+        score: Math.max(100, (7 - player.rank) * 200),
       });
 
       if (!this.winnerId) {
         this.winnerId = player.playerId;
       }
 
-      this.lastMoveNotice = `🏆 ${player.nickname} finished in ${player.rank}${
-        player.rank === 1 ? 'st' : player.rank === 2 ? 'nd' : 'rd'
-      } place!`;
+      const rankSuffix = player.rank === 1 ? 'st' : player.rank === 2 ? 'nd' : player.rank === 3 ? 'rd' : 'th';
+      this.lastMoveNotice = `🏆 ${player.nickname} finished in ${player.rank}${rankSuffix} place!`;
 
       // If all but 1 player finished, or 1st place finishes in quick mode
       if (this.rankings.length >= this.players.size - 1 || this.settings.gameMode === 'quick') {
@@ -630,10 +636,10 @@ export class LudoGame implements GameModule {
       return validMoves[0];
     }
 
-    // Priority 1: Move that reaches HOME (step 57)
+    // Priority 1: Move that reaches HOME (step 83)
     for (const tokenIdx of validMoves) {
       const token = bot.tokens[tokenIdx];
-      if (token.stepCount + dice === 57) {
+      if (token.stepCount + dice === LudoGame.FINISH_STEP) {
         return tokenIdx;
       }
     }
@@ -647,7 +653,7 @@ export class LudoGame implements GameModule {
         targetTrackPos = LudoGame.START_TILES[bot.color];
       } else if (token.state === 'track') {
         const newStep = token.stepCount + dice;
-        if (newStep <= 51) {
+        if (newStep <= LudoGame.TRACK_MAX_STEP) {
           targetTrackPos = (LudoGame.START_TILES[bot.color] + (newStep - 1)) % LudoGame.TRACK_LENGTH;
         }
       }
@@ -679,7 +685,7 @@ export class LudoGame implements GameModule {
       const token = bot.tokens[tokenIdx];
       if (token.state === 'track') {
         const newStep = token.stepCount + dice;
-        if (newStep <= 51) {
+        if (newStep <= LudoGame.TRACK_MAX_STEP) {
           const targetTrackPos = (LudoGame.START_TILES[bot.color] + (newStep - 1)) % LudoGame.TRACK_LENGTH;
           if (LudoGame.SAFE_TILES.has(targetTrackPos)) {
             return tokenIdx;

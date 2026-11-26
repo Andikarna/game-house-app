@@ -284,4 +284,55 @@ describe('Ludo Game Engine & Rules', () => {
     assert.ok(state.playerOrder.length === 4);
     assert.ok(['h1', 'b1', 'b2', 'b3'].includes(state.currentTurnPlayerId));
   });
+
+  it('should support 6 players with distinct colors, 78-tile track, home stretch, and finish at step 83', () => {
+    const sixPlayers: Player[] = [
+      { id: 'p1', socketId: 's1', nickname: 'P1', avatar: 'budi', isHost: true, isReady: true, isConnected: true, joinedAt: 1 },
+      { id: 'p2', socketId: 's2', nickname: 'P2', avatar: 'ujang', isHost: false, isReady: true, isConnected: true, joinedAt: 2 },
+      { id: 'p3', socketId: 's3', nickname: 'P3', avatar: 'rara', isHost: false, isReady: true, isConnected: true, joinedAt: 3 },
+      { id: 'p4', socketId: 's4', nickname: 'P4', avatar: 'koko', isHost: false, isReady: true, isConnected: true, joinedAt: 4 },
+      { id: 'p5', socketId: 's5', nickname: 'P5', avatar: 'jaya', isHost: false, isReady: true, isConnected: true, joinedAt: 5 },
+      { id: 'p6', socketId: 's6', nickname: 'P6', avatar: 'bayu', isHost: false, isReady: true, isConnected: true, joinedAt: 6 },
+    ];
+
+    const game = new LudoGame();
+    game.initialize('room-6p', sixPlayers, { ...mockSettings, maxPlayers: 6 }, mockIo);
+    const state = game.getState();
+
+    assert.strictEqual(state.playerOrder.length, 6);
+    assert.strictEqual(state.players['p1'].color, 'red');
+    assert.strictEqual(state.players['p2'].color, 'blue');
+    assert.strictEqual(state.players['p3'].color, 'purple');
+    assert.strictEqual(state.players['p4'].color, 'green');
+    assert.strictEqual(state.players['p5'].color, 'yellow');
+    assert.strictEqual(state.players['p6'].color, 'orange');
+
+    // Test Orange (p6, start tile 65) wrapping past 77 -> 0 -> ... -> home stretch (78..82) -> finish (83)
+    const p6 = (game as any).players.get('p6');
+    const orangeToken = p6.tokens[0];
+    orangeToken.state = 'track';
+    orangeToken.stepCount = 75;
+    orangeToken.trackPosition = (65 + 74) % 78; // 61
+
+    (game as any).currentTurnIndex = 5; // p6 turn
+    (game as any).diceValue = 5; // 75 + 5 = 80 (home-stretch)
+    (game as any).hasRolled = true;
+    (game as any).validMoves = [0];
+
+    game.handleInput('p6', { action: 'move-token', tokenIndex: 0 });
+    assert.strictEqual(orangeToken.state, 'home-stretch');
+    assert.strictEqual(orangeToken.stepCount, 80);
+    assert.strictEqual(orangeToken.trackPosition, -1);
+
+    // Now move 3 more steps to finish at 83
+    (game as any).currentTurnIndex = 5;
+    (game as any).diceValue = 3;
+    (game as any).hasRolled = true;
+    (game as any).validMoves = [0];
+
+    game.handleInput('p6', { action: 'move-token', tokenIndex: 0 });
+    assert.strictEqual(orangeToken.state, 'finished');
+    assert.strictEqual(orangeToken.stepCount, 83);
+    assert.strictEqual(p6.finishedCount, 1);
+  });
 });
