@@ -418,7 +418,26 @@ export const UnoView: React.FC = () => {
         className="fixed inset-0 pointer-events-none"
         style={{
           background:
-            'radial-gradient(ellipse 90% 80% at 50% 48%, #0E4F38 0%, #07291D 52%, #020B08 100%)',
+            'radial-gradient(ellipse 90% 80% at 50% 48%, #115E43 0%, #07291D 52%, #020B08 100%)',
+        }}
+      />
+
+      {/* Casino felt diamond lattice pattern */}
+      <div
+        className="fixed inset-0 pointer-events-none opacity-[0.07]"
+        style={{
+          backgroundImage: `radial-gradient(#ffffff 0.75px, transparent 0.75px), radial-gradient(#ffffff 0.75px, transparent 0.75px)`,
+          backgroundSize: '28px 28px',
+          backgroundPosition: '0 0, 14px 14px',
+        }}
+      />
+
+      {/* Diagonal subtle felt weave */}
+      <div
+        className="fixed inset-0 pointer-events-none opacity-[0.04]"
+        style={{
+          backgroundImage:
+            'repeating-linear-gradient(45deg, rgba(255,255,255,0.25) 0px, rgba(255,255,255,0.25) 1px, transparent 1px, transparent 16px)',
         }}
       />
 
@@ -427,6 +446,26 @@ export const UnoView: React.FC = () => {
       <div
         className="fixed inset-4 sm:inset-7 md:inset-x-12 md:inset-y-7 rounded-[42px] sm:rounded-[78px] border border-amber-300/20 pointer-events-none transition-colors duration-700"
         style={{ boxShadow: `inset 0 0 50px ${colorMeta.hex}22` }}
+      />
+      <div
+        className="fixed inset-6 sm:inset-10 md:inset-x-16 md:inset-y-10 rounded-[36px] sm:rounded-[68px] border border-dashed border-white/10 pointer-events-none"
+      />
+
+      {/* Subtle center tabletop watermark */}
+      <div className="fixed inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden">
+        <div className="text-[84px] sm:text-[140px] font-black italic tracking-tighter text-white/[0.025] -rotate-12">
+          UNO PARTY
+        </div>
+      </div>
+
+      {/* Ambient corner glow orbs */}
+      <div
+        className="fixed -bottom-24 -left-24 w-72 h-72 rounded-full blur-[110px] opacity-20 pointer-events-none transition-colors duration-700"
+        style={{ backgroundColor: colorMeta.hex }}
+      />
+      <div
+        className="fixed -bottom-24 -right-24 w-72 h-72 rounded-full blur-[110px] opacity-20 pointer-events-none transition-colors duration-700"
+        style={{ backgroundColor: colorMeta.hex }}
       />
 
       {/* Overhead Stage Spotlight */}
