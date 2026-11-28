@@ -67,16 +67,19 @@ export const UnoView: React.FC = () => {
 
   const unoState = gameState && gameState.gameId === 'uno' ? (gameState as UnoGameState) : null;
 
-  // Clear optimistic overlay when authoritative stateVersion advances or after 1.8s fallback
+  // Clear optimistic overlay when authoritative stateVersion advances or after 2.5s fallback
   useEffect(() => {
     if (!unoState || !optimisticMove) return;
+    // Clear as soon as we receive a version strictly greater than our pre-action version.
+    // This means the server has processed our move (or someone else's move afterward).
     if ((unoState.stateVersion || 0) > optimisticMove.baseVersion) {
       setOptimisticMove(null);
       return;
     }
-    const timer = setTimeout(() => setOptimisticMove(null), 1800);
+    // Safety fallback: never hold the overlay longer than 2.5s
+    const timer = setTimeout(() => setOptimisticMove(null), 2500);
     return () => clearTimeout(timer);
-  }, [unoState, optimisticMove]);
+  }, [unoState?.stateVersion, optimisticMove]);
 
   // Smooth local countdown clock aligned with turnStartedAt
   useEffect(() => {

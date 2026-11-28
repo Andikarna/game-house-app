@@ -404,7 +404,9 @@ class PollingSocket {
           if (data?.success && data.gameState) {
             if (data.gameState.stateVersion) {
               this.lastGameStateVersion = data.gameState.stateVersion;
-              this.minExpectedVersion = Math.max(this.minExpectedVersion, data.gameState.stateVersion);
+              // Guard: block any poll whose incomingVersion <= what we just wrote.
+              // Use +1 so the NEXT server write (after a bot/timeout moves) is what breaks the block.
+              this.minExpectedVersion = data.gameState.stateVersion + 1;
             }
             if (data.u) {
               this.lastDbUpdatedAt = Number(data.u);
@@ -415,6 +417,8 @@ class PollingSocket {
             if (Array.isArray(data.gameState.myHand)) {
               this.cachedUnoHand = data.gameState.myHand;
             }
+            // Decrement BEFORE emitting so any re-entrant poll sees inFlightActionCount==0
+            this.inFlightActionCount = Math.max(0, this.inFlightActionCount - 1);
             if (data.gameState.gameId === 'ludo') {
               this.emitInternal('game:ludo_state', data.gameState);
             } else if (data.gameState.gameId === 'snake-ladder') {
@@ -437,14 +441,17 @@ class PollingSocket {
             if (data.results) {
               this.emitInternal('game:finished', data.results);
             }
+            return; // Skip the finally decrement since we already did it
           }
         } catch (actionErr) {
           console.error('[PollingSocket game:input error]:', actionErr);
           this.minExpectedVersion = 0;
-          await this.pollOnce(true);
-        } finally {
           this.inFlightActionCount = Math.max(0, this.inFlightActionCount - 1);
+          await this.pollOnce(true);
+          return;
         }
+        // data was null or data.success was false — still decrement
+        this.inFlightActionCount = Math.max(0, this.inFlightActionCount - 1);
         return;
       }
 
@@ -679,7 +686,13 @@ class PollingSocket {
 
       if (sync.type === 'state' && sync.publicState) {
         const incomingVersion = sync.publicState.stateVersion || 0;
-        if (incomingVersion <= this.lastGameStateVersion) return;
+        // Respect the minExpectedVersion guard: if we just submitted an action and
+        // another client's RT broadcast arrives with the stale version, ignore it.
+        const isBlocked =
+          incomingVersion <= this.lastGameStateVersion ||
+          (this.minExpectedVersion > 0 && incomingVersion > 0 && incomingVersion < this.minExpectedVersion) ||
+          this.inFlightActionCount > 0;
+        if (isBlocked) return;
 
         const myId = this.currentPlayerId || '';
         const myPub = sync.publicState.players?.[myId];
@@ -845,11 +858,23 @@ class PollingSocket {
       // Handle Game State
       if (data.gameState) {
         const incomingVersion = data.gameState.stateVersion || 0;
-        const blockedByOptimistic = this.inFlightActionCount > 0 || (this.minExpectedVersion > 0 && incomingVersion > 0 && incomingVersion < this.minExpectedVersion);
-        const isStale = blockedByOptimistic || (incomingVersion > 0 && incomingVersion < this.lastGameStateVersion);
+        // Block this poll's gameState if:
+        // 1. There's an in-flight action (we have a newer optimistic state), OR
+        // 2. minExpectedVersion is set and the poll returned an older version (write not yet visible)
+        // Note: use strict < so that version equal to minExpectedVersion IS accepted (clears the guard).
+        const blockedByInFlight = this.inFlightActionCount > 0;
+        const blockedByVersion =
+          this.minExpectedVersion > 0 &&
+          incomingVersion > 0 &&
+          incomingVersion < this.minExpectedVersion;
+        const isStale =
+          blockedByInFlight ||
+          blockedByVersion ||
+          (incomingVersion > 0 && incomingVersion < this.lastGameStateVersion);
         if (!isStale) {
           if (incomingVersion > 0) {
             this.lastGameStateVersion = incomingVersion;
+            // Clear the guard only once we receive a version >= what we expected
             if (incomingVersion >= this.minExpectedVersion) {
               this.minExpectedVersion = 0;
             }
