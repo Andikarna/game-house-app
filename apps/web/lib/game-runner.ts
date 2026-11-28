@@ -11,21 +11,27 @@ const dummyIo: any = {
 };
 
 export function createInitialGameState(room: RoomInfo): any {
+  const shuffledPlayers = [...room.players];
+  for (let i = shuffledPlayers.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffledPlayers[i], shuffledPlayers[j]] = [shuffledPlayers[j], shuffledPlayers[i]];
+  }
+
   if (room.settings.gameId === 'ludo') {
     const ludo = new LudoGame();
-    ludo.initialize(room.id, room.players, room.settings, dummyIo);
+    ludo.initialize(room.id, shuffledPlayers, room.settings, dummyIo);
     return ludo.getState();
   } else if (room.settings.gameId === 'snake-ladder') {
     const snake = new SnakeLadderGame();
-    snake.initialize(room.id, room.players, room.settings, dummyIo);
+    snake.initialize(room.id, shuffledPlayers, room.settings, dummyIo);
     return snake.getState();
   } else if (room.settings.gameId === 'uno') {
     const uno = new UnoGame();
-    uno.initialize(room.id, room.players, room.settings, dummyIo);
+    uno.initialize(room.id, shuffledPlayers, room.settings, dummyIo);
     return uno.getStateWithSecrets();
   } else {
     const panjat = new PanjatPinangGame();
-    panjat.initialize(room.id, room.players, room.settings, dummyIo);
+    panjat.initialize(room.id, shuffledPlayers, room.settings, dummyIo);
     return panjat.getState();
   }
 }

@@ -435,6 +435,11 @@ export class Room {
     this.status = 'in-game';
 
     const playerList = Array.from(this.players.values());
+    // Fisher-Yates shuffle so seating & turn order are randomized instead of room join order
+    for (let i = playerList.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [playerList[i], playerList[j]] = [playerList[j], playerList[i]];
+    }
     this.gameInstance.initialize(this.id, playerList, this.settings, this.io);
     this.gameInstance.start();
 

@@ -419,25 +419,29 @@ describe('UNO Party E2E Socket.IO Multiplayer Flow (4 Real Clients)', () => {
       'Players must never share the same card IDs'
     );
 
-    // Measure live move RTT for player 0
-    const prevVersion = personalStates[0].stateVersion;
+    // Measure live move RTT for whichever client received the randomized first turn
+    const firstTurnPlayerId = personalStates[0].currentTurnPlayerId;
+    const firstTurnNick = personalStates[0].players[firstTurnPlayerId]?.nickname || '';
+    const activeIdx = Math.max(0, nicknames.indexOf(firstTurnNick));
+    const observerIdx = (activeIdx + 1) % 4;
+    const prevVersion = personalStates[activeIdx].stateVersion;
     const t0 = performance.now();
-    const playable = personalStates[0].playableCardIds || [];
+    const playable = personalStates[activeIdx].playableCardIds || [];
     if (playable.length > 0) {
-      const card = personalStates[0].myHand!.find((c) => c.id === playable[0])!;
-      clients[0].emit('game:input', {
+      const card = personalStates[activeIdx].myHand!.find((c) => c.id === playable[0])!;
+      clients[activeIdx].emit('game:input', {
         action: 'play-card',
         cardId: card.id,
         chosenColor: card.color === 'wild' ? 'blue' : undefined,
       });
     } else {
-      clients[0].emit('game:input', { action: 'draw-card' });
+      clients[activeIdx].emit('game:input', { action: 'draw-card' });
     }
 
     await new Promise<void>((resolve, reject) => {
       const deadline = setTimeout(() => reject(new Error('UNO move broadcast timeout')), 2000);
       const check = setInterval(() => {
-        if (personalStates[1].stateVersion > prevVersion) {
+        if (personalStates[observerIdx].stateVersion > prevVersion) {
           clearTimeout(deadline);
           clearInterval(check);
           resolve();
