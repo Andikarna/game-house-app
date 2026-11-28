@@ -221,22 +221,16 @@ export const UnoCenterPile: React.FC<UnoCenterPileProps> = ({
                   </div>
                 ))}
 
-                <AnimatePresence mode="popLayout">
-                  <motion.div
-                    key={topCard.id}
-                    initial={{ scale: 1.3, y: -36, rotate: -12, opacity: 0.6 }}
-                    animate={{ scale: 1, y: 0, rotate: 0, opacity: 1 }}
-                    transition={{ type: 'spring', stiffness: 450, damping: 26 }}
-                    className="relative rounded-2xl"
-                    style={{ filter: `drop-shadow(0 0 18px ${colorMeta.glow})` }}
-                  >
-                    <UnoCard
-                      card={topCard}
-                      size="md"
-                      isWildActiveColor={topCard.color === 'wild' ? activeColor : undefined}
-                    />
-                  </motion.div>
-                </AnimatePresence>
+                <div
+                  className="relative rounded-2xl"
+                  style={{ filter: `drop-shadow(0 0 18px ${colorMeta.glow})` }}
+                >
+                  <UnoCard
+                    card={topCard}
+                    size="md"
+                    isWildActiveColor={topCard.color === 'wild' ? activeColor : undefined}
+                  />
+                </div>
               </div>
 
               <span className="mt-6 text-[9px] font-bold text-slate-400">Kartu Meja</span>
