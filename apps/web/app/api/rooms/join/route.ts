@@ -61,13 +61,15 @@ export async function POST(req: Request) {
         const nextUpdatedAt = Math.max(now, (roomData.dbUpdatedAt || 0) + 1);
         saveMemoryRoom(room, roomData.gameState, roomData.gameResults, roomData.activeVoteKick, roomData.chatMessages, nextUpdatedAt);
 
+        let savedToSupabase = false;
         if (room.settings.gameId === 'uno') {
-          await upsertUnoRoomToSupabase({
+          savedToSupabase = await upsertUnoRoomToSupabase({
             ...roomData,
             room,
             dbUpdatedAt: nextUpdatedAt,
           });
-        } else {
+        }
+        if (!savedToSupabase) {
           await safeDbQuery(
             'UPDATE gh_players SET avatar = ?, is_connected = 1, last_seen_at = ? WHERE id = ?',
             [avatar, now, existingPlayer.id]
@@ -138,15 +140,17 @@ export async function POST(req: Request) {
 
     const updatedRoom = addPlayerToMemoryRoom(room.code, newPlayer) || room;
 
+    let savedNewPlayerToSupabase = false;
     if (room.settings.gameId === 'uno') {
       const nextUpdatedAt = Math.max(now, (roomData.dbUpdatedAt || 0) + 1);
       saveMemoryRoom(updatedRoom, roomData.gameState, roomData.gameResults, roomData.activeVoteKick, roomData.chatMessages, nextUpdatedAt);
-      await upsertUnoRoomToSupabase({
+      savedNewPlayerToSupabase = await upsertUnoRoomToSupabase({
         ...roomData,
         room: updatedRoom,
         dbUpdatedAt: nextUpdatedAt,
       });
-    } else {
+    }
+    if (!savedNewPlayerToSupabase) {
       await safeDbQuery(
         `INSERT INTO gh_players 
           (id, room_code, nickname, avatar, is_host, is_ready, is_connected, last_seen_at, joined_at)

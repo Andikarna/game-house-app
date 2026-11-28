@@ -98,6 +98,7 @@ export async function GET(
         const nextUpdatedAt = Math.max(Date.now(), expectedUpdatedAt + 1);
 
         let wonRace = true;
+        let persistedToSupabase = false;
         if (isUno) {
           const nextEntry: RoomEntry = {
             ...roomData,
@@ -107,6 +108,7 @@ export async function GET(
             dbUpdatedAt: nextUpdatedAt,
           };
           const casRes = await updateUnoRoomCAS(code, expectedUpdatedAt, nextEntry);
+          persistedToSupabase = casRes.ok;
           wonRace = casRes.wonRace;
           if (!wonRace && casRes.fresh) {
             roomData.room = casRes.fresh.room;
@@ -123,19 +125,22 @@ export async function GET(
               durationMs: Math.max(0, Date.now() - (updatedState?.startedAt || Date.now())),
             }).catch(() => {});
           }
-        } else if (expectedUpdatedAt > 0) {
-          const [updateRes] = await safeDbQuery<any>(
-            'UPDATE gh_rooms SET game_state_json = ?, game_results_json = ?, status = ?, updated_at = ? WHERE code = ? AND updated_at = ?',
-            [JSON.stringify(updatedState), resultsJson, newStatus, nextUpdatedAt, code, expectedUpdatedAt]
-          );
-          if (updateRes && typeof updateRes.affectedRows === 'number' && updateRes.affectedRows === 0) {
-            wonRace = false;
+        }
+        if (!persistedToSupabase) {
+          if (expectedUpdatedAt > 0) {
+            const [updateRes] = await safeDbQuery<any>(
+              'UPDATE gh_rooms SET game_state_json = ?, game_results_json = ?, status = ?, updated_at = ? WHERE code = ? AND updated_at = ?',
+              [JSON.stringify(updatedState), resultsJson, newStatus, nextUpdatedAt, code, expectedUpdatedAt]
+            );
+            if (updateRes && typeof updateRes.affectedRows === 'number' && updateRes.affectedRows === 0) {
+              wonRace = false;
+            }
+          } else {
+            await safeDbQuery(
+              'UPDATE gh_rooms SET game_state_json = ?, game_results_json = ?, status = ?, updated_at = ? WHERE code = ?',
+              [JSON.stringify(updatedState), resultsJson, newStatus, nextUpdatedAt, code]
+            );
           }
-        } else {
-          await safeDbQuery(
-            'UPDATE gh_rooms SET game_state_json = ?, game_results_json = ?, status = ?, updated_at = ? WHERE code = ?',
-            [JSON.stringify(updatedState), resultsJson, newStatus, nextUpdatedAt, code]
-          );
         }
 
         if (wonRace) {

@@ -142,7 +142,7 @@ export async function getRoomByCode(
 
   const memoryEntry = getMemoryRoom(cleanCode) || getMemoryRoom(raw);
 
-  // 0. Fast-path for UNO rooms backed by Supabase (never touch slow MySQL)
+  // 0. Fast-path for UNO rooms backed by Supabase (when uno_rooms schema is active)
   const supabaseEntry = await fetchUnoRoomFromSupabase(cleanCode);
   if (supabaseEntry && supabaseEntry.room.players.length > 0) {
     saveMemoryRoom(
@@ -154,9 +154,6 @@ export async function getRoomByCode(
       supabaseEntry.dbUpdatedAt
     );
     return supabaseEntry;
-  }
-  if (memoryEntry && memoryEntry.room.settings.gameId === 'uno') {
-    return memoryEntry;
   }
 
   // 1. Query MySQL using strictly ONE pooled connection and standard single statements

@@ -84,7 +84,7 @@ export async function POST(req: Request) {
     // 1. Save to in-memory store
     saveMemoryRoom(room, null, null, null, [], now);
 
-    // 2. For UNO, persist directly to Supabase (ultra-fast single-row upsert, skipping MySQL)
+    // 2. For UNO, persist directly to Supabase (if uno_rooms table exists); otherwise fall through to MySQL
     if (isUno) {
       const unoEntry: RoomEntry = {
         room,
@@ -95,12 +95,14 @@ export async function POST(req: Request) {
         emotes: [],
         dbUpdatedAt: now,
       };
-      await upsertUnoRoomToSupabase(unoEntry);
-      return NextResponse.json({
-        success: true,
-        room,
-        playerId,
-      });
+      const savedToSupabase = await upsertUnoRoomToSupabase(unoEntry);
+      if (savedToSupabase) {
+        return NextResponse.json({
+          success: true,
+          room,
+          playerId,
+        });
+      }
     }
 
     // 3. Persist non-UNO player and room to MySQL using one connection & standard single SQL statements
