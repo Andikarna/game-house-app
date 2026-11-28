@@ -64,14 +64,17 @@ export const UnoAnimationLayer: React.FC<UnoAnimationLayerProps> = ({
 
             // Start coords
             if (flight.from === 'deck') {
-              startX = w * 0.44;
-              startY = h * 0.45;
+              const el = getElCenter('uno-draw-pile');
+              startX = el ? el.x : w * 0.44;
+              startY = el ? el.y - 10 : h * 0.45;
             } else if (flight.from === 'center') {
-              startX = w * 0.54;
-              startY = h * 0.45;
+              const el = getElCenter('uno-discard-pile');
+              startX = el ? el.x : w * 0.54;
+              startY = el ? el.y - 10 : h * 0.45;
             } else if (flight.from === 'hand') {
-              startX = w * 0.5;
-              startY = h * 0.88;
+              const el = getElCenter('uno-player-hand');
+              startX = el ? el.x : w * 0.5;
+              startY = el ? el.y + 10 : h * 0.88;
             } else if (typeof flight.from === 'object') {
               startX = flight.from.x;
               startY = flight.from.y;
@@ -92,12 +95,13 @@ export const UnoAnimationLayer: React.FC<UnoAnimationLayerProps> = ({
 
             // End coords
             if (flight.to === 'hand') {
-              startX = startX || w * 0.44;
-              endX = w * 0.5;
-              endY = h * 0.88;
+              const el = getElCenter('uno-player-hand');
+              endX = el ? el.x : w * 0.5;
+              endY = el ? el.y + 10 : h * 0.88;
             } else if (flight.to === 'center') {
-              endX = w * 0.54;
-              endY = h * 0.45;
+              const el = getElCenter('uno-discard-pile');
+              endX = el ? el.x : w * 0.54;
+              endY = el ? el.y - 10 : h * 0.45;
             } else if (typeof flight.to === 'object') {
               endX = flight.to.x;
               endY = flight.to.y;

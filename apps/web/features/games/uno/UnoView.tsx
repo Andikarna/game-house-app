@@ -66,6 +66,7 @@ export const UnoView: React.FC = () => {
   const prevHandCountRef = useRef<number>(0);
   const prevTopCardIdRef = useRef<string>('');
   const lastFxSeqRef = useRef<number>(0);
+  const lastLocalDrawAtRef = useRef<number>(0);
 
   useEffect(() => {
     soundManager.playUnoBGM();
@@ -90,17 +91,22 @@ export const UnoView: React.FC = () => {
     const currentHandCount = unoState.myHand?.length || 0;
     if (prevHandCountRef.current > 0 && currentHandCount > prevHandCountRef.current) {
       const drawnCount = currentHandCount - prevHandCountRef.current;
+      const recentlyDrewLocally = Date.now() - lastLocalDrawAtRef.current < 2500;
+      // Skip duplicate flight if we already triggered an instant local draw for 1 card
+      const startIndex = recentlyDrewLocally && drawnCount === 1 ? 1 : 0;
       const newFlights: CardFlightEvent[] = [];
-      for (let i = 0; i < Math.min(drawnCount, 4); i++) {
+      for (let i = startIndex; i < Math.min(drawnCount, 4); i++) {
         newFlights.push({
           id: `draw-${Date.now()}-${i}`,
           from: 'deck',
           to: 'hand',
-          duration: 0.45 + i * 0.08,
+          duration: 0.34 + i * 0.06,
           isFaceDown: true,
         });
       }
-      setCardFlights((prev) => [...prev, ...newFlights]);
+      if (newFlights.length > 0) {
+        setCardFlights((prev) => [...prev, ...newFlights]);
+      }
     }
     prevHandCountRef.current = currentHandCount;
   }, [unoState?.myHand?.length]);
@@ -274,6 +280,7 @@ export const UnoView: React.FC = () => {
 
   const handleDrawCard = useCallback(() => {
     soundManager.playCardDraw();
+    lastLocalDrawAtRef.current = Date.now();
     // Immediate optimistic flight from deck to hand
     setCardFlights((prev) => [
       ...prev,
@@ -281,7 +288,7 @@ export const UnoView: React.FC = () => {
         id: `local-draw-${Date.now()}`,
         from: 'deck',
         to: 'hand',
-        duration: 0.38,
+        duration: 0.34,
         isFaceDown: true,
       },
     ]);

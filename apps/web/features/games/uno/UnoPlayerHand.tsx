@@ -152,7 +152,7 @@ export const UnoPlayerHand: React.FC<UnoPlayerHandProps> = ({
       </div>
 
       {/* Hand strip */}
-      <div className="w-full overflow-x-auto pb-3 pt-8 px-4 flex justify-start sm:justify-center scrollbar-none">
+      <div id="uno-player-hand" className="w-full overflow-x-auto pb-5 pt-14 px-6 flex justify-start sm:justify-center scrollbar-none">
         <div className={`flex items-end ${overlapClass} mx-auto`}>
           <AnimatePresence initial={false}>
             {sortedHand.map((card, idx) => {
