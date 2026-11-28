@@ -7,7 +7,6 @@ import {
   SnakeLadderMoveEvent,
   SNAKE_LADDER_LADDERS,
   SNAKE_LADDER_SNAKES,
-  PRIMARY_AVATARS,
   SnakeLink,
   LadderLink,
   normalizeAvatarId,
@@ -170,7 +169,6 @@ export const SnakeLadderBoard25D: React.FC<SnakeLadderBoard25DProps> = ({
   onMoveCompleted,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const avatarImagesRef = useRef<Record<string, HTMLImageElement>>({});
   const gameStateRef = useRef(gameState);
   gameStateRef.current = gameState;
 
@@ -193,17 +191,6 @@ export const SnakeLadderBoard25D: React.FC<SnakeLadderBoard25DProps> = ({
 
   const ladderStartSet = useMemo(() => new Set(SNAKE_LADDER_LADDERS.map((l) => l.from)), []);
   const snakeHeadSet = useMemo(() => new Set(SNAKE_LADDER_SNAKES.map((s) => s.from)), []);
-
-  // Preload ALL 12 character avatar PNGs (including Luna, Bima, Nala, Rama) for 3D pawns
-  useEffect(() => {
-    PRIMARY_AVATARS.forEach((id) => {
-      if (!avatarImagesRef.current[id]) {
-        const img = new Image();
-        img.src = `/assets/characters/${id}/avatar.png`;
-        avatarImagesRef.current[id] = img;
-      }
-    });
-  }, []);
 
   // Initialize or reset visual positions (e.g. on game start or rematch when all reset to 0)
   useEffect(() => {
@@ -398,7 +385,7 @@ export const SnakeLadderBoard25D: React.FC<SnakeLadderBoard25DProps> = ({
                 // Character enters the arena for the first time!
                 const t1 = getTileCenter(1);
                 spawnBurst(t1.x, t1.y, ['#34d399', '#facc15', '#ffffff'], 16, 'star', 1.4);
-                spawnBanner(t1.x + 28, t1.y - 26, '✨ MASUK ARENA!', '#ecfdf5', '#059669');
+                spawnBanner(t1.x + 70, t1.y - 84, '✨ MASUK ARENA!', '#ecfdf5', '#059669');
               }
 
               if (prevTile === 100 && nextTile === 99 && !anim.bouncedTriggered) {
@@ -854,7 +841,7 @@ export const SnakeLadderBoard25D: React.FC<SnakeLadderBoard25DProps> = ({
       // Depth-sort by y so lower pawns naturally overlap higher pawns in 2.5D
       drawQueue.sort((a, b) => a.y - b.y);
       drawQueue.forEach((pawn) => {
-        draw3DCharacterPawn(ctx, pawn, avatarImagesRef.current[pawn.avatarId], timeSec);
+        draw3DCharacterPawn(ctx, pawn, timeSec);
       });
 
       // Dedicated overlay pass for local player's "YOU" Arrow & active step counter
@@ -1453,11 +1440,29 @@ interface Character3DProfile {
   pantsColor: string;
   shoeColor: string;
   skinColor: string;
+  skinLight: string;
+  skinShadow: string;
+  hairLight: string;
+  hairDark: string;
+  hairHighlight?: string;
+  eyeColor: string;
   accentColor: string;
   handColor?: string;
   capeColor?: string;
   scarfColor?: string;
-  headgear?: 'headband' | 'caping' | 'tophat' | 'crown' | 'visor' | 'stars';
+  headStyle:
+    | 'budi'
+    | 'ujang'
+    | 'rara'
+    | 'koko'
+    | 'jaya'
+    | 'bayu'
+    | 'siti'
+    | 'jago'
+    | 'luna'
+    | 'bima'
+    | 'nala'
+    | 'rama';
 }
 
 const CHARACTER_3D_PROFILES: Record<string, Character3DProfile> = {
@@ -1467,8 +1472,13 @@ const CHARACTER_3D_PROFILES: Record<string, Character3DProfile> = {
     pantsColor: '#1d4ed8',
     shoeColor: '#dc2626',
     skinColor: '#e09f70',
+    skinLight: '#f6c39b',
+    skinShadow: '#b06f42',
+    hairLight: '#5c3a28',
+    hairDark: '#2c1810',
+    eyeColor: '#451a03',
     accentColor: '#ef4444',
-    headgear: 'headband',
+    headStyle: 'budi',
   },
   ujang: {
     torsoLight: '#ef4444',
@@ -1476,8 +1486,14 @@ const CHARACTER_3D_PROFILES: Record<string, Character3DProfile> = {
     pantsColor: '#1e293b',
     shoeColor: '#b91c1c',
     skinColor: '#d99163',
+    skinLight: '#f0b38a',
+    skinShadow: '#a66238',
+    hairLight: '#374151',
+    hairDark: '#111827',
+    eyeColor: '#29150a',
     accentColor: '#ffffff',
-    handColor: '#dc2626', // Boxing gloves!
+    handColor: '#92400e',
+    headStyle: 'ujang',
   },
   rara: {
     torsoLight: '#22d3ee',
@@ -1485,53 +1501,88 @@ const CHARACTER_3D_PROFILES: Record<string, Character3DProfile> = {
     pantsColor: '#0f172a',
     shoeColor: '#06b6d4',
     skinColor: '#f1b58d',
+    skinLight: '#ffd5b8',
+    skinShadow: '#c78358',
+    hairLight: '#9a4f25',
+    hairDark: '#57260d',
+    hairHighlight: '#fbbf24',
+    eyeColor: '#0891b2',
     accentColor: '#a5f3fc',
-    headgear: 'visor',
+    headStyle: 'rara',
   },
   koko: {
     torsoLight: '#34d399',
     torsoDark: '#047857',
     pantsColor: '#14532d',
     shoeColor: '#f97316',
-    skinColor: '#e6a87c',
+    skinColor: '#f2b895',
+    skinLight: '#ffd8be',
+    skinShadow: '#c98660',
+    hairLight: '#3f2e28',
+    hairDark: '#1c120e',
+    eyeColor: '#451a03',
     accentColor: '#fb923c',
-    headgear: 'visor',
+    headStyle: 'koko',
   },
   jaya: {
     torsoLight: '#fb923c',
     torsoDark: '#c2410c',
     pantsColor: '#334155',
     shoeColor: '#ea580c',
-    skinColor: '#e09f70',
+    skinColor: '#ecc09e',
+    skinLight: '#ffdfc4',
+    skinShadow: '#bf8c65',
+    hairLight: '#c27834',
+    hairDark: '#713f12',
+    hairHighlight: '#f59e0b',
+    eyeColor: '#b45309',
     accentColor: '#fef08a',
+    headStyle: 'jaya',
   },
   bayu: {
     torsoLight: '#f97316',
-    torsoDark: '#9a3412',
+    torsoDark: '#1e293b',
     pantsColor: '#1e1b4b',
     shoeColor: '#facc15',
-    skinColor: '#dfa072',
+    skinColor: '#ebb18a',
+    skinLight: '#ffd2b2',
+    skinShadow: '#bc7d54',
+    hairLight: '#334155',
+    hairDark: '#0f172a',
+    eyeColor: '#0284c7',
     accentColor: '#fde047',
     scarfColor: '#ef4444',
+    headStyle: 'bayu',
   },
   siti: {
-    torsoLight: '#a78bfa',
-    torsoDark: '#5b21b6',
+    torsoLight: '#8b5cf6',
+    torsoDark: '#4c1d95',
     pantsColor: '#312e81',
     shoeColor: '#ec4899',
     skinColor: '#f0b690',
+    skinLight: '#ffd8bc',
+    skinShadow: '#c28359',
+    hairLight: '#4b2d26',
+    hairDark: '#1f110e',
+    eyeColor: '#7c3aed',
     accentColor: '#22d3ee',
-    headgear: 'caping',
+    headStyle: 'siti',
   },
   jago: {
     torsoLight: '#dc2626',
-    torsoDark: '#7f1d1d',
+    torsoDark: '#1e3a8a',
     pantsColor: '#0f172a',
     shoeColor: '#f59e0b',
     skinColor: '#e2a375',
+    skinLight: '#f7c59d',
+    skinShadow: '#b07144',
+    hairLight: '#334155',
+    hairDark: '#0f172a',
+    hairHighlight: '#e2e8f0',
+    eyeColor: '#1e293b',
     accentColor: '#facc15',
     capeColor: '#ef4444',
-    headgear: 'crown',
+    headStyle: 'jago',
   },
   luna: {
     torsoLight: '#9333ea',
@@ -1539,9 +1590,15 @@ const CHARACTER_3D_PROFILES: Record<string, Character3DProfile> = {
     pantsColor: '#1e1b4b',
     shoeColor: '#c084fc',
     skinColor: '#f4bfa0',
+    skinLight: '#ffe0cc',
+    skinShadow: '#c78c68',
+    hairLight: '#312e81',
+    hairDark: '#1e1b4b',
+    hairHighlight: '#f472b6',
+    eyeColor: '#9333ea',
     accentColor: '#e879f9',
     capeColor: '#6b21a8',
-    headgear: 'tophat',
+    headStyle: 'luna',
   },
   bima: {
     torsoLight: '#10b981',
@@ -1549,27 +1606,44 @@ const CHARACTER_3D_PROFILES: Record<string, Character3DProfile> = {
     pantsColor: '#0f172a',
     shoeColor: '#34d399',
     skinColor: '#e2a478',
+    skinLight: '#f8c6a0',
+    skinShadow: '#b27143',
+    hairLight: '#27272a',
+    hairDark: '#09090b',
+    hairHighlight: '#facc15',
+    eyeColor: '#854d0e',
     accentColor: '#facc15',
-    headgear: 'visor',
+    headStyle: 'bima',
   },
   nala: {
     torsoLight: '#f472b6',
     torsoDark: '#be185d',
     pantsColor: '#3b0764',
     shoeColor: '#fbbf24',
-    skinColor: '#ecb18c',
+    skinColor: '#ebb08a',
+    skinLight: '#ffd2b4',
+    skinShadow: '#be7f58',
+    hairLight: '#451a03',
+    hairDark: '#1c0b02',
+    hairHighlight: '#fb7185',
+    eyeColor: '#78350f',
     accentColor: '#fde047',
-    headgear: 'stars',
+    headStyle: 'nala',
   },
   rama: {
     torsoLight: '#3b82f6',
     torsoDark: '#1e3a8a',
     pantsColor: '#0f172a',
     shoeColor: '#ef4444',
-    skinColor: '#e4a77b',
+    skinColor: '#e9b28a',
+    skinLight: '#ffd6b8',
+    skinShadow: '#b97e55',
+    hairLight: '#334155',
+    hairDark: '#0f172a',
+    eyeColor: '#0284c7',
     accentColor: '#fbbf24',
     scarfColor: '#ef4444',
-    headgear: 'crown',
+    headStyle: 'rama',
   },
 };
 
@@ -1596,7 +1670,6 @@ interface DrawnPawnData {
 function draw3DCharacterPawn(
   ctx: CanvasRenderingContext2D,
   pawn: DrawnPawnData,
-  avatarImg: HTMLImageElement | undefined,
   timeSec: number
 ) {
   const palette = PAWN_COLORS[pawn.color] || PAWN_COLORS.red;
@@ -1832,78 +1905,507 @@ function draw3DCharacterPawn(
 
   ctx.restore(); // End facing flip
 
-  // 7. 3D Glossy Pixar-Style Head Bust
+  // 7. True 3D Sculpted Toy Character Head (No circular photo cutout!)
   const headY = -36 - bodyBob;
-  const headR = 17.5;
-  ctx.save();
-  ctx.translate(pawn.facing * (pawn.isWalking ? 1.5 : 0), headY);
+  draw3DSculptedHead(ctx, char3D, pawn, headY, timeSec);
 
-  // Subtle neck & chin shadow
-  ctx.fillStyle = char3D.skinColor;
+  ctx.restore(); // End pawn transform
+}
+
+function draw3DSculptedHead(
+  ctx: CanvasRenderingContext2D,
+  char3D: Character3DProfile,
+  pawn: DrawnPawnData,
+  headY: number,
+  timeSec: number
+) {
+  const headR = 15.5;
+  const dir = pawn.facing;
+
+  ctx.save();
+  ctx.translate(dir * (pawn.isWalking ? 1.5 : 0), headY);
+
+  // Subtle neck with chin shadow
+  ctx.fillStyle = char3D.skinShadow;
   ctx.strokeStyle = '#0f172a';
   ctx.lineWidth = 1.8;
-  ctx.fillRect(-4, headR - 4, 8, 6);
+  ctx.fillRect(-3.6, headR - 3, 7.2, 5.5);
 
-  // 3D Outer Sphere & Team Ring
-  ctx.fillStyle = palette.main;
-  ctx.beginPath();
-  ctx.arc(0, 0, headR + 2.5, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = '#0f172a';
-  ctx.lineWidth = 2.6;
-  ctx.stroke();
-
-  if (avatarImg && avatarImg.complete && avatarImg.naturalWidth > 0) {
-    ctx.save();
+  // A. Back Hair / Ponytail / Space Buns / Caping Back Layer (respecting facing)
+  ctx.save();
+  ctx.scale(dir, 1);
+  if (char3D.headStyle === 'rara') {
+    // High glossy ponytail flowing backward
+    const sway = Math.sin(timeSec * 6 + (pawn.isWalking ? 3 : 0)) * 2.5;
+    const pGrad = ctx.createLinearGradient(-18, -12, -8, 12);
+    pGrad.addColorStop(0, char3D.hairLight);
+    pGrad.addColorStop(1, char3D.hairDark);
+    ctx.fillStyle = pGrad;
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(0, 0, headR, 0, Math.PI * 2);
-    ctx.clip();
-    ctx.drawImage(avatarImg, -headR, -headR, headR * 2, headR * 2);
-    ctx.restore();
-  } else {
-    ctx.fillStyle = char3D.torsoLight;
-    ctx.beginPath();
-    ctx.arc(0, 0, headR, 0, Math.PI * 2);
+    ctx.moveTo(-7, -11);
+    ctx.quadraticCurveTo(-24, -14 + sway, -22, 2 + sway);
+    ctx.quadraticCurveTo(-18, 12 + sway, -12, 8 + sway);
+    ctx.quadraticCurveTo(-15, -2, -8, -5);
+    ctx.closePath();
     ctx.fill();
-    ctx.fillStyle = '#ffffff';
-    ctx.font = '900 13px system-ui, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(pawn.nickname.slice(0, 2).toUpperCase(), 0, 1);
+    ctx.stroke();
+
+    // Golden hair streak in ponytail
+    ctx.strokeStyle = char3D.hairHighlight || '#fbbf24';
+    ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    ctx.moveTo(-12, -9);
+    ctx.quadraticCurveTo(-19, -5 + sway, -17, 6 + sway);
+    ctx.stroke();
+  } else if (char3D.headStyle === 'siti') {
+    // Long back hair strands under bamboo caping
+    ctx.fillStyle = char3D.hairDark;
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.moveTo(-13, 0);
+    ctx.lineTo(-17, 13);
+    ctx.lineTo(-9, 11);
+    ctx.moveTo(13, 0);
+    ctx.lineTo(17, 13);
+    ctx.lineTo(9, 11);
+    ctx.fill();
+    ctx.stroke();
+  } else if (char3D.headStyle === 'nala') {
+    // Double 3D Space Buns (odango)
+    for (const bx of [-12, 12]) {
+      const bunGrad = ctx.createRadialGradient(bx - 2, -17, 1, bx, -15, 8);
+      bunGrad.addColorStop(0, char3D.hairHighlight || '#fb7185');
+      bunGrad.addColorStop(0.55, char3D.hairLight);
+      bunGrad.addColorStop(1, char3D.hairDark);
+      ctx.fillStyle = bunGrad;
+      ctx.strokeStyle = '#0f172a';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(bx, -15, 7.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
+  } else if (char3D.headStyle === 'bayu') {
+    // Swept-back wind spikes
+    ctx.fillStyle = char3D.hairDark;
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.moveTo(-10, -10);
+    ctx.lineTo(-22, -12);
+    ctx.lineTo(-15, -4);
+    ctx.lineTo(-22, 0);
+    ctx.lineTo(-12, 4);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // B. 3D Ears on both sides
+  for (const ex of [-headR + 0.5, headR - 0.5]) {
+    ctx.fillStyle = char3D.skinColor;
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.ellipse(ex, 1, 3.3, 4.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
   }
 
-  // 3D Rim Light + Top Specular Dome Highlight
-  ctx.strokeStyle = pawn.isMe ? '#6ee7b7' : '#ffffff';
-  ctx.lineWidth = pawn.isMe ? 2.6 : 1.8;
+  // C. 3D Sculpted Spherical Face (warm Pixar-3D radial shading)
+  const faceGrad = ctx.createRadialGradient(-4.5, -5, 2, 0, 1, headR * 1.15);
+  faceGrad.addColorStop(0, char3D.skinLight);
+  faceGrad.addColorStop(0.6, char3D.skinColor);
+  faceGrad.addColorStop(1, char3D.skinShadow);
+  ctx.fillStyle = faceGrad;
+  ctx.strokeStyle = '#0f172a';
+  ctx.lineWidth = 2.2;
   ctx.beginPath();
-  ctx.arc(0, 0, headR, 0, Math.PI * 2);
+  ctx.ellipse(0, 0, headR, headR * 0.96, 0, 0, Math.PI * 2);
+  ctx.fill();
   ctx.stroke();
 
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.32)';
+  // Rosy 3D Cheek Blushes
+  ctx.fillStyle = 'rgba(244, 63, 94, 0.25)';
   ctx.beginPath();
-  ctx.ellipse(-4.5, -headR * 0.52, 7.5, 3.2, -0.35, 0, Math.PI * 2);
+  ctx.ellipse(-7.5, 4.2, 3.6, 2.1, 0, 0, Math.PI * 2);
+  ctx.ellipse(7.5, 4.2, 3.6, 2.1, 0, 0, Math.PI * 2);
   ctx.fill();
+
+  // D. Expressive 3D Eyes, Brows & Mouth
+  const lookShift = dir * 1.1;
+  const blinkPhase = Math.sin(timeSec * 1.4 + pawn.avatarId.charCodeAt(0) * 1.7);
+  const isBlinking = blinkPhase > 0.965 && !pawn.isCelebrating;
+
+  // Eyebrows
+  ctx.strokeStyle = char3D.hairDark;
+  ctx.lineWidth = 2;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(-8.5, -4.5);
+  ctx.quadraticCurveTo(-5.5, -6.2, -2.5, -4.8);
+  ctx.moveTo(2.5, -4.8);
+  ctx.quadraticCurveTo(5.5, -6.2, 8.5, -4.5);
+  ctx.stroke();
+
+  // Eyes (unless covered by Jago's dark sunglasses)
+  if (char3D.headStyle === 'jago') {
+    // Cool Golden Aviator Sunglasses
+    ctx.fillStyle = '#0f172a';
+    ctx.strokeStyle = '#facc15';
+    ctx.lineWidth = 1.9;
+    roundRect(ctx, -11.5, -3.5, 10, 7, 2.5);
+    ctx.fill();
+    ctx.stroke();
+    roundRect(ctx, 1.5, -3.5, 10, 7, 2.5);
+    ctx.fill();
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(-1.5, -1);
+    ctx.lineTo(1.5, -1);
+    ctx.stroke();
+    // Glass shine
+    ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(-9.5, -2);
+    ctx.lineTo(-6.5, 1.5);
+    ctx.moveTo(3.5, -2);
+    ctx.lineTo(6.5, 1.5);
+    ctx.stroke();
+  } else {
+    for (const ex of [-5.2, 5.2]) {
+      if (isBlinking) {
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(ex, 0.2, 3, 0.1, Math.PI - 0.1);
+        ctx.stroke();
+      } else {
+        // Sclera
+        ctx.fillStyle = '#ffffff';
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.ellipse(ex, 0, 3.6, 3.9, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // Colored Iris + Pupil
+        ctx.fillStyle = char3D.eyeColor;
+        ctx.beginPath();
+        ctx.arc(ex + lookShift * 0.7, 0.3, 2.35, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#0f172a';
+        ctx.beginPath();
+        ctx.arc(ex + lookShift * 0.75, 0.4, 1.25, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Glossy eye sparkle
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(ex + lookShift * 0.4 - 0.8, -1.0, 0.95, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
+  // Translucent Cyan / Emerald Cyber Visor (Rara & Bima)
+  if (char3D.headStyle === 'rara' || char3D.headStyle === 'bima') {
+    const isBima = char3D.headStyle === 'bima';
+    ctx.save();
+    ctx.fillStyle = isBima ? 'rgba(16, 185, 129, 0.35)' : 'rgba(34, 211, 238, 0.38)';
+    ctx.strokeStyle = isBima ? '#6ee7b7' : '#a5f3fc';
+    ctx.lineWidth = 1.6;
+    roundRect(ctx, -12, -3.8, 24, 7.6, 3.2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.45)';
+    ctx.fillRect(-9, -2.6, 7, 1.4);
+    ctx.restore();
+  }
+
+  // Cute Nose Dot & Cheerful Smile
+  ctx.fillStyle = char3D.skinShadow;
+  ctx.beginPath();
+  ctx.arc(lookShift * 0.5, 3.5, 1.2, 0, Math.PI * 2);
+  ctx.fill();
+
+  if (pawn.isCelebrating || char3D.headStyle === 'koko' || char3D.headStyle === 'jaya' || char3D.headStyle === 'nala') {
+    // Happy open smile
+    ctx.fillStyle = '#7f1d1d';
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.arc(lookShift * 0.4, 6.2, 3.8, 0.05, Math.PI - 0.05);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(lookShift * 0.4 - 2.4, 6.4, 4.8, 1.2);
+  } else {
+    ctx.strokeStyle = '#7c2d12';
+    ctx.lineWidth = 1.8;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.arc(lookShift * 0.4, 6.0, 3.6, 0.25, Math.PI - 0.25);
+    ctx.stroke();
+  }
+
+  // E. Front Sculpted 3D Hair & Character Signature Headgear
+  ctx.save();
+  ctx.scale(dir, 1);
+
+  if (char3D.headStyle === 'siti') {
+    // 1. Cyber Neko Headphones (Purple Neon Cat Ears)
+    for (const earX of [-11, 11]) {
+      ctx.fillStyle = '#3b0764';
+      ctx.strokeStyle = '#d8b4fe';
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.moveTo(earX - 5, -14);
+      ctx.lineTo(earX + (earX < 0 ? -3 : 3), -24);
+      ctx.lineTo(earX + 5, -14);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#f0abfc';
+      ctx.beginPath();
+      ctx.moveTo(earX - 2.5, -15);
+      ctx.lineTo(earX + (earX < 0 ? -1.5 : 1.5), -21);
+      ctx.lineTo(earX + 2.5, -15);
+      ctx.closePath();
+      ctx.fill();
+    }
+    // Headphone ear-cups
+    for (const cupX of [-headR - 0.5, headR + 0.5]) {
+      ctx.fillStyle = '#4c1d95';
+      ctx.strokeStyle = '#c084fc';
+      ctx.lineWidth = 1.8;
+      roundRect(ctx, cupX - 3, -4, 6, 9, 2.5);
+      ctx.fill();
+      ctx.stroke();
+    }
+    // Conical Woven Bamboo Caping Hat
+    const hatGrad = ctx.createLinearGradient(-18, -18, 18, -6);
+    hatGrad.addColorStop(0, '#fde68a');
+    hatGrad.addColorStop(0.55, '#d97706');
+    hatGrad.addColorStop(1, '#78350f');
+    ctx.fillStyle = hatGrad;
+    ctx.strokeStyle = '#451a03';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-22, -6);
+    ctx.lineTo(0, -21);
+    ctx.lineTo(22, -6);
+    ctx.quadraticCurveTo(0, -3, -22, -6);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  } else if (char3D.headStyle === 'luna') {
+    // Front bangs + Tall Magician Neon Top Hat
+    drawSculptedHairCap(ctx, char3D.hairLight, char3D.hairDark, char3D.hairHighlight, 'swoop');
+    // Hat cylinder
+    const topHatGrad = ctx.createLinearGradient(-10, -29, 10, -11);
+    topHatGrad.addColorStop(0, '#4c1d95');
+    topHatGrad.addColorStop(1, '#1e1b4b');
+    ctx.fillStyle = topHatGrad;
+    ctx.strokeStyle = '#e879f9';
+    ctx.lineWidth = 1.8;
+    roundRect(ctx, -10.5, -28, 21, 17, 3);
+    ctx.fill();
+    ctx.stroke();
+    // Hat brim
+    ctx.fillStyle = '#3b0764';
+    ctx.beginPath();
+    ctx.ellipse(0, -11, 18, 4.2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    // Neon Star Emblem on hat
+    ctx.fillStyle = '#f0abfc';
+    drawStar(ctx, 0, -20, 5, 4.6, 2.1);
+    ctx.fill();
+  } else if (char3D.headStyle === 'koko') {
+    // Bangs + Orange/Green Visor Cap with Star
+    drawSculptedHairCap(ctx, char3D.hairLight, char3D.hairDark, undefined, 'round');
+    ctx.fillStyle = '#f97316';
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.arc(0, -4, headR + 0.5, Math.PI + 0.25, -0.25);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    // Green cap visor bill
+    ctx.fillStyle = '#10b981';
+    ctx.beginPath();
+    ctx.ellipse(2, -7.5, 16, 3.5, 0.08, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#facc15';
+    drawStar(ctx, 1, -13.5, 5, 3.6, 1.7);
+    ctx.fill();
+  } else if (char3D.headStyle === 'budi' || char3D.headStyle === 'ujang') {
+    // Spiky hair + Iconic Red-White Headband + Tied Tails
+    drawSculptedHairCap(ctx, char3D.hairLight, char3D.hairDark, undefined, 'spiky');
+    // Tied ribbon knot on back of head
+    ctx.fillStyle = '#ef4444';
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(-14, -7);
+    ctx.lineTo(-21, -11);
+    ctx.lineTo(-19, -5);
+    ctx.lineTo(-22, -2);
+    ctx.lineTo(-14, -4);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    // Red & White Headband wrap
+    ctx.fillStyle = '#ef4444';
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 1.5;
+    roundRect(ctx, -15.5, -10.5, 31, 3.4, 1.5);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#ffffff';
+    roundRect(ctx, -15.2, -7.4, 30.4, 2.8, 1.2);
+    ctx.fill();
+    ctx.stroke();
+  } else if (char3D.headStyle === 'bayu') {
+    // Swept spiky hair + Orange Racing Goggles on forehead
+    drawSculptedHairCap(ctx, char3D.hairLight, char3D.hairDark, undefined, 'spiky');
+    ctx.fillStyle = '#1e293b';
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 1.5;
+    roundRect(ctx, -13, -12, 26, 6.2, 2.6);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#f97316';
+    roundRect(ctx, -10.5, -11, 9, 4.2, 1.6);
+    roundRect(ctx, 1.5, -11, 9, 4.2, 1.6);
+    ctx.fill();
+  } else if (char3D.headStyle === 'nala') {
+    // Bangs + Rose-Gold Headphones + Star Sunglasses on Forehead
+    drawSculptedHairCap(ctx, char3D.hairLight, char3D.hairDark, char3D.hairHighlight, 'swoop');
+    // Headphone band
+    ctx.strokeStyle = '#fda4af';
+    ctx.lineWidth = 2.8;
+    ctx.beginPath();
+    ctx.arc(0, -1, headR + 1.5, Math.PI + 0.35, -0.35);
+    ctx.stroke();
+    // Ear cups
+    for (const cupX of [-headR - 0.5, headR + 0.5]) {
+      ctx.fillStyle = '#fb7185';
+      ctx.strokeStyle = '#0f172a';
+      ctx.lineWidth = 1.6;
+      roundRect(ctx, cupX - 2.6, -3.5, 5.2, 8.5, 2.4);
+      ctx.fill();
+      ctx.stroke();
+    }
+    // Star sunglasses perched on forehead
+    ctx.fillStyle = '#be185d';
+    ctx.strokeStyle = '#fde68a';
+    ctx.lineWidth = 1.4;
+    drawStar(ctx, -5, -10.5, 5, 4.5, 2.4);
+    ctx.fill();
+    ctx.stroke();
+    drawStar(ctx, 5, -10.5, 5, 4.5, 2.4);
+    ctx.fill();
+    ctx.stroke();
+  } else if (char3D.headStyle === 'jago' || char3D.headStyle === 'bima' || char3D.headStyle === 'jaya') {
+    drawSculptedHairCap(ctx, char3D.hairLight, char3D.hairDark, char3D.hairHighlight, 'spiky');
+  } else {
+    // Rara & Rama sculpted swoop hair
+    drawSculptedHairCap(ctx, char3D.hairLight, char3D.hairDark, char3D.hairHighlight, 'swoop');
+  }
+  ctx.restore();
 
   // Golden Crown when celebrating victory at tile 100!
   if (pawn.isCelebrating) {
+    const crownY = char3D.headStyle === 'luna' ? -30 : -headR - 4;
     ctx.fillStyle = '#facc15';
     ctx.strokeStyle = '#78350f';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(-10, -headR + 1);
-    ctx.lineTo(-12, -headR - 11);
-    ctx.lineTo(-4, -headR - 5);
-    ctx.lineTo(0, -headR - 13);
-    ctx.lineTo(4, -headR - 5);
-    ctx.lineTo(12, -headR - 11);
-    ctx.lineTo(10, -headR + 1);
+    ctx.moveTo(-9.5, crownY + 2);
+    ctx.lineTo(-11.5, crownY - 10);
+    ctx.lineTo(-4, crownY - 4);
+    ctx.lineTo(0, crownY - 12);
+    ctx.lineTo(4, crownY - 4);
+    ctx.lineTo(11.5, crownY - 10);
+    ctx.lineTo(9.5, crownY + 2);
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
   }
 
   ctx.restore(); // End head
-  ctx.restore(); // End pawn transform
+}
+
+function drawSculptedHairCap(
+  ctx: CanvasRenderingContext2D,
+  hairLight: string,
+  hairDark: string,
+  highlight: string | undefined,
+  style: 'spiky' | 'swoop' | 'round'
+) {
+  const hGrad = ctx.createLinearGradient(-12, -24, 12, -6);
+  hGrad.addColorStop(0, hairLight);
+  hGrad.addColorStop(1, hairDark);
+
+  ctx.fillStyle = hGrad;
+  ctx.strokeStyle = '#0f172a';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+
+  if (style === 'spiky') {
+    ctx.moveTo(-15.5, -4);
+    ctx.quadraticCurveTo(-17, -14, -12, -16);
+    ctx.lineTo(-13, -22);
+    ctx.lineTo(-6, -18.5);
+    ctx.lineTo(-2, -25);
+    ctx.lineTo(4, -19);
+    ctx.lineTo(10, -23);
+    ctx.lineTo(12, -15);
+    ctx.quadraticCurveTo(17, -11, 15.5, -4);
+    ctx.quadraticCurveTo(9, -10, 4, -8);
+    ctx.lineTo(0, -5);
+    ctx.lineTo(-3, -8.5);
+    ctx.quadraticCurveTo(-9, -10, -15.5, -4);
+  } else if (style === 'swoop') {
+    ctx.moveTo(-15.5, -3);
+    ctx.quadraticCurveTo(-17, -16, -6, -20);
+    ctx.quadraticCurveTo(6, -23, 14, -14);
+    ctx.quadraticCurveTo(17.5, -9, 15, -2);
+    ctx.quadraticCurveTo(10, -9, 3, -7);
+    ctx.quadraticCurveTo(-2, -11, -10, -7);
+    ctx.quadraticCurveTo(-13, -6, -15.5, -3);
+  } else {
+    ctx.arc(0, -4, 15.8, Math.PI + 0.15, -0.15);
+    ctx.quadraticCurveTo(6, -10, 0, -7);
+    ctx.quadraticCurveTo(-8, -10, -15.5, -4);
+  }
+
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  if (highlight) {
+    ctx.strokeStyle = highlight;
+    ctx.lineWidth = 2.4;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-2, -20);
+    ctx.quadraticCurveTo(3, -15, 2, -9.5);
+    ctx.stroke();
+  }
 }
 
 function draw3DLimb(
@@ -1951,7 +2453,7 @@ function draw3DLimb(
 function drawActiveStepPill(ctx: CanvasRenderingContext2D, pawn: DrawnPawnData) {
   if (!pawn.stepBadge) return;
   const x = Math.max(40, Math.min(960, pawn.x));
-  const y = Math.max(24, pawn.y - pawn.z - 68);
+  const y = Math.max(24, pawn.y - pawn.z - 74);
 
   ctx.save();
   ctx.font = '900 14px system-ui, sans-serif';
@@ -1975,7 +2477,7 @@ function drawActiveStepPill(ctx: CanvasRenderingContext2D, pawn: DrawnPawnData) 
 function drawYouArrow(ctx: CanvasRenderingContext2D, pawn: DrawnPawnData, timeSec: number) {
   const bob = Math.sin(timeSec * 4.5) * 4.5;
   const baseX = Math.max(36, Math.min(964, pawn.x));
-  const tipOffset = pawn.isCelebrating ? 76 : pawn.stepBadge ? 84 : 62;
+  const tipOffset = pawn.isCelebrating ? 82 : pawn.stepBadge ? 92 : 68;
   const tipY = Math.max(42, pawn.y - pawn.z - tipOffset + bob);
 
   ctx.save();
