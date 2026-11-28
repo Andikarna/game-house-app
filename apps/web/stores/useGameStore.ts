@@ -25,7 +25,7 @@ interface GameStoreState {
   socket: Socket<ServerToClientEvents, ClientToServerEvents> | null;
   isConnected: boolean;
   ping: number;
-  transportMode: 'websocket' | 'supabase-realtime' | 'polling';
+  transportMode: 'websocket' | 'polling';
   playerId: string;
   room: RoomInfo | null;
   gameState: any | null;
@@ -41,7 +41,7 @@ interface GameStoreState {
   setSocket: (socket: Socket<ServerToClientEvents, ClientToServerEvents> | null) => void;
   setIsConnected: (connected: boolean) => void;
   setPing: (ping: number) => void;
-  setTransportMode: (mode: 'websocket' | 'supabase-realtime' | 'polling') => void;
+  setTransportMode: (mode: 'websocket' | 'polling') => void;
   setPlayerId: (id: string) => void;
   setRoom: (room: RoomInfo | null) => void;
   setGameState: (state: any) => void;

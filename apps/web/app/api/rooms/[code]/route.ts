@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { safeDbQuery } from '../../../../lib/db';
 import { getRoomByCode, saveMemoryRoom, RoomEntry } from '../../../../lib/room-service';
 import { checkLudoTimeout, checkSnakeTimeout, checkUnoTimeout, sanitizeUnoForClient } from '../../../../lib/game-runner';
-import { updateUnoRoomCAS, recordUnoMatchResult } from '../../../../lib/uno-supabase';
+import { recordUnoMatchResult } from '../../../../lib/uno-mysql';
 
 export const dynamic = 'force-dynamic';
 export const preferredRegion = 'sin1';
@@ -31,14 +31,6 @@ export async function GET(
     const clientVk = searchParams.get('vk') === '1';
     const now = Date.now();
 
-    // Throttle heartbeat updates to at most once every 15 seconds per player (skip MySQL for UNO)
-    if (playerId) {
-      const lastSeen = lastHeartbeatMap.get(playerId) || 0;
-      if (now - lastSeen > 15000) {
-        lastHeartbeatMap.set(playerId, now);
-      }
-    }
-
     let roomData: RoomEntry | null = null;
     try {
       roomData = await getRoomByCode(code, { includeAux: true, throwOnDbError: true });
@@ -54,7 +46,8 @@ export async function GET(
       return NextResponse.json({ success: false, error: 'Room not found.' }, { status: 404 });
     }
 
-    if (playerId && roomData.room.settings.gameId !== 'uno') {
+    // Throttle heartbeat updates to at most once every 15 seconds per player
+    if (playerId) {
       const lastSeen = lastHeartbeatMap.get(playerId) || 0;
       if (now - lastSeen > 15000) {
         lastHeartbeatMap.set(playerId, now);
@@ -98,23 +91,19 @@ export async function GET(
         const nextUpdatedAt = Math.max(Date.now(), expectedUpdatedAt + 1);
 
         let wonRace = true;
-        let persistedToSupabase = false;
         if (isUno) {
-          const nextEntry: RoomEntry = {
-            ...roomData,
-            room: { ...roomData.room, status: newStatus },
-            gameState: updatedState,
-            gameResults: results,
-            dbUpdatedAt: nextUpdatedAt,
-          };
-          const casRes = await updateUnoRoomCAS(code, expectedUpdatedAt, nextEntry);
-          persistedToSupabase = casRes.ok;
-          wonRace = casRes.wonRace;
-          if (!wonRace && casRes.fresh) {
-            roomData.room = casRes.fresh.room;
-            roomData.gameState = casRes.fresh.gameState;
-            roomData.gameResults = casRes.fresh.gameResults;
-            roomData.dbUpdatedAt = casRes.fresh.dbUpdatedAt;
+          // MySQL CAS: only update if updated_at matches expected
+          if (expectedUpdatedAt > 0) {
+            const [updateRes] = await safeDbQuery<any>(
+              'UPDATE gh_rooms SET game_state_json = ?, game_results_json = ?, status = ?, updated_at = ? WHERE code = ? AND updated_at = ?',
+              [JSON.stringify(updatedState), resultsJson, newStatus, nextUpdatedAt, code, expectedUpdatedAt]
+            );
+            wonRace = !(updateRes && typeof updateRes.affectedRows === 'number' && updateRes.affectedRows === 0);
+          } else {
+            await safeDbQuery(
+              'UPDATE gh_rooms SET game_state_json = ?, game_results_json = ?, status = ?, updated_at = ? WHERE code = ?',
+              [JSON.stringify(updatedState), resultsJson, newStatus, nextUpdatedAt, code]
+            );
           }
           if (wonRace && results) {
             recordUnoMatchResult({
@@ -125,8 +114,7 @@ export async function GET(
               durationMs: Math.max(0, Date.now() - (updatedState?.startedAt || Date.now())),
             }).catch(() => {});
           }
-        }
-        if (!persistedToSupabase) {
+        } else {
           if (expectedUpdatedAt > 0) {
             const [updateRes] = await safeDbQuery<any>(
               'UPDATE gh_rooms SET game_state_json = ?, game_results_json = ?, status = ?, updated_at = ? WHERE code = ? AND updated_at = ?',
@@ -158,7 +146,7 @@ export async function GET(
             roomData.chatMessages,
             nextUpdatedAt
           );
-        } else if (!isUno) {
+        } else {
           const fresh = await getRoomByCode(code, { includeAux: true });
           if (fresh && fresh.room.players.length > 0) {
             roomData.room = fresh.room;
@@ -175,9 +163,7 @@ export async function GET(
     if (roomData.activeVoteKick && Date.now() > roomData.activeVoteKick.expiresAt) {
       roomData.activeVoteKick = null;
       saveMemoryRoom(roomData.room, roomData.gameState, roomData.gameResults, null);
-      if (!isUno) {
-        safeDbQuery('DELETE FROM gh_vote_kicks WHERE room_code = ?', [code]).catch(() => {});
-      }
+      safeDbQuery('DELETE FROM gh_vote_kicks WHERE room_code = ?', [code]).catch(() => {});
     }
 
     const recentChats = (roomData.chatMessages || []).filter((c) => now - c.timestamp < 15000);

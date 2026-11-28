@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { ensureTables, withConnection } from '../../../../lib/db';
-import { generateRoomCode, saveMemoryRoom, RoomEntry } from '../../../../lib/room-service';
-import { upsertUnoRoomToSupabase } from '../../../../lib/uno-supabase';
+import { generateRoomCode, saveMemoryRoom } from '../../../../lib/room-service';
 import { RoomSettings, RoomInfo, Player, AvatarId, GameId, GameMode, GAME_AVAILABILITY } from '../../../../shared';
 
 export const dynamic = 'force-dynamic';
@@ -84,29 +83,7 @@ export async function POST(req: Request) {
     // 1. Save to in-memory store
     saveMemoryRoom(room, null, null, null, [], now);
 
-    // 2. For UNO, persist directly to Supabase (if uno_rooms table exists); otherwise fall through to MySQL
-    if (isUno) {
-      const unoEntry: RoomEntry = {
-        room,
-        gameState: null,
-        gameResults: null,
-        activeVoteKick: null,
-        chatMessages: [],
-        emotes: [],
-        dbUpdatedAt: now,
-      };
-      const savedToSupabase = await upsertUnoRoomToSupabase(unoEntry);
-      if (savedToSupabase) {
-        return NextResponse.json({
-          success: true,
-          room,
-          playerId,
-          u: now,
-        });
-      }
-    }
-
-    // 3. Persist non-UNO player and room to MySQL using one connection & standard single SQL statements
+    // 2. Persist to MySQL
     try {
       await ensureTables();
       await withConnection(async (conn) => {

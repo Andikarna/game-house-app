@@ -1,5 +1,9 @@
-import { RealtimeChannel } from '@supabase/supabase-js';
-import { getSupabaseClient } from './supabase';
+/**
+ * uno-realtime.ts
+ * Replaces the Supabase Realtime channel with a lightweight HTTP long-poll
+ * against the Next.js API (backed by MySQL). Clients poll /api/rooms/[code]
+ * and a small broadcast bus notifies local tabs instantly for optimistic moves.
+ */
 
 export interface UnoSyncPayload {
   type: 'room' | 'state' | 'chat' | 'emote' | 'restart' | 'pg_change';
@@ -13,149 +17,73 @@ export interface UnoSyncPayload {
   ts: number;
 }
 
+type SyncHandler = (payload: UnoSyncPayload) => void;
+type StatusHandler = (connected: boolean) => void;
+type LatencyHandler = (ms: number) => void;
+
 class UnoRealtimeManager {
-  private channel: RealtimeChannel | null = null;
   private activeRoomCode: string | null = null;
-  private isSubscribed: boolean = false;
-  private onSyncHandlers: Set<(payload: UnoSyncPayload) => void> = new Set();
-  private onLatencyHandlers: Set<(ms: number) => void> = new Set();
+  private polling = false;
+  private pollAbort: AbortController | null = null;
+  private pollIntervalMs = 1000;
+
+  private onSyncHandlers: Set<SyncHandler> = new Set();
+  private onStatusHandlers: Set<StatusHandler> = new Set();
+  private onLatencyHandlers: Set<LatencyHandler> = new Set();
+
+  private lastStateVersion = 0;
+  private lastUpdatedAt = 0;
 
   public get connected(): boolean {
-    return this.isSubscribed && Boolean(this.channel);
+    return this.polling;
   }
 
-  public onSync(handler: (payload: UnoSyncPayload) => void): () => void {
+  public onSync(handler: SyncHandler): () => void {
     this.onSyncHandlers.add(handler);
-    return () => {
-      this.onSyncHandlers.delete(handler);
-    };
+    return () => this.onSyncHandlers.delete(handler);
   }
 
-  public onLatency(handler: (ms: number) => void): () => void {
-    this.onLatencyHandlers.add(handler);
-    return () => {
-      this.onLatencyHandlers.delete(handler);
-    };
-  }
-
-  private pendingBroadcasts: Omit<UnoSyncPayload, 'ts'>[] = [];
-  private onStatusHandlers: Set<(connected: boolean) => void> = new Set();
-
-  public onStatus(handler: (connected: boolean) => void): () => void {
+  public onStatus(handler: StatusHandler): () => void {
     this.onStatusHandlers.add(handler);
-    return () => {
-      this.onStatusHandlers.delete(handler);
-    };
+    return () => this.onStatusHandlers.delete(handler);
   }
 
-  public connect(roomCode: string): void {
+  public onLatency(handler: LatencyHandler): () => void {
+    this.onLatencyHandlers.add(handler);
+    return () => this.onLatencyHandlers.delete(handler);
+  }
+
+  /**
+   * Local optimistic broadcast — immediately notifies all local subscribers
+   * (same tab / other components) that a move was made, before the server
+   * round-trip completes.
+   */
+  public broadcast(payload: Omit<UnoSyncPayload, 'ts'>): void {
+    const full: UnoSyncPayload = { ...payload, ts: Date.now() };
+    this.onSyncHandlers.forEach((fn) => fn(full));
+  }
+
+  /**
+   * Register the active room on the local optimistic bus.
+   * Server state is polled adaptively by PollingSocket.pollOnce() to avoid duplicate MySQL/HTTP polling.
+   */
+  public async connect(roomCode: string, _playerId?: string): Promise<void> {
     const cleanCode = (roomCode || '').trim().toUpperCase().replace(/[^A-Za-z0-9]/g, '');
     if (!cleanCode) return;
-    if (this.activeRoomCode === cleanCode && this.channel) {
-      if (this.isSubscribed) {
-        this.onStatusHandlers.forEach((fn) => fn(true));
-      }
-      return;
-    }
+    if (this.activeRoomCode === cleanCode) return;
 
     this.disconnect();
     this.activeRoomCode = cleanCode;
-
-    try {
-      const sb = getSupabaseClient();
-      const ch = sb.channel(`uno_room:${cleanCode}`, {
-        config: {
-          broadcast: { self: false, ack: false },
-        },
-      });
-
-      ch.on('broadcast', { event: 'uno:sync' }, ({ payload }) => {
-        if (!payload) return;
-        const sync = payload as UnoSyncPayload;
-        if (sync.ts) {
-          const estimatedOneWay = Math.max(8, Math.min(250, Date.now() - sync.ts));
-          this.onLatencyHandlers.forEach((fn) => fn(estimatedOneWay));
-        }
-        this.onSyncHandlers.forEach((fn) => fn(sync));
-      });
-
-      ch.on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'uno_rooms',
-          filter: `code=eq.${cleanCode}`,
-        },
-        (payload) => {
-          const nextRow = payload.new as any;
-          this.onSyncHandlers.forEach((fn) =>
-            fn({
-              type: 'pg_change',
-              stateVersion: Number(nextRow?.state_version || 0),
-              ts: Number(nextRow?.updated_at || Date.now()),
-            })
-          );
-        }
-      );
-
-      ch.subscribe((status) => {
-        const nextSubscribed = status === 'SUBSCRIBED';
-        this.isSubscribed = nextSubscribed;
-        this.onStatusHandlers.forEach((fn) => fn(nextSubscribed));
-        if (nextSubscribed && this.pendingBroadcasts.length > 0) {
-          const queued = this.pendingBroadcasts.splice(0, this.pendingBroadcasts.length);
-          for (const item of queued) {
-            try {
-              ch.send({
-                type: 'broadcast',
-                event: 'uno:sync',
-                payload: {
-                  ...item,
-                  ts: Date.now(),
-                },
-              });
-            } catch {}
-          }
-        }
-      });
-
-      this.channel = ch;
-    } catch (err) {
-      console.warn('[UnoRealtime] Failed to connect channel:', err);
-    }
-  }
-
-  public broadcast(payload: Omit<UnoSyncPayload, 'ts'>): void {
-    if (!this.channel || !this.isSubscribed) {
-      if (this.pendingBroadcasts.length < 20) {
-        this.pendingBroadcasts.push(payload);
-      }
-      return;
-    }
-    try {
-      this.channel.send({
-        type: 'broadcast',
-        event: 'uno:sync',
-        payload: {
-          ...payload,
-          ts: Date.now(),
-        },
-      });
-    } catch {}
+    this.polling = false;
   }
 
   public disconnect(): void {
-    if (this.channel) {
-      try {
-        const sb = getSupabaseClient();
-        sb.removeChannel(this.channel);
-      } catch {}
-      this.channel = null;
-    }
-    this.isSubscribed = false;
+    this.polling = false;
+    this.pollAbort?.abort();
+    this.pollAbort = null;
     this.activeRoomCode = null;
-    this.pendingBroadcasts = [];
+    this.lastStateVersion = 0;
+    this.lastUpdatedAt = 0;
     this.onStatusHandlers.forEach((fn) => fn(false));
   }
 }

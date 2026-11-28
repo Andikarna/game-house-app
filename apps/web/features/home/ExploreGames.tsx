@@ -24,12 +24,12 @@ export const ExploreGames: React.FC<ExploreProps> = ({ onSelectGame }) => {
     {
       id: 'uno',
       title: 'UNO Party Arena',
-      description: 'Duel kartu UNO 4-10 pemain dengan efek partikel, kartu foil 3D, 12 karakter memukau, leaderboard Supabase & sinkronisasi real-time super cepat!',
+      description: 'Duel kartu UNO 4-10 pemain dengan efek partikel, kartu foil 3D, 12 karakter memukau, leaderboard MySQL & sinkronisasi real-time super cepat!',
       emoji: '🃏',
       players: '4-10 Pemain',
       category: 'Party / Card Game',
       tagColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
-      highlights: ['Efek VFX Partikel', 'Stack +2/+4 & Chaos 7-0', 'Supabase Realtime'],
+      highlights: ['Efek VFX Partikel', 'Stack +2/+4 & Chaos 7-0', 'MySQL Sync'],
       status: 'playable',
     },
     {

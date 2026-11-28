@@ -34,41 +34,45 @@ export const UnoCenterPile: React.FC<UnoCenterPileProps> = ({
   onDrawClick,
 }) => {
   const colorMeta = UNO_COLOR_META[activeColor] || UNO_COLOR_META.blue;
-  const underCards = recentDiscards.slice(0, -1);
+  const underCards = recentDiscards.slice(0, -1).slice(-3);
+  const isCritical = turnTimeLeft <= 5;
 
   return (
-    <div className="relative flex flex-col items-center justify-center my-2 sm:my-4 z-10 select-none">
-      {/* Turn Status & Active Color Pill */}
-      <div className="flex flex-wrap items-center justify-center gap-2.5 mb-3.5 sm:mb-5 z-20">
-        <div
-          className="px-4 py-1.5 rounded-full border backdrop-blur-md shadow-lg flex items-center gap-2 text-xs font-black transition-all duration-500"
+    <div className="relative flex flex-col items-center justify-center my-1 sm:my-3 z-10 select-none">
+      {/* Turn status pills */}
+      <div className="flex flex-wrap items-center justify-center gap-2 mb-3 sm:mb-4 z-20">
+        {/* Active color pill */}
+        <motion.div
+          layout
+          className="px-3.5 py-1.5 rounded-full border backdrop-blur-xl shadow-lg flex items-center gap-1.5 text-xs font-black transition-all duration-500"
           style={{
-            backgroundColor: 'rgba(7, 17, 28, 0.85)',
-            borderColor: `${colorMeta.hex}CC`,
-            boxShadow: `0 0 24px -4px ${colorMeta.glow}`,
+            background: `${colorMeta.hex}18`,
+            borderColor: `${colorMeta.hex}60`,
+            boxShadow: `0 0 20px -6px ${colorMeta.glow}`,
           }}
         >
           <span
-            className="w-3 h-3 rounded-full ring-2 ring-white/80 shadow"
+            className="w-3 h-3 rounded-full ring-2 ring-white/60 shadow-sm"
             style={{ backgroundColor: colorMeta.hex }}
           />
           <span className="text-white">
-            Warna Aktif: <strong style={{ color: colorMeta.hex }}>{colorMeta.label.toUpperCase()}</strong>
+            Warna: <strong style={{ color: colorMeta.hex }}>{colorMeta.label.toUpperCase()}</strong>
           </span>
-        </div>
+        </motion.div>
 
+        {/* Turn indicator */}
         <div
-          className={`px-4 py-1.5 rounded-full border backdrop-blur-md text-xs font-black flex items-center gap-1.5 transition-all ${
+          className={`px-3.5 py-1.5 rounded-full border backdrop-blur-xl text-xs font-black flex items-center gap-1.5 transition-all duration-300 ${
             isMyTurn
-              ? 'bg-gradient-to-r from-amber-600/40 via-orange-600/35 to-rose-600/40 border-amber-400 text-amber-100 shadow-[0_0_26px_rgba(249,115,22,0.7)]'
-              : 'bg-[#07111C]/85 border-white/15 text-slate-200'
+              ? 'bg-gradient-to-r from-amber-600/35 to-orange-600/35 border-amber-400/70 text-amber-100 shadow-[0_0_22px_rgba(249,115,22,0.6)]'
+              : 'bg-black/40 border-white/12 text-slate-300'
           }`}
         >
           <span>{isMyTurn ? '🔥 GILIRANMU!' : `Giliran: ${currentTurnNickname}`}</span>
           <span
-            className={`font-mono px-1.5 py-0.5 rounded-md text-[11px] ${
-              turnTimeLeft <= 5
-                ? 'bg-rose-500 text-white animate-pulse'
+            className={`font-mono px-1.5 py-0.5 rounded-lg text-[11px] ${
+              isCritical
+                ? 'bg-rose-500 text-white animate-pulse shadow-[0_0_12px_rgba(239,68,68,0.5)]'
                 : 'bg-black/40 text-amber-200'
             }`}
           >
@@ -77,100 +81,115 @@ export const UnoCenterPile: React.FC<UnoCenterPileProps> = ({
         </div>
       </div>
 
-      {/* Main Arena Table Vortex + Glass Card Pad */}
+      {/* Main center arena */}
       <div className="relative flex items-center justify-center">
-        {/* Swirling Chromatic Energy Vortex Ring behind the center pad */}
-        <div
-          className={`absolute -inset-10 sm:-inset-14 rounded-full pointer-events-none transition-all duration-700 blur-[14px] opacity-70 ${
+        {/* Swirling conic orbit ring */}
+        <motion.div
+          className={`absolute -inset-12 sm:-inset-16 rounded-full pointer-events-none opacity-50 blur-[16px] ${
             direction === 1 ? 'uno-orbit-cw' : 'uno-orbit-ccw'
           }`}
           style={{
             background: `conic-gradient(from 0deg, transparent 0deg, ${colorMeta.hex} 90deg, transparent 180deg, ${colorMeta.hex} 270deg, transparent 360deg)`,
           }}
         />
+
+        {/* Glow ring border */}
         <div
-          className="absolute -inset-6 sm:-inset-9 rounded-full border-2 border-white/15 pointer-events-none"
-          style={{
-            boxShadow: `0 0 55px ${colorMeta.glow}, inset 0 0 40px ${colorMeta.glow}`,
-          }}
+          className="absolute -inset-7 sm:-inset-10 rounded-full border border-white/10 pointer-events-none transition-all duration-700"
+          style={{ boxShadow: `0 0 60px -8px ${colorMeta.glow}, inset 0 0 50px -12px ${colorMeta.glow}` }}
         />
 
-        {/* Glass Table Pad */}
-        <div className="relative flex items-center justify-center px-6 py-5 sm:px-11 sm:py-6 rounded-[36px] bg-[#06181A]/75 border border-white/15 backdrop-blur-xl shadow-[0_20px_50px_rgba(0,0,0,0.65)]">
-          <div className="relative flex items-center gap-5 sm:gap-9 z-10">
-            {/* 1. DRAW DECK STACK */}
+        {/* Glass table pad */}
+        <div
+          className="relative flex items-center justify-center px-5 py-4 sm:px-9 sm:py-5 rounded-[32px] backdrop-blur-2xl border border-white/10 shadow-[0_24px_60px_rgba(0,0,0,0.75)]"
+          style={{ background: 'rgba(2,10,20,0.78)' }}
+        >
+          {/* Inner glass highlight */}
+          <div className="absolute inset-0 rounded-[32px] bg-gradient-to-b from-white/5 to-transparent pointer-events-none" />
+
+          <div className="relative flex items-center gap-4 sm:gap-8 z-10">
+            {/* Draw pile */}
             <div className="relative flex flex-col items-center">
               <div className="relative">
-                <div className="absolute top-1.5 left-1.5 w-[76px] sm:w-[92px] h-[110px] sm:h-[134px] rounded-2xl bg-slate-800 border border-slate-600/70 opacity-70" />
-                <div className="absolute top-0.5 left-0.5 w-[76px] sm:w-[92px] h-[110px] sm:h-[134px] rounded-2xl bg-slate-700 border border-slate-500/70 opacity-85" />
+                {/* Stack shadow cards */}
+                <div className="absolute top-2 left-2 w-[76px] sm:w-[88px] h-[110px] sm:h-[128px] rounded-2xl bg-slate-900/80 border border-slate-700/50" />
+                <div className="absolute top-1 left-1 w-[76px] sm:w-[88px] h-[110px] sm:h-[128px] rounded-2xl bg-slate-800/80 border border-slate-700/50" />
 
                 <motion.div
-                  whileHover={canDraw ? { scale: 1.06, y: -5 } : undefined}
+                  whileHover={canDraw ? { scale: 1.07, y: -6 } : undefined}
                   whileTap={canDraw ? { scale: 0.95 } : undefined}
                   onClick={canDraw ? onDrawClick : undefined}
-                  className={`relative rounded-2xl transition-all ${
+                  className={`relative rounded-2xl transition-all duration-200 ${
                     canDraw
                       ? pendingDrawCount > 0
-                        ? 'ring-3 ring-rose-400 shadow-[0_0_32px_rgba(244,63,94,0.85)] cursor-pointer'
-                        : 'ring-2 ring-cyan-300 shadow-[0_0_26px_rgba(34,211,238,0.65)] cursor-pointer'
-                      : 'opacity-90'
+                        ? 'ring-2 ring-rose-400 shadow-[0_0_30px_rgba(244,63,94,0.8)] cursor-pointer'
+                        : 'ring-2 ring-cyan-300/80 shadow-[0_0_24px_rgba(34,211,238,0.6)] cursor-pointer'
+                      : ''
                   }`}
                 >
                   <UnoCard faceDown size="md" />
+
                   {canDraw && (
-                    <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 whitespace-nowrap px-3 py-0.5 rounded-full bg-slate-950/95 border border-white/80 text-[10px] font-black text-white shadow-lg">
-                      {pendingDrawCount > 0 ? `AMBIL +${pendingDrawCount}` : 'TARIK KARTU'}
-                    </div>
+                    <motion.div
+                      initial={{ opacity: 0, y: 4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="absolute -bottom-5 left-1/2 -translate-x-1/2 whitespace-nowrap px-3 py-0.5 rounded-full bg-black/90 border border-white/70 text-[9px] font-black text-white shadow-lg"
+                    >
+                      {pendingDrawCount > 0 ? `+${pendingDrawCount}` : 'TARIK'}
+                    </motion.div>
                   )}
                 </motion.div>
               </div>
-              <span className="mt-4 text-[10px] font-bold text-slate-300">
-                Deck: <strong className="text-white">{drawPileCount}</strong>
+
+              <span className="mt-6 text-[9px] font-bold text-slate-400">
+                Deck <strong className="text-white">{drawPileCount}</strong>
               </span>
             </div>
 
-            {/* 2. DIRECTION & STACK BOMB INDICATOR */}
-            <div className="flex flex-col items-center justify-center gap-2 min-w-[52px]">
+            {/* Direction + stack bomb */}
+            <div className="flex flex-col items-center gap-2 min-w-[44px]">
               <motion.div
                 animate={{ rotate: direction === 1 ? 360 : -360 }}
-                transition={{ repeat: Infinity, duration: 5.5, ease: 'linear' }}
-                className="w-11 h-11 rounded-full bg-[#07111C]/90 border border-white/25 flex items-center justify-center shadow-lg"
-                style={{ boxShadow: `0 0 20px ${colorMeta.glow}` }}
-                title={direction === 1 ? 'Arah Searah Jarum Jam' : 'Arah Berlawanan Jarum Jam'}
+                transition={{ repeat: Infinity, duration: 6, ease: 'linear' }}
+                className="w-10 h-10 rounded-full border border-white/15 flex items-center justify-center"
+                style={{
+                  background: `radial-gradient(circle, ${colorMeta.hex}22, rgba(2,10,20,0.9))`,
+                  boxShadow: `0 0 18px ${colorMeta.glow}`,
+                }}
+                title={direction === 1 ? 'Searah Jarum Jam' : 'Berlawanan Jarum Jam'}
               >
-                {direction === 1 ? (
-                  <RotateCw className="w-5 h-5" style={{ color: colorMeta.hex }} />
-                ) : (
-                  <RotateCcw className="w-5 h-5" style={{ color: colorMeta.hex }} />
-                )}
+                {direction === 1
+                  ? <RotateCw className="w-4 h-4" style={{ color: colorMeta.hex }} />
+                  : <RotateCcw className="w-4 h-4" style={{ color: colorMeta.hex }} />
+                }
               </motion.div>
 
               <AnimatePresence>
                 {pendingDrawCount > 0 && (
                   <motion.div
                     key={pendingDrawCount}
-                    initial={{ scale: 0.5, opacity: 0 }}
-                    animate={{ scale: [1, 1.12, 1], opacity: 1 }}
+                    initial={{ scale: 0.4, opacity: 0 }}
+                    animate={{ scale: [1, 1.14, 1], opacity: 1 }}
                     exit={{ scale: 0.4, opacity: 0 }}
-                    transition={{ duration: 0.45 }}
-                    className="px-3 py-1 rounded-full bg-gradient-to-r from-rose-600 to-orange-500 border-2 border-yellow-200 text-white font-black text-xs sm:text-sm shadow-[0_0_24px_rgba(244,63,94,0.85)] flex items-center gap-1"
+                    transition={{ duration: 0.4 }}
+                    className="px-2.5 py-0.5 rounded-full bg-gradient-to-r from-rose-600 to-orange-500 border-2 border-yellow-200 text-white font-black text-xs shadow-[0_0_22px_rgba(244,63,94,0.8)] flex items-center gap-1"
                   >
-                    <Flame className="w-3.5 h-3.5 fill-yellow-200 text-yellow-200" />
+                    <Flame className="w-3 h-3 fill-yellow-200 text-yellow-200" />
                     +{pendingDrawCount}
                   </motion.div>
                 )}
               </AnimatePresence>
             </div>
 
-            {/* 3. DISCARD PILE */}
+            {/* Discard pile */}
             <div className="relative flex flex-col items-center">
               <div className="relative">
                 {underCards.map((c, idx) => (
                   <div
                     key={c.id}
-                    className="absolute inset-0 pointer-events-none opacity-65"
+                    className="absolute inset-0 pointer-events-none opacity-50"
                     style={{
-                      transform: `rotate(${(idx - 1) * 9 - 4}deg) translate(${(idx - 1) * 3}px, ${idx * 2}px)`,
+                      transform: `rotate(${(idx - 1) * 10 - 5}deg) translate(${(idx - 1) * 4}px, ${idx * 2}px)`,
                     }}
                   >
                     <UnoCard card={c} size="md" />
@@ -180,11 +199,11 @@ export const UnoCenterPile: React.FC<UnoCenterPileProps> = ({
                 <AnimatePresence mode="popLayout">
                   <motion.div
                     key={topCard.id}
-                    initial={{ scale: 1.28, y: -32, rotate: -10, opacity: 0.7 }}
+                    initial={{ scale: 1.3, y: -36, rotate: -12, opacity: 0.6 }}
                     animate={{ scale: 1, y: 0, rotate: 0, opacity: 1 }}
-                    transition={{ type: 'spring', stiffness: 420, damping: 24 }}
+                    transition={{ type: 'spring', stiffness: 450, damping: 26 }}
                     className="relative rounded-2xl"
-                    style={{ boxShadow: `0 0 28px ${colorMeta.glow}` }}
+                    style={{ filter: `drop-shadow(0 0 18px ${colorMeta.glow})` }}
                   >
                     <UnoCard
                       card={topCard}
@@ -194,9 +213,8 @@ export const UnoCenterPile: React.FC<UnoCenterPileProps> = ({
                   </motion.div>
                 </AnimatePresence>
               </div>
-              <span className="mt-4 text-[10px] font-bold text-slate-300">
-                Kartu Meja
-              </span>
+
+              <span className="mt-6 text-[9px] font-bold text-slate-400">Kartu Meja</span>
             </div>
           </div>
         </div>

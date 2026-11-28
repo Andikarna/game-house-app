@@ -11,7 +11,7 @@ import {
 import { Server as SocketIOServer } from 'socket.io';
 import { GameModule } from '../core/GameModule';
 import { GameRegistry } from '../games/GameRegistry';
-import { recordUnoMatchToSupabase } from '../lib/supabase';
+import { recordUnoMatchToMySQL } from '../lib/mysql';
 
 export class Room {
   public readonly id: string;
@@ -454,7 +454,7 @@ export class Room {
       if (this.settings.gameId === 'uno') {
         const results = this.gameInstance.getResults();
         const unoState = currentState as any;
-        recordUnoMatchToSupabase({
+        recordUnoMatchToMySQL({
           roomCode: this.code,
           gameMode: this.settings.gameMode,
           rankings: results.rankings || [],

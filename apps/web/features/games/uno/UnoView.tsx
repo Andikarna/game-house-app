@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '../../../stores/useGameStore';
 import {
   UnoGameState,
@@ -26,7 +26,7 @@ import { ClimberAvatarIcon } from '../../../components/ui/AvatarSelector';
 import { soundManager } from '../../../components/audio/SoundManager';
 import { MusicControl } from '../../../components/audio/MusicControl';
 import { getGlobalSocket } from '../../../hooks/useSocket';
-import { LogOut, UserMinus, Trophy, Wifi, Zap, Layers } from 'lucide-react';
+import { LogOut, UserMinus, Trophy, Zap, Layers, Star } from 'lucide-react';
 
 export const UnoView: React.FC = () => {
   const {
@@ -51,7 +51,7 @@ export const UnoView: React.FC = () => {
   const [shakeTrigger, setShakeTrigger] = useState(0);
   const [turnTimeLeft, setTurnTimeLeft] = useState<number>(20);
 
-  // 0ms Optimistic Card Prediction state
+  // Optimistic card prediction
   const [optimisticMove, setOptimisticMove] = useState<{
     cardId: string;
     card: UnoCardType;
@@ -67,21 +67,18 @@ export const UnoView: React.FC = () => {
 
   const unoState = gameState && gameState.gameId === 'uno' ? (gameState as UnoGameState) : null;
 
-  // Clear optimistic overlay when authoritative stateVersion advances or after 2.5s fallback
+  // Clear optimistic overlay when server confirms
   useEffect(() => {
     if (!unoState || !optimisticMove) return;
-    // Clear as soon as we receive a version strictly greater than our pre-action version.
-    // This means the server has processed our move (or someone else's move afterward).
     if ((unoState.stateVersion || 0) > optimisticMove.baseVersion) {
       setOptimisticMove(null);
       return;
     }
-    // Safety fallback: never hold the overlay longer than 2.5s
     const timer = setTimeout(() => setOptimisticMove(null), 2500);
     return () => clearTimeout(timer);
   }, [unoState?.stateVersion, optimisticMove]);
 
-  // Smooth local countdown clock aligned with turnStartedAt
+  // Smooth local countdown
   useEffect(() => {
     if (!unoState || unoState.status === 'finished') return;
     const syncClock = () => {
@@ -94,19 +91,16 @@ export const UnoView: React.FC = () => {
     return () => clearInterval(id);
   }, [unoState?.turnStartedAt, unoState?.turnDurationSeconds, unoState?.status, unoState?.stateVersion]);
 
-  // Trigger audio + micro-shake on new UNO FX events
+  // Audio + shake on FX events
   useEffect(() => {
     if (!unoState?.lastFx || unoState.lastFx.seq <= lastFxSeqRef.current) return;
     lastFxSeqRef.current = unoState.lastFx.seq;
     const fx = unoState.lastFx;
 
-    if (fx.type === 'play') {
-      soundManager.playCardFlick();
-    } else if (fx.type === 'draw') {
-      soundManager.playCardDraw();
-    } else if (fx.type === 'uno') {
-      soundManager.playUnoShout();
-    } else if (fx.type === 'catch') {
+    if (fx.type === 'play') soundManager.playCardFlick();
+    else if (fx.type === 'draw') soundManager.playCardDraw();
+    else if (fx.type === 'uno') soundManager.playUnoShout();
+    else if (fx.type === 'catch') {
       soundManager.playUnoCatch();
       setShakeTrigger((s) => s + 1);
     } else if (
@@ -119,9 +113,7 @@ export const UnoView: React.FC = () => {
       fx.type === 'rotate'
     ) {
       soundManager.playUnoAction(fx.type);
-      if (fx.type === 'draw2' || fx.type === 'wild_draw4') {
-        setShakeTrigger((s) => s + 1);
-      }
+      if (fx.type === 'draw2' || fx.type === 'wild_draw4') setShakeTrigger((s) => s + 1);
     }
 
     if (fx.type === 'catch' || fx.type === 'swap' || fx.type === 'rotate') {
@@ -131,9 +123,7 @@ export const UnoView: React.FC = () => {
 
   const emitUnoInput = useCallback(
     (payload: any) => {
-      if (activeSocket) {
-        activeSocket.emit('game:input', payload);
-      }
+      if (activeSocket) activeSocket.emit('game:input', payload);
     },
     [activeSocket]
   );
@@ -143,8 +133,6 @@ export const UnoView: React.FC = () => {
       if (!unoState) return;
       const resolvedColor: UnoColor =
         chosenColor || (card.color === 'wild' ? unoState.activeColor : card.color);
-
-      // Instant 0ms local visual projection
       soundManager.playCardFlick();
       setOptimisticMove({
         cardId: card.id,
@@ -152,7 +140,6 @@ export const UnoView: React.FC = () => {
         color: resolvedColor,
         baseVersion: unoState.stateVersion || 0,
       });
-
       emitUnoInput({
         action: 'play-card',
         cardId: card.id,
@@ -166,14 +153,8 @@ export const UnoView: React.FC = () => {
   const handleCardClick = useCallback(
     (card: UnoCardType) => {
       if (!unoState) return;
-      if (card.color === 'wild') {
-        setPendingWildCard(card);
-        return;
-      }
-      if (unoState.gameMode === 'uno-chaos' && card.value === '7') {
-        setPendingSwapCard(card);
-        return;
-      }
+      if (card.color === 'wild') { setPendingWildCard(card); return; }
+      if (unoState.gameMode === 'uno-chaos' && card.value === '7') { setPendingSwapCard(card); return; }
       commitPlayCard(card);
     },
     [unoState, commitPlayCard]
@@ -215,19 +196,15 @@ export const UnoView: React.FC = () => {
     }
   };
 
-  // Keyboard shortcuts: Space (Draw/Pass), U (UNO!)
+  // Keyboard shortcuts
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) return;
+      if (['INPUT','TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) return;
       if (!unoState || unoState.status === 'finished') return;
       const isMyTurn = unoState.currentTurnPlayerId === playerId && !optimisticMove;
       if (e.code === 'Space' && isMyTurn) {
         e.preventDefault();
-        if (unoState.drawnPlayableCardId) {
-          handlePassTurn();
-        } else {
-          handleDrawCard();
-        }
+        unoState.drawnPlayableCardId ? handlePassTurn() : handleDrawCard();
       } else if (e.key === 'u' || e.key === 'U') {
         handleCallUno();
       }
@@ -236,13 +213,13 @@ export const UnoView: React.FC = () => {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [unoState, playerId, optimisticMove, handleDrawCard, handlePassTurn, handleCallUno]);
 
-  // Order opponents clockwise starting immediately after the local player
   const opponentsOrdered = useMemo<UnoPlayerPublic[]>(() => {
     if (!unoState) return [];
     const order = unoState.playerOrder || [];
     const myIdx = order.indexOf(playerId);
-    const orderedIds =
-      myIdx >= 0 ? [...order.slice(myIdx + 1), ...order.slice(0, myIdx)] : order;
+    const orderedIds = myIdx >= 0
+      ? [...order.slice(myIdx + 1), ...order.slice(0, myIdx)]
+      : order;
     return orderedIds
       .map((id) => unoState.players[id])
       .filter((p): p is UnoPlayerPublic => Boolean(p));
@@ -250,9 +227,13 @@ export const UnoView: React.FC = () => {
 
   if (!unoState) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-slate-950 text-slate-300 gap-3">
-        <Layers className="w-10 h-10 text-indigo-400 animate-bounce" />
-        <span className="font-black text-sm">Menyiapkan Meja UNO Party...</span>
+      <div className="flex flex-col items-center justify-center min-h-screen bg-[#030810] text-slate-300 gap-4">
+        <div className="relative">
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-red-500 via-orange-500 to-yellow-500 flex items-center justify-center shadow-[0_0_40px_rgba(239,68,68,0.5)] animate-pulse">
+            <span className="text-2xl font-black italic text-white drop-shadow">UNO</span>
+          </div>
+        </div>
+        <span className="text-sm font-black text-slate-300 tracking-wide">Menyiapkan Meja UNO Party...</span>
       </div>
     );
   }
@@ -271,78 +252,93 @@ export const UnoView: React.FC = () => {
   const canDraw = isMyTurn && !unoState.drawnPlayableCardId;
 
   const modeBadgeLabel =
-    unoState.gameMode === 'uno-chaos'
-      ? 'Chaos 7-0'
-      : unoState.gameMode === 'uno-stack'
-      ? 'Turbo Stack'
-      : 'Classic';
+    unoState.gameMode === 'uno-chaos' ? 'Chaos 7-0'
+    : unoState.gameMode === 'uno-stack' ? 'Turbo Stack'
+    : 'Classic';
 
-  const transportLabel =
-    transportMode === 'websocket'
-      ? 'WebSocket'
-      : transportMode === 'supabase-realtime'
-      ? 'Supabase RT'
-      : 'Sync';
+  const modeBadgeColor =
+    unoState.gameMode === 'uno-chaos' ? 'bg-fuchsia-500/25 border-fuchsia-400/50 text-fuchsia-200'
+    : unoState.gameMode === 'uno-stack' ? 'bg-orange-500/25 border-orange-400/50 text-orange-200'
+    : 'bg-indigo-500/25 border-indigo-400/40 text-indigo-200';
 
   return (
     <motion.div
-      animate={shakeTrigger > 0 ? { x: [0, -6, 6, -4, 4, 0] } : undefined}
-      transition={{ duration: 0.35 }}
+      animate={shakeTrigger > 0 ? { x: [0, -7, 7, -4, 4, 0] } : undefined}
+      transition={{ duration: 0.38 }}
       key={shakeTrigger > 0 ? `shake-${Math.floor(shakeTrigger / 9999)}` : 'uno-arena'}
-      className="min-h-screen w-full bg-[#06241B] text-white flex flex-col justify-between p-2 sm:p-4 pb-4 overflow-x-hidden relative select-none"
+      className="min-h-screen w-full text-white flex flex-col justify-between p-2 sm:p-3 pb-4 overflow-x-hidden relative select-none"
+      style={{ background: '#030810' }}
     >
-      {/* Original UNO Emerald Casino Felt Tabletop & Mahogany Side Rails */}
+      {/* ── Deep space background with radial casino felt ── */}
       <div
         className="fixed inset-0 pointer-events-none"
         style={{
           background:
-            'radial-gradient(ellipse 78% 70% at 50% 48%, #0E4D38 0%, #093325 52%, #041812 100%)',
+            'radial-gradient(ellipse 85% 70% at 50% 46%, #0A3D2B 0%, #061E16 55%, #020A07 100%)',
         }}
       />
-      {/* Left & Right Dark Table Border Rails */}
-      <div className="fixed inset-y-0 left-0 w-3 sm:w-8 bg-gradient-to-r from-[#070B14] via-[#0B1220]/90 to-transparent pointer-events-none" />
-      <div className="fixed inset-y-0 right-0 w-3 sm:w-8 bg-gradient-to-l from-[#070B14] via-[#0B1220]/90 to-transparent pointer-events-none" />
-      {/* Dynamic Ambient Color Aura matching Active UNO Color */}
+
+      {/* Subtle noise grain overlay */}
       <div
-        className="fixed top-1/3 left-1/2 -translate-x-1/2 w-[520px] h-[360px] rounded-full blur-[130px] opacity-25 pointer-events-none transition-colors duration-700"
-        style={{ backgroundColor: colorMeta.hex }}
+        className="fixed inset-0 pointer-events-none opacity-[0.03]"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
+        }}
       />
 
-      {/* 1. TOP ARENA HEADER */}
-      <header className="w-full max-w-5xl mx-auto flex items-center justify-between px-3 py-2 rounded-2xl bg-surface/85 backdrop-blur-md border border-slate-700/60 shadow-lg z-30 mb-2">
+      {/* Left & right vignette rails */}
+      <div className="fixed inset-y-0 left-0 w-4 sm:w-10 bg-gradient-to-r from-black/60 to-transparent pointer-events-none" />
+      <div className="fixed inset-y-0 right-0 w-4 sm:w-10 bg-gradient-to-l from-black/60 to-transparent pointer-events-none" />
+
+      {/* Dynamic color aura */}
+      <motion.div
+        animate={{ backgroundColor: colorMeta.hex }}
+        transition={{ duration: 0.8 }}
+        className="fixed top-1/3 left-1/2 -translate-x-1/2 w-[600px] h-[400px] rounded-full blur-[150px] opacity-20 pointer-events-none"
+      />
+
+      {/* ── TOP HEADER ── */}
+      <header className="w-full max-w-5xl mx-auto flex items-center justify-between px-3 py-2 rounded-2xl bg-[#0C1A2A]/90 backdrop-blur-xl border border-white/8 shadow-[0_8px_32px_rgba(0,0,0,0.6)] z-30 mb-2 relative">
+        {/* Accent line at top of header */}
+        <div
+          className="absolute top-0 left-6 right-6 h-px rounded-full pointer-events-none transition-all duration-700"
+          style={{ background: `linear-gradient(90deg, transparent, ${colorMeta.hex}80, transparent)` }}
+        />
+
         <div className="flex items-center gap-2.5 min-w-0">
-          {myPlayer && <ClimberAvatarIcon avatar={myPlayer.avatar} size={32} shape="circle" />}
+          {myPlayer && <ClimberAvatarIcon avatar={myPlayer.avatar} size={34} shape="circle" />}
           <div className="min-w-0">
-            <div className="flex items-center gap-1.5">
-              <h3 className="text-xs sm:text-sm font-black text-white truncate">
-                UNO Party
-              </h3>
-              <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-indigo-500/25 border border-indigo-400/40 text-indigo-200 uppercase">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <h3 className="text-xs sm:text-sm font-black text-white">UNO Party</h3>
+              <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-lg border ${modeBadgeColor} uppercase`}>
                 {modeBadgeLabel}
               </span>
             </div>
-            <span className="text-[10px] text-slate-400 font-mono block truncate">
-              Room <strong className="text-amber-400 font-black">{room?.code}</strong> • {unoState.playerOrder.length} Pemain
+            <span className="text-[10px] text-slate-400 font-mono block truncate mt-0.5">
+              Room <strong className="text-amber-400 font-black">{room?.code}</strong>
+              {' '}• {unoState.playerOrder.length} Pemain
             </span>
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          {/* Live Latency & Transport Pill */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          {/* Ping pill */}
           <div
-            className="flex items-center gap-1 px-2 py-1 rounded-xl bg-emerald-500/15 border border-emerald-500/35 text-[10px] sm:text-[11px] font-black text-emerald-300"
-            title="Live Network Latency"
+            className="flex items-center gap-1 px-2 py-1 rounded-xl text-[10px] sm:text-[11px] font-black"
+            style={{
+              background: 'rgba(16,185,129,0.12)',
+              border: '1px solid rgba(16,185,129,0.3)',
+              color: '#6EE7B7',
+            }}
           >
-            <Zap className="w-3 h-3 text-emerald-400" />
+            <Zap className="w-3 h-3" />
             <span>{ping > 0 ? `${ping}ms` : 'Live'}</span>
-            <span className="hidden md:inline text-emerald-200/80 font-bold">• {transportLabel}</span>
           </div>
 
           <button
             type="button"
             onClick={() => setIsLeaderboardOpen(true)}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/35 text-amber-300 text-[11px] font-black transition-colors cursor-pointer"
-            title="Leaderboard Global Supabase"
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-amber-500/12 hover:bg-amber-500/22 border border-amber-500/30 text-amber-300 text-[11px] font-black transition-all cursor-pointer"
           >
             <Trophy className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Rank</span>
@@ -352,8 +348,7 @@ export const UnoView: React.FC = () => {
             <button
               type="button"
               onClick={() => setIsVoteKickModalOpen(true)}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 text-[11px] font-black transition-colors cursor-pointer"
-              title="Vote Kick pemain AFK"
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-rose-500/12 hover:bg-rose-500/22 border border-rose-500/30 text-rose-300 text-[11px] font-black transition-all cursor-pointer"
             >
               <UserMinus className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Kick</span>
@@ -365,7 +360,7 @@ export const UnoView: React.FC = () => {
           <button
             type="button"
             onClick={handleLeaveRoom}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-surface-elevated hover:bg-rose-600/20 border border-slate-700 hover:border-rose-500/40 text-xs font-bold text-slate-300 hover:text-rose-400 transition-colors cursor-pointer"
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white/5 hover:bg-rose-600/18 border border-white/10 hover:border-rose-500/40 text-xs font-bold text-slate-300 hover:text-rose-400 transition-all cursor-pointer"
           >
             <LogOut className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Keluar</span>
@@ -375,7 +370,7 @@ export const UnoView: React.FC = () => {
 
       <ActiveVoteKickBanner />
 
-      {/* 2. OPPONENTS TABLE RING (3 to 9 opponents around table) */}
+      {/* ── OPPONENTS RING ── */}
       <UnoTableRing
         opponentsOrdered={opponentsOrdered}
         currentTurnPlayerId={unoState.currentTurnPlayerId}
@@ -388,7 +383,7 @@ export const UnoView: React.FC = () => {
         onCatchUno={handleCatchUno}
       />
 
-      {/* 3. CENTRAL DECK, DIRECTION ORBIT & DISCARD STACK */}
+      {/* ── CENTER TABLE ── */}
       <div className="flex flex-col items-center justify-center flex-1 my-1">
         <UnoCenterPile
           topCard={displayedTopCard}
@@ -404,15 +399,24 @@ export const UnoView: React.FC = () => {
           onDrawClick={handleDrawCard}
         />
 
-        {/* Subtle live action ticker */}
-        {unoState.lastMoveNotice && (
-          <div className="mt-1 px-3.5 py-1 rounded-full bg-surface/80 border border-slate-800/90 text-[11px] font-semibold text-slate-300 max-w-md truncate text-center shadow">
-            {unoState.lastMoveNotice}
-          </div>
-        )}
+        {/* Live action ticker */}
+        <AnimatePresence mode="wait">
+          {unoState.lastMoveNotice && (
+            <motion.div
+              key={unoState.lastMoveNotice}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.3 }}
+              className="mt-2 px-4 py-1.5 rounded-full bg-black/50 border border-white/10 text-[11px] font-semibold text-slate-300 max-w-sm truncate text-center shadow-lg backdrop-blur-md"
+            >
+              {unoState.lastMoveNotice}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
-      {/* 4. LOCAL PLAYER HAND & CONTROLS */}
+      {/* ── PLAYER HAND ── */}
       <UnoPlayerHand
         myPlayer={myPlayer}
         hand={displayedHand}
@@ -426,24 +430,22 @@ export const UnoView: React.FC = () => {
         onCallUno={handleCallUno}
       />
 
-      {/* 5. VFX PARTICLES & BANNERS */}
+      {/* VFX */}
       <UnoFxOverlay lastFx={unoState.lastFx} />
 
-      {/* 6. FLOATING EMOTES & CHAT */}
+      {/* Emotes & Chat */}
       <FloatingEmoteLayer />
       <LudoChatBox />
       <div className="fixed bottom-4 left-4 z-30">
         <EmotePicker />
       </div>
 
-      {/* 7. MODALS */}
+      {/* Modals */}
       <UnoColorPickerModal
         isOpen={Boolean(pendingWildCard)}
         isWildDraw4={pendingWildCard?.value === 'wild_draw4'}
         onSelectColor={(chosenColor) => {
-          if (pendingWildCard) {
-            commitPlayCard(pendingWildCard, chosenColor);
-          }
+          if (pendingWildCard) commitPlayCard(pendingWildCard, chosenColor);
           setPendingWildCard(null);
         }}
         onCancel={() => setPendingWildCard(null)}
@@ -453,9 +455,7 @@ export const UnoView: React.FC = () => {
         isOpen={Boolean(pendingSwapCard)}
         opponents={opponentsOrdered}
         onSelectTarget={(targetId) => {
-          if (pendingSwapCard) {
-            commitPlayCard(pendingSwapCard, undefined, targetId);
-          }
+          if (pendingSwapCard) commitPlayCard(pendingSwapCard, undefined, targetId);
           setPendingSwapCard(null);
         }}
         onCancel={() => setPendingSwapCard(null)}

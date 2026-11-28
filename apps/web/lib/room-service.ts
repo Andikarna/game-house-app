@@ -1,5 +1,4 @@
 import { withConnection, ensureTables } from './db';
-import { fetchUnoRoomFromSupabase } from './uno-supabase';
 import {
   RoomInfo,
   Player,
@@ -141,20 +140,6 @@ export async function getRoomByCode(
   const includeAux = options?.includeAux !== false;
 
   const memoryEntry = getMemoryRoom(cleanCode) || getMemoryRoom(raw);
-
-  // 0. Fast-path for UNO rooms backed by Supabase (when uno_rooms schema is active)
-  const supabaseEntry = await fetchUnoRoomFromSupabase(cleanCode);
-  if (supabaseEntry && supabaseEntry.room.players.length > 0) {
-    saveMemoryRoom(
-      supabaseEntry.room,
-      supabaseEntry.gameState,
-      supabaseEntry.gameResults,
-      supabaseEntry.activeVoteKick,
-      supabaseEntry.chatMessages,
-      supabaseEntry.dbUpdatedAt
-    );
-    return supabaseEntry;
-  }
 
   // 1. Query MySQL using strictly ONE pooled connection and standard single statements
   try {

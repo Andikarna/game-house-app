@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { safeDbQuery, withConnection } from '../../../../lib/db';
 import { getRoomByCode, addPlayerToMemoryRoom, saveMemoryRoom, RoomEntry } from '../../../../lib/room-service';
-import { upsertUnoRoomToSupabase } from '../../../../lib/uno-supabase';
 import { sanitizeUnoForClient } from '../../../../lib/game-runner';
 import { AvatarId, Player } from '../../../../shared';
 
@@ -61,20 +60,10 @@ export async function POST(req: Request) {
         const nextUpdatedAt = Math.max(now, (roomData.dbUpdatedAt || 0) + 1);
         saveMemoryRoom(room, roomData.gameState, roomData.gameResults, roomData.activeVoteKick, roomData.chatMessages, nextUpdatedAt);
 
-        let savedToSupabase = false;
-        if (room.settings.gameId === 'uno') {
-          savedToSupabase = await upsertUnoRoomToSupabase({
-            ...roomData,
-            room,
-            dbUpdatedAt: nextUpdatedAt,
-          });
-        }
-        if (!savedToSupabase) {
-          await safeDbQuery(
-            'UPDATE gh_players SET avatar = ?, is_connected = 1, last_seen_at = ? WHERE id = ?',
-            [avatar, now, existingPlayer.id]
-          );
-        }
+        await safeDbQuery(
+          'UPDATE gh_players SET avatar = ?, is_connected = 1, last_seen_at = ? WHERE id = ?',
+          [avatar, now, existingPlayer.id]
+        );
 
         return NextResponse.json({
           success: true,
@@ -111,9 +100,7 @@ export async function POST(req: Request) {
     if (room.players.length >= maxCapacity && botIndex >= 0) {
       const botPlayer = room.players[botIndex];
       room.players.splice(botIndex, 1);
-      if (room.settings.gameId !== 'uno') {
-        await safeDbQuery('DELETE FROM gh_players WHERE id = ?', [botPlayer.id]);
-      }
+      await safeDbQuery('DELETE FROM gh_players WHERE id = ?', [botPlayer.id]);
     }
 
     // 4. Nickname deduplication (e.g. "Player (2)")
@@ -154,48 +141,37 @@ export async function POST(req: Request) {
       nextUpdatedAt
     );
 
-    let savedNewPlayerToSupabase = false;
-    if (room.settings.gameId === 'uno') {
-      savedNewPlayerToSupabase = await upsertUnoRoomToSupabase({
-        ...roomData,
-        room: updatedRoom,
-        dbUpdatedAt: nextUpdatedAt,
+    let savedNewPlayer = false;
+    try {
+      await withConnection(async (conn) => {
+        await conn.query(
+          `INSERT INTO gh_players 
+            (id, room_code, nickname, avatar, is_host, is_ready, is_connected, last_seen_at, joined_at)
+           VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)
+           ON DUPLICATE KEY UPDATE
+            room_code = VALUES(room_code),
+            nickname = VALUES(nickname),
+            avatar = VALUES(avatar),
+            is_host = VALUES(is_host),
+            is_ready = VALUES(is_ready),
+            is_connected = 1,
+            last_seen_at = VALUES(last_seen_at),
+            joined_at = VALUES(joined_at)`,
+          [newPlayerId, room.code, finalNickname, avatar, newPlayer.isHost ? 1 : 0, newPlayer.isReady ? 1 : 0, now, now]
+        );
+        await conn.query(
+          `UPDATE gh_rooms SET updated_at = ? WHERE code = ?`,
+          [nextUpdatedAt, room.code]
+        );
       });
-    }
-    if (!savedNewPlayerToSupabase) {
-      try {
-        await withConnection(async (conn) => {
-          await conn.query(
-            `INSERT INTO gh_players 
-              (id, room_code, nickname, avatar, is_host, is_ready, is_connected, last_seen_at, joined_at)
-             VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)
-             ON DUPLICATE KEY UPDATE
-              room_code = VALUES(room_code),
-              nickname = VALUES(nickname),
-              avatar = VALUES(avatar),
-              is_host = VALUES(is_host),
-              is_ready = VALUES(is_ready),
-              is_connected = 1,
-              last_seen_at = VALUES(last_seen_at),
-              joined_at = VALUES(joined_at)`,
-            [newPlayerId, room.code, finalNickname, avatar, newPlayer.isHost ? 1 : 0, newPlayer.isReady ? 1 : 0, now, now]
-          );
-          await conn.query(
-            `UPDATE gh_rooms SET updated_at = ? WHERE code = ?`,
-            [nextUpdatedAt, room.code]
-          );
-        });
-      } catch (dbErr: any) {
-        console.error('[API join room DB error]:', dbErr?.code || dbErr?.message || dbErr);
-        if (process.env.VERCEL) {
-          return NextResponse.json(
-            {
-              success: false,
-              error: `Gagal menyimpan data pemain ke database (${dbErr?.code || 'DB_ERROR'}). Silakan coba lagi.`,
-            },
-            { status: 503 }
-          );
-        }
+      savedNewPlayer = true;
+    } catch (dbErr: any) {
+      console.error('[API join room DB error]:', dbErr?.code || dbErr?.message || dbErr);
+      if (process.env.VERCEL) {
+        return NextResponse.json(
+          { success: false, error: `Gagal menyimpan data pemain ke database (${dbErr?.code || 'DB_ERROR'}). Silakan coba lagi.` },
+          { status: 503 }
+        );
       }
     }
 

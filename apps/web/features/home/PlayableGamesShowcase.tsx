@@ -183,8 +183,8 @@ export const PlayableGamesShowcase: React.FC<PlayableGamesProps> = ({ onSelectGa
                     <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
                     Siap Dimainkan
                   </span>
-                  <span className="px-2.5 py-1 rounded-full bg-rose-600/90 text-white text-[11px] font-black tracking-wider backdrop-blur-md border border-white/20">
-                    ⚡ Supabase Low-Latency
+                  <span className="px-2.5 py-1 rounded-full bg-cyan-600/90 text-white text-[11px] font-black tracking-wider backdrop-blur-md border border-white/20">
+                    ⚡ MySQL Low-Latency
                   </span>
                 </div>
 
@@ -209,7 +209,7 @@ export const PlayableGamesShowcase: React.FC<PlayableGamesProps> = ({ onSelectGa
 
               <div className="p-5 sm:p-7 space-y-4 sm:space-y-5 flex-1 flex flex-col justify-between">
                 <p className="text-xs sm:text-sm text-slate-300 leading-relaxed min-h-[48px]">
-                  Pertarungan kartu UNO hingga 10 pemain! Nikmati kartu foil 3D berkilau, ledakan efek <span className="text-rose-400 font-bold">Wild +4</span> &amp; <span className="text-cyan-400 font-bold">Reverse</span>, tombol teriak &amp; tangkap UNO, serta leaderboard global Supabase berlatensi rendah!
+                  Pertarungan kartu UNO hingga 10 pemain! Nikmati kartu foil 3D berkilau, ledakan efek <span className="text-rose-400 font-bold">Wild +4</span> &amp; <span className="text-cyan-400 font-bold">Reverse</span>, tombol teriak &amp; tangkap UNO, serta leaderboard global MySQL berlatensi rendah!
                 </p>
 
                 <div className="grid grid-cols-3 gap-2 text-xs">
@@ -224,7 +224,7 @@ export const PlayableGamesShowcase: React.FC<PlayableGamesProps> = ({ onSelectGa
                     <Zap className="w-4 h-4 text-emerald-400 shrink-0" />
                     <div>
                       <div className="font-bold text-white text-[11px] sm:text-xs">Ultra Cepat</div>
-                      <div className="text-[10px] text-slate-400">Supabase Realtime</div>
+                      <div className="text-[10px] text-slate-400">MySQL Sync</div>
                     </div>
                   </div>
                   <div className="p-2.5 rounded-2xl bg-surface-elevated border border-slate-700/80 flex items-center gap-2">

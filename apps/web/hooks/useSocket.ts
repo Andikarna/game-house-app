@@ -250,10 +250,7 @@ export function useSocket() {
       attachSocketListeners(globalPollingSocket);
       setSocket(globalPollingSocket as any);
       setIsConnected(true);
-      setTransportMode(unoRealtime.connected ? 'supabase-realtime' : 'polling');
-      if (room?.code && playerId && globalPollingSocket.setContext) {
-        globalPollingSocket.setContext(room.code, playerId);
-      }
+      setTransportMode('polling');
     };
 
     const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
@@ -328,16 +325,16 @@ export function useSocket() {
     }
 
     if (active === globalPollingSocket) {
-      setTransportMode(room?.settings.gameId === 'uno' && unoRealtime.connected ? 'supabase-realtime' : 'polling');
+      setTransportMode('polling');
     } else {
       setTransportMode('websocket');
     }
 
-    // Periodic RTT latency probe + Supabase Realtime latency feed
+    // Periodic RTT latency probe
     const unsubLat = unoRealtime.onLatency((ms) => {
       if (globalSocket === globalPollingSocket) {
         setPing(ms);
-        setTransportMode('supabase-realtime');
+        setTransportMode('polling');
       }
     });
 
@@ -349,7 +346,7 @@ export function useSocket() {
           setTransportMode('websocket');
         });
       } else if (room?.settings.gameId === 'uno') {
-        setTransportMode(unoRealtime.connected ? 'supabase-realtime' : 'polling');
+        setTransportMode('polling');
       }
     }, 3000);
 
