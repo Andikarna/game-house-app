@@ -99,11 +99,16 @@ class PollingSocket {
           this.isUnoRoom = data.room.settings?.gameId === 'uno';
           this.currentRoomCode = data.room.code;
           this.currentPlayerId = data.playerId;
-          this.startPolling(data.room.code, data.playerId);
+          this.lastRoomStateStr = JSON.stringify(data.room);
+          this.lastPlayerCount = data.room.players.length;
+          if (data.u) {
+            this.lastDbUpdatedAt = Number(data.u);
+          }
           if (this.isUnoRoom) {
             this.attachUnoRealtime(data.room.code);
             unoRealtime.broadcast({ type: 'room', room: data.room, senderId: data.playerId });
           }
+          this.startPolling(data.room.code, data.playerId);
           callback?.({ success: true, room: data.room, playerId: data.playerId });
         } else {
           callback?.({ success: false, error: data.error || 'Failed to create room' });
@@ -123,11 +128,16 @@ class PollingSocket {
           this.isUnoRoom = data.room.settings?.gameId === 'uno';
           this.currentRoomCode = data.room.code;
           this.currentPlayerId = data.playerId;
-          this.startPolling(data.room.code, data.playerId);
+          this.lastRoomStateStr = JSON.stringify(data.room);
+          this.lastPlayerCount = data.room.players.length;
+          if (data.u) {
+            this.lastDbUpdatedAt = Number(data.u);
+          }
           if (this.isUnoRoom) {
             this.attachUnoRealtime(data.room.code);
             unoRealtime.broadcast({ type: 'room', room: data.room, senderId: data.playerId });
           }
+          this.startPolling(data.room.code, data.playerId);
           callback?.({ success: true, room: data.room, playerId: data.playerId });
         } else {
           callback?.({ success: false, error: data.error || 'Failed to join room' });
@@ -568,6 +578,7 @@ class PollingSocket {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'leave', playerId }),
+          keepalive: true,
         });
         this.stopPolling(true);
         return;
@@ -610,14 +621,26 @@ class PollingSocket {
       .map((c: any) => c.id);
   }
 
+  private unoStatusUnsub: (() => void) | null = null;
+
   private attachUnoRealtime(roomCode: string) {
     unoRealtime.connect(roomCode);
+    if (!this.unoStatusUnsub) {
+      this.unoStatusUnsub = unoRealtime.onStatus((connected) => {
+        if (this.isUnoRoom) {
+          this.emitInternal('transport:mode', connected ? 'supabase-realtime' : 'polling');
+        }
+      });
+    }
     if (this.unoSyncUnsub) return;
 
     this.unoSyncUnsub = unoRealtime.onSync((sync: UnoSyncPayload) => {
       if (sync.senderId && sync.senderId === this.currentPlayerId) return;
 
       if (sync.type === 'room' && sync.room) {
+        if (sync.ts && Number(sync.ts) > this.lastDbUpdatedAt) {
+          this.lastDbUpdatedAt = Number(sync.ts);
+        }
         this.lastPlayerCount = sync.room.players?.length || this.lastPlayerCount;
         this.lastRoomStateStr = JSON.stringify(sync.room);
         this.emitInternal('room:updated', sync.room);
@@ -792,19 +815,31 @@ class PollingSocket {
       if (this.isUnoRoom) {
         this.attachUnoRealtime(room.code);
       }
-      this.lastPlayerCount = room.players.length;
-      const roomStr = JSON.stringify(room);
-      if (roomStr !== this.lastRoomStateStr) {
-        this.lastRoomStateStr = roomStr;
-        if (room.status === 'lobby') {
-          this.lastGameStateVersion = 0;
-          this.minExpectedVersion = 0;
-          this.lastGameStateStr = '';
-          this.isMyTurnActive = false;
-          this.isBotTurnActive = false;
-          this.cachedUnoHand = [];
+      const incomingDbUpdatedAt = Number(data.u || 0);
+      const isStaleLobbySnapshot =
+        room.status === 'lobby' &&
+        incomingDbUpdatedAt > 0 &&
+        this.lastDbUpdatedAt > 0 &&
+        incomingDbUpdatedAt < this.lastDbUpdatedAt;
+
+      if (!isStaleLobbySnapshot) {
+        if (incomingDbUpdatedAt > this.lastDbUpdatedAt) {
+          this.lastDbUpdatedAt = incomingDbUpdatedAt;
         }
-        this.emitInternal('room:updated', room);
+        this.lastPlayerCount = room.players.length;
+        const roomStr = JSON.stringify(room);
+        if (roomStr !== this.lastRoomStateStr) {
+          this.lastRoomStateStr = roomStr;
+          if (room.status === 'lobby') {
+            this.lastGameStateVersion = 0;
+            this.minExpectedVersion = 0;
+            this.lastGameStateStr = '';
+            this.isMyTurnActive = false;
+            this.isBotTurnActive = false;
+            this.cachedUnoHand = [];
+          }
+          this.emitInternal('room:updated', room);
+        }
       }
 
       // Handle Game State

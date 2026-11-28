@@ -101,6 +101,7 @@ export async function POST(req: Request) {
           success: true,
           room,
           playerId,
+          u: now,
         });
       }
     }
@@ -148,6 +149,7 @@ export async function POST(req: Request) {
       success: true,
       room,
       playerId,
+      u: now,
     });
   } catch (error: any) {
     console.error('[API create room error]:', error);

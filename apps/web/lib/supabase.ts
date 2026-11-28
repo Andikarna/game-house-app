@@ -20,6 +20,10 @@ export function getSupabaseClient(): SupabaseClient {
         autoRefreshToken: false,
         detectSessionInUrl: false,
       },
+      global: {
+        fetch: (input: RequestInfo | URL, init?: RequestInit) =>
+          fetch(input, { ...init, cache: 'no-store' }),
+      },
       realtime: {
         params: {
           eventsPerSecond: 30,

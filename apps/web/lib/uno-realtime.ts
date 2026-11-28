@@ -38,10 +38,25 @@ class UnoRealtimeManager {
     };
   }
 
+  private pendingBroadcasts: Omit<UnoSyncPayload, 'ts'>[] = [];
+  private onStatusHandlers: Set<(connected: boolean) => void> = new Set();
+
+  public onStatus(handler: (connected: boolean) => void): () => void {
+    this.onStatusHandlers.add(handler);
+    return () => {
+      this.onStatusHandlers.delete(handler);
+    };
+  }
+
   public connect(roomCode: string): void {
     const cleanCode = (roomCode || '').trim().toUpperCase().replace(/[^A-Za-z0-9]/g, '');
     if (!cleanCode) return;
-    if (this.activeRoomCode === cleanCode && this.channel) return;
+    if (this.activeRoomCode === cleanCode && this.channel) {
+      if (this.isSubscribed) {
+        this.onStatusHandlers.forEach((fn) => fn(true));
+      }
+      return;
+    }
 
     this.disconnect();
     this.activeRoomCode = cleanCode;
@@ -85,7 +100,24 @@ class UnoRealtimeManager {
       );
 
       ch.subscribe((status) => {
-        this.isSubscribed = status === 'SUBSCRIBED';
+        const nextSubscribed = status === 'SUBSCRIBED';
+        this.isSubscribed = nextSubscribed;
+        this.onStatusHandlers.forEach((fn) => fn(nextSubscribed));
+        if (nextSubscribed && this.pendingBroadcasts.length > 0) {
+          const queued = this.pendingBroadcasts.splice(0, this.pendingBroadcasts.length);
+          for (const item of queued) {
+            try {
+              ch.send({
+                type: 'broadcast',
+                event: 'uno:sync',
+                payload: {
+                  ...item,
+                  ts: Date.now(),
+                },
+              });
+            } catch {}
+          }
+        }
       });
 
       this.channel = ch;
@@ -95,7 +127,12 @@ class UnoRealtimeManager {
   }
 
   public broadcast(payload: Omit<UnoSyncPayload, 'ts'>): void {
-    if (!this.channel || !this.isSubscribed) return;
+    if (!this.channel || !this.isSubscribed) {
+      if (this.pendingBroadcasts.length < 20) {
+        this.pendingBroadcasts.push(payload);
+      }
+      return;
+    }
     try {
       this.channel.send({
         type: 'broadcast',
@@ -118,6 +155,8 @@ class UnoRealtimeManager {
     }
     this.isSubscribed = false;
     this.activeRoomCode = null;
+    this.pendingBroadcasts = [];
+    this.onStatusHandlers.forEach((fn) => fn(false));
   }
 }
 
