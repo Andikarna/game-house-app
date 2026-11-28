@@ -100,7 +100,7 @@ export const UnoView: React.FC = () => {
           id: `draw-${Date.now()}-${i}`,
           from: 'deck',
           to: 'hand',
-          duration: 0.68 + i * 0.12,
+          duration: 0.75 + i * 0.14,
           isFaceDown: true,
         });
       }
@@ -128,7 +128,7 @@ export const UnoView: React.FC = () => {
             card: unoState.topCard,
             from: actorId || 'opponent',
             to: 'center',
-            duration: 1.15,
+            duration: 1.45,
             isFaceDown: false,
             showcaseFirst: true,
             actorName: unoState.lastFx?.actorNickname || (actorId ? unoState.players[actorId]?.nickname : undefined),
@@ -137,7 +137,7 @@ export const UnoView: React.FC = () => {
       }
     }
     prevTopCardIdRef.current = currentTopId;
-  }, [unoState?.topCard, unoState?.lastFx?.actorId, playerId]);
+  }, [unoState?.topCard?.id, playerId]);
 
   // Smooth local countdown
   useEffect(() => {
@@ -251,7 +251,7 @@ export const UnoView: React.FC = () => {
           card,
           from: 'hand',
           to: 'center',
-          duration: 1.05,
+          duration: 1.3,
           isFaceDown: false,
           showcaseFirst: true,
           actorName: 'Anda',
@@ -292,7 +292,7 @@ export const UnoView: React.FC = () => {
         id: `local-draw-${Date.now()}`,
         from: 'deck',
         to: 'hand',
-        duration: 0.68,
+        duration: 0.75,
         isFaceDown: true,
       },
     ]);

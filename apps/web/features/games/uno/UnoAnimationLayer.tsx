@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { UnoCard } from './UnoCard';
-import { UnoCard as UnoCardType, UnoColor } from '@gamehouse/shared';
+import { UnoCard as UnoCardType } from '@gamehouse/shared';
 
 export interface CardFlightEvent {
   id: string;
@@ -31,6 +31,158 @@ interface UnoAnimationLayerProps {
   comboBanner: ComboCardBanner | null;
 }
 
+const getElCenter = (selectorOrId: string) => {
+  const el = document.getElementById(selectorOrId) || document.querySelector(selectorOrId);
+  if (el) {
+    const rect = el.getBoundingClientRect();
+    return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+  }
+  return null;
+};
+
+const resolveEndpoint = (
+  target: { x: number; y: number } | 'deck' | 'center' | 'hand' | string,
+  role: 'from' | 'to'
+) => {
+  if (typeof window === 'undefined') return { x: 0, y: 0 };
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+
+  if (target === 'deck') {
+    const el = getElCenter('uno-draw-pile');
+    return el ? { x: el.x, y: el.y - 10 } : { x: w * 0.44, y: h * 0.45 };
+  }
+  if (target === 'center') {
+    const el = getElCenter('uno-discard-pile');
+    return el ? { x: el.x, y: el.y - 10 } : { x: w * 0.54, y: h * 0.45 };
+  }
+  if (target === 'hand') {
+    const el = getElCenter('uno-player-hand');
+    return el ? { x: el.x, y: el.y + 10 } : { x: w * 0.5, y: h * 0.88 };
+  }
+  if (typeof target === 'object') {
+    return { x: target.x, y: target.y };
+  }
+  if (typeof target === 'string') {
+    const el = getElCenter(`uno-player-pod-${target}`);
+    if (el) return el;
+  }
+  return role === 'from' ? { x: w * 0.5, y: h * 0.16 } : { x: w * 0.5, y: h * 0.45 };
+};
+
+const FlyingCardItem: React.FC<{
+  flight: CardFlightEvent;
+  onFlightComplete: (id: string) => void;
+}> = React.memo(({ flight, onFlightComplete }) => {
+  const onCompleteRef = useRef(onFlightComplete);
+  onCompleteRef.current = onFlightComplete;
+  const completedRef = useRef(false);
+
+  const finishOnce = () => {
+    if (completedRef.current) return;
+    completedRef.current = true;
+    onCompleteRef.current(flight.id);
+  };
+
+  // Freeze start/show/end coordinates and keyframe objects ONCE per flight.id
+  // so 250ms parent countdown re-renders NEVER restart Framer Motion keyframes.
+  const animConfig = useMemo(() => {
+    const start = resolveEndpoint(flight.from, 'from');
+    const end = resolveEndpoint(flight.to, 'to');
+    const w = typeof window !== 'undefined' ? window.innerWidth : 400;
+    const h = typeof window !== 'undefined' ? window.innerHeight : 700;
+    const showX = w * 0.5;
+    const showY = h * 0.42;
+
+    if (flight.showcaseFirst && flight.card && !flight.isFaceDown) {
+      const duration = flight.duration || 1.45;
+      return {
+        isShowcase: true,
+        duration,
+        initial: {
+          x: start.x - 38,
+          y: start.y - 55,
+          scale: 0.72,
+          rotate: -12,
+          opacity: 0.95,
+        },
+        animate: {
+          x: [start.x - 38, showX - 38, showX - 38, end.x - 38],
+          y: [start.y - 55, showY - 55, showY - 55, end.y - 55],
+          scale: [0.72, 1.42, 1.42, 0.92],
+          rotate: [-12, 0, 0, 4],
+          opacity: [0.95, 1, 1, 0.85],
+        },
+        transition: {
+          duration,
+          times: [0, 0.25, 0.7, 1],
+          ease: 'easeInOut' as const,
+        },
+      };
+    }
+
+    const duration = flight.duration || 0.75;
+    return {
+      isShowcase: false,
+      duration,
+      initial: {
+        x: start.x - 38,
+        y: start.y - 55,
+        scale: 0.75,
+        rotate: -12,
+        opacity: 0.92,
+      },
+      animate: {
+        x: end.x - 38,
+        y: end.y - 55,
+        scale: 0.95,
+        rotate: 0,
+        opacity: 0.95,
+      },
+      transition: {
+        duration,
+        ease: [0.25, 0.8, 0.25, 1] as const,
+      },
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flight.id]);
+
+  // Safety cleanup timer guarantees flight runs at most once
+  useEffect(() => {
+    const timer = setTimeout(finishOnce, (animConfig.duration + 0.15) * 1000);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flight.id]);
+
+  return (
+    <motion.div
+      initial={animConfig.initial}
+      animate={animConfig.animate}
+      exit={{ opacity: 0, scale: 0.7 }}
+      transition={animConfig.transition}
+      onAnimationComplete={finishOnce}
+      className={
+        animConfig.isShowcase
+          ? 'absolute left-0 top-0 flex flex-col items-center gap-1.5 drop-shadow-[0_16px_32px_rgba(0,0,0,0.75)]'
+          : 'absolute left-0 top-0 shadow-2xl filter drop-shadow-[0_12px_24px_rgba(0,0,0,0.6)]'
+      }
+      style={{ perspective: 1000 }}
+    >
+      {flight.card && !flight.isFaceDown ? (
+        <UnoCard card={flight.card} size="sm" />
+      ) : (
+        <UnoCard faceDown size="sm" />
+      )}
+      {animConfig.isShowcase && flight.actorName && (
+        <span className="px-2 py-0.5 rounded-full bg-slate-950/90 border border-white/20 text-[10px] font-black text-white shadow-md whitespace-nowrap">
+          {flight.actorName}
+        </span>
+      )}
+    </motion.div>
+  );
+});
+FlyingCardItem.displayName = 'FlyingCardItem';
+
 export const UnoAnimationLayer: React.FC<UnoAnimationLayerProps> = ({
   flights,
   onFlightComplete,
@@ -40,165 +192,13 @@ export const UnoAnimationLayer: React.FC<UnoAnimationLayerProps> = ({
     <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
       {/* 1. Flying Cards */}
       <AnimatePresence>
-        {flights.map((flight) => {
-          // Calculate start & end coordinates in viewport percentages or pixels
-          // Deck default: center screen around x: 44%, y: 46%
-          // Center discard pile: x: 54%, y: 46%
-          // Hand: bottom center x: 50%, y: 88%
-          let startX = 0;
-          let startY = 0;
-          let endX = 0;
-          let endY = 0;
-
-          if (typeof window !== 'undefined') {
-            const w = window.innerWidth;
-            const h = window.innerHeight;
-
-            // Helper to get element center
-            const getElCenter = (selectorOrId: string) => {
-              const el = document.getElementById(selectorOrId) || document.querySelector(selectorOrId);
-              if (el) {
-                const rect = el.getBoundingClientRect();
-                return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-              }
-              return null;
-            };
-
-            // Start coords
-            if (flight.from === 'deck') {
-              const el = getElCenter('uno-draw-pile');
-              startX = el ? el.x : w * 0.44;
-              startY = el ? el.y - 10 : h * 0.45;
-            } else if (flight.from === 'center') {
-              const el = getElCenter('uno-discard-pile');
-              startX = el ? el.x : w * 0.54;
-              startY = el ? el.y - 10 : h * 0.45;
-            } else if (flight.from === 'hand') {
-              const el = getElCenter('uno-player-hand');
-              startX = el ? el.x : w * 0.5;
-              startY = el ? el.y + 10 : h * 0.88;
-            } else if (typeof flight.from === 'object') {
-              startX = flight.from.x;
-              startY = flight.from.y;
-            } else if (typeof flight.from === 'string') {
-              // Try finding specific player pod DOM element (e.g. uno-player-pod-xxx)
-              const elCenter = getElCenter(`uno-player-pod-${flight.from}`);
-              if (elCenter) {
-                startX = elCenter.x;
-                startY = elCenter.y;
-              } else {
-                startX = w * 0.5;
-                startY = h * 0.16;
-              }
-            } else {
-              startX = w * 0.5;
-              startY = h * 0.16;
-            }
-
-            // End coords
-            if (flight.to === 'hand') {
-              const el = getElCenter('uno-player-hand');
-              endX = el ? el.x : w * 0.5;
-              endY = el ? el.y + 10 : h * 0.88;
-            } else if (flight.to === 'center') {
-              const el = getElCenter('uno-discard-pile');
-              endX = el ? el.x : w * 0.54;
-              endY = el ? el.y - 10 : h * 0.45;
-            } else if (typeof flight.to === 'object') {
-              endX = flight.to.x;
-              endY = flight.to.y;
-            } else if (typeof flight.to === 'string') {
-              const elCenter = getElCenter(`uno-player-pod-${flight.to}`);
-              if (elCenter) {
-                endX = elCenter.x;
-                endY = elCenter.y;
-              } else {
-                endX = w * 0.5;
-                endY = h * 0.16;
-              }
-            } else {
-              endX = w * 0.5;
-              endY = h * 0.16;
-            }
-          }
-
-          const showX = typeof window !== 'undefined' ? window.innerWidth * 0.5 : endX;
-          const showY = typeof window !== 'undefined' ? window.innerHeight * 0.42 : endY;
-
-          if (flight.showcaseFirst && flight.card && !flight.isFaceDown) {
-            return (
-              <motion.div
-                key={flight.id}
-                initial={{
-                  x: startX - 38,
-                  y: startY - 55,
-                  scale: 0.72,
-                  rotate: -12,
-                  opacity: 0.9,
-                }}
-                animate={{
-                  x: [startX - 38, showX - 38, showX - 38, endX - 38],
-                  y: [startY - 55, showY - 55, showY - 55, endY - 55],
-                  scale: [0.72, 1.42, 1.42, 0.92],
-                  rotate: [-12, 0, 0, 4],
-                  opacity: [0.95, 1, 1, 0.85],
-                }}
-                exit={{ opacity: 0, scale: 0.7 }}
-                transition={{
-                  duration: flight.duration || 1.15,
-                  times: [0, 0.28, 0.68, 1],
-                  ease: 'easeInOut',
-                }}
-                onAnimationComplete={() => onFlightComplete(flight.id)}
-                className="absolute left-0 top-0 flex flex-col items-center gap-1.5 drop-shadow-[0_16px_32px_rgba(0,0,0,0.75)]"
-                style={{ perspective: 1000 }}
-              >
-                <UnoCard card={flight.card} size="sm" />
-                {flight.actorName && (
-                  <span className="px-2 py-0.5 rounded-full bg-slate-950/90 border border-white/20 text-[10px] font-black text-white shadow-md whitespace-nowrap">
-                    {flight.actorName}
-                  </span>
-                )}
-              </motion.div>
-            );
-          }
-
-          return (
-            <motion.div
-              key={flight.id}
-              initial={{
-                x: startX - 38,
-                y: startY - 55,
-                scale: 0.75,
-                rotate: -12,
-                opacity: 0.9,
-              }}
-              animate={{
-                x: endX - 38,
-                y: endY - 55,
-                scale: [0.75, 1.08, 0.95],
-                rotate: [-12, 8, 0],
-                opacity: [0.9, 1, 0.85],
-              }}
-              exit={{ opacity: 0, scale: 0.65 }}
-              transition={{
-                duration: flight.duration || 0.68,
-                ease: [0.25, 0.8, 0.25, 1],
-              }}
-              onAnimationComplete={() => onFlightComplete(flight.id)}
-              className="absolute left-0 top-0 shadow-2xl filter drop-shadow-[0_12px_24px_rgba(0,0,0,0.6)]"
-              style={{
-                perspective: 1000,
-              }}
-            >
-              {flight.card && !flight.isFaceDown ? (
-                <UnoCard card={flight.card} size="sm" />
-              ) : (
-                <UnoCard faceDown size="sm" />
-              )}
-            </motion.div>
-          );
-        })}
+        {flights.map((flight) => (
+          <FlyingCardItem
+            key={flight.id}
+            flight={flight}
+            onFlightComplete={onFlightComplete}
+          />
+        ))}
       </AnimatePresence>
 
       {/* 2. Combo Card Super Banner (Combo Strike / Chain Effect) */}
