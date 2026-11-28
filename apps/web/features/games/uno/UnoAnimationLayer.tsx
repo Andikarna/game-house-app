@@ -11,6 +11,7 @@ export interface CardFlightEvent {
   from: { x: number; y: number } | 'deck' | 'center' | string; // player id or special keyword
   to: { x: number; y: number } | 'hand' | 'center' | string;
   duration?: number;
+  delay?: number;
   isFaceDown?: boolean;
   showcaseFirst?: boolean;
   actorName?: string;
@@ -122,15 +123,17 @@ const FlyingCardItem: React.FC<{
     }
 
     const duration = flight.duration || 0.75;
+    const delay = flight.delay || 0;
     return {
       isShowcase: false,
       duration,
+      delay,
       initial: {
         x: start.x - 38,
         y: start.y - 55,
         scale: 0.75,
         rotate: -12,
-        opacity: 0.92,
+        opacity: delay > 0 ? 0 : 0.92,
       },
       animate: {
         x: end.x - 38,
@@ -141,6 +144,7 @@ const FlyingCardItem: React.FC<{
       },
       transition: {
         duration,
+        delay,
         ease: [0.25, 0.8, 0.25, 1] as const,
       },
     };
@@ -149,7 +153,8 @@ const FlyingCardItem: React.FC<{
 
   // Safety cleanup timer guarantees flight runs at most once
   useEffect(() => {
-    const timer = setTimeout(finishOnce, (animConfig.duration + 0.15) * 1000);
+    const totalMs = (animConfig.duration + (animConfig.delay || 0) + 0.15) * 1000;
+    const timer = setTimeout(finishOnce, totalMs);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flight.id]);
@@ -183,6 +188,62 @@ const FlyingCardItem: React.FC<{
 });
 FlyingCardItem.displayName = 'FlyingCardItem';
 
+const ComboBannerItem: React.FC<{ banner: ComboCardBanner }> = React.memo(({ banner }) => {
+  // Freeze animation objects per banner.id so 250ms parent timer ticks never replay pop-in
+  const bannerAnim = useMemo(() => ({
+    initial: { scale: 0.65, opacity: 0, y: -12 },
+    animate: { scale: 1, opacity: 1, y: 0 },
+    exit: { scale: 0.85, opacity: 0, y: -16 },
+    transition: { type: 'spring' as const, stiffness: 380, damping: 24 },
+  }), [banner.id]);
+
+  return (
+    <motion.div
+      initial={bannerAnim.initial}
+      animate={bannerAnim.animate}
+      exit={bannerAnim.exit}
+      transition={bannerAnim.transition}
+      className="absolute left-1/2 top-[19%] sm:top-[20%] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none z-50"
+    >
+      {/* Subtle radiant aura */}
+      <div
+        className="hidden md:block absolute -inset-12 rounded-full opacity-50 blur-2xl pointer-events-none"
+        style={{
+          background: `radial-gradient(circle, ${banner.colorHex} 0%, transparent 70%)`,
+        }}
+      />
+
+      {/* Glowing pill badge */}
+      <div
+        className="relative px-4 py-2 sm:px-7 sm:py-3 rounded-2xl sm:rounded-3xl border-2 md:backdrop-blur-xl shadow-2xl flex flex-col items-center text-center"
+        style={{
+          background: 'linear-gradient(135deg, rgba(12,18,32,0.96), rgba(4,8,16,0.94))',
+          borderColor: banner.colorHex,
+          boxShadow: `0 0 36px ${banner.colorHex}77, inset 0 1px 0 rgba(255,255,255,0.3)`,
+        }}
+      >
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          <span className="text-lg sm:text-2xl">⚡</span>
+          <span
+            className="text-base sm:text-2xl font-black uppercase tracking-wider text-transparent bg-clip-text"
+            style={{
+              backgroundImage: `linear-gradient(to right, #FFFFFF, ${banner.colorHex}, #FFFFFF)`,
+              filter: `drop-shadow(0 2px 8px ${banner.colorHex})`,
+            }}
+          >
+            {banner.title}
+          </span>
+          <span className="text-lg sm:text-2xl">⚡</span>
+        </div>
+        <p className="text-[11px] sm:text-sm font-bold text-amber-200/95 mt-0.5 drop-shadow">
+          {banner.subtitle}
+        </p>
+      </div>
+    </motion.div>
+  );
+});
+ComboBannerItem.displayName = 'ComboBannerItem';
+
 export const UnoAnimationLayer: React.FC<UnoAnimationLayerProps> = ({
   flights,
   onFlightComplete,
@@ -204,59 +265,7 @@ export const UnoAnimationLayer: React.FC<UnoAnimationLayerProps> = ({
       {/* 2. Combo Card Super Banner (Combo Strike / Chain Effect) */}
       <AnimatePresence>
         {comboBanner && (
-          <motion.div
-            key={comboBanner.id}
-            initial={{ scale: 0.2, opacity: 0, y: 40 }}
-            animate={{
-              scale: [0.2, 1.18, 1],
-              opacity: 1,
-              y: 0,
-            }}
-            exit={{ scale: 0.7, opacity: 0, y: -40 }}
-            transition={{
-              type: 'spring',
-              stiffness: 450,
-              damping: 24,
-            }}
-            className="absolute left-1/2 top-[35%] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none"
-          >
-            {/* Background radiant aura */}
-            <motion.div
-              animate={{ rotate: 360, scale: [1, 1.25, 1] }}
-              transition={{ repeat: Infinity, duration: 4, ease: 'linear' }}
-              className="absolute -inset-16 rounded-full opacity-60 blur-2xl"
-              style={{
-                background: `radial-gradient(circle, ${comboBanner.colorHex} 0%, transparent 70%)`,
-              }}
-            />
-
-            {/* Glowing pill badge */}
-            <div
-              className="relative px-5 py-2.5 sm:px-8 sm:py-3.5 rounded-2xl sm:rounded-3xl border-2 md:backdrop-blur-2xl shadow-2xl flex flex-col items-center text-center"
-              style={{
-                background: 'linear-gradient(135deg, rgba(12,18,32,0.95), rgba(4,8,16,0.92))',
-                borderColor: comboBanner.colorHex,
-                boxShadow: `0 0 50px ${comboBanner.colorHex}88, inset 0 1px 0 rgba(255,255,255,0.4)`,
-              }}
-            >
-              <div className="flex items-center gap-2">
-                <span className="text-2xl animate-bounce">⚡</span>
-                <span
-                  className="text-xl sm:text-2xl font-black uppercase tracking-wider text-transparent bg-clip-text"
-                  style={{
-                    backgroundImage: `linear-gradient(to right, #FFFFFF, ${comboBanner.colorHex}, #FFFFFF)`,
-                    filter: `drop-shadow(0 2px 8px ${comboBanner.colorHex})`,
-                  }}
-                >
-                  {comboBanner.title}
-                </span>
-                <span className="text-2xl animate-bounce">⚡</span>
-              </div>
-              <p className="text-xs sm:text-sm font-bold text-amber-200/90 mt-1 drop-shadow">
-                {comboBanner.subtitle}
-              </p>
-            </div>
-          </motion.div>
+          <ComboBannerItem key={comboBanner.id} banner={comboBanner} />
         )}
       </AnimatePresence>
     </div>

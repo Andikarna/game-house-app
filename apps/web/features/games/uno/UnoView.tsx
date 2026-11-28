@@ -67,6 +67,7 @@ export const UnoView: React.FC = () => {
   const prevTopCardIdRef = useRef<string>('');
   const lastFxSeqRef = useRef<number>(0);
   const lastLocalDrawAtRef = useRef<number>(0);
+  const comboTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     soundManager.playUnoBGM();
@@ -92,15 +93,19 @@ export const UnoView: React.FC = () => {
     if (prevHandCountRef.current > 0 && currentHandCount > prevHandCountRef.current) {
       const drawnCount = currentHandCount - prevHandCountRef.current;
       const recentlyDrewLocally = Date.now() - lastLocalDrawAtRef.current < 2500;
-      // Skip duplicate flight if we already triggered an instant local draw for 1 card
-      const startIndex = recentlyDrewLocally && drawnCount === 1 ? 1 : 0;
+      // Skip duplicate flight if we already triggered an instant local draw or penalty deal
+      if (recentlyDrewLocally) {
+        prevHandCountRef.current = currentHandCount;
+        return;
+      }
       const newFlights: CardFlightEvent[] = [];
-      for (let i = startIndex; i < Math.min(drawnCount, 4); i++) {
+      for (let i = 0; i < Math.min(drawnCount, 6); i++) {
         newFlights.push({
           id: `draw-${Date.now()}-${i}`,
           from: 'deck',
           to: 'hand',
-          duration: 0.75 + i * 0.14,
+          duration: 0.78,
+          delay: i * 0.14,
           isFaceDown: true,
         });
       }
@@ -177,45 +182,85 @@ export const UnoView: React.FC = () => {
       if (fx.type === 'draw2' || fx.type === 'wild_draw4') setShakeTrigger((s) => s + 1);
     }
 
+    const showBanner = (banner: ComboCardBanner, durationMs: number) => {
+      if (comboTimerRef.current) clearTimeout(comboTimerRef.current);
+      setComboBanner(banner);
+      comboTimerRef.current = setTimeout(() => setComboBanner(null), durationMs);
+    };
+
+    const spawnSlowDeal = (recipientId: string | undefined, totalCards: number) => {
+      if (!recipientId || totalCards <= 0) return;
+      const isMeRecipient = recipientId === playerId;
+      if (isMeRecipient) lastLocalDrawAtRef.current = Date.now();
+      const dealCount = Math.min(totalCards, 8);
+      const flights: CardFlightEvent[] = [];
+      const baseTs = Date.now();
+      for (let i = 0; i < dealCount; i++) {
+        flights.push({
+          id: `deal-${baseTs}-${i}`,
+          from: 'deck',
+          to: isMeRecipient ? 'hand' : recipientId,
+          duration: 0.85,
+          delay: i * 0.16,
+          isFaceDown: true,
+        });
+      }
+      setCardFlights((prev) => [...prev, ...flights]);
+    };
+
     // Trigger COMBO banners for action chains / heavy plays
-    if (fx.type === 'draw2' || fx.type === 'wild_draw4') {
-      const count = fx.drawCount || (fx.type === 'draw2' ? 2 : 4);
-      setComboBanner({
-        id: `combo-${Date.now()}`,
+    if (fx.type === 'draw' && (fx.drawCount || 1) >= 2) {
+      const count = fx.drawCount || 2;
+      showBanner({
+        id: `combo-${fx.seq}`,
         type: 'draw_chain',
-        title: count >= 4 ? `MEGA STRIKE +${count}!!` : `DRAW COMBO +${count}!`,
-        subtitle: `${fx.actorNickname || 'Pemain'} melipatgandakan hukuman kartu!`,
+        title: `KENA +${count} KARTU!!`,
+        subtitle: `${fx.actorNickname || 'Pemain'} menarik total ${count} kartu dari deck!`,
+        count,
+        colorHex: count >= 6 ? '#EF4444' : '#F97316',
+      }, 2400);
+      spawnSlowDeal(fx.actorId, count);
+    } else if (fx.type === 'draw' && fx.actorId && fx.actorId !== playerId) {
+      // Single card draw by opponent: animate 1 slow card from deck to their pod
+      spawnSlowDeal(fx.actorId, 1);
+    } else if (fx.type === 'draw2' || fx.type === 'wild_draw4') {
+      const count = fx.drawCount || (fx.type === 'draw2' ? 2 : 4);
+      showBanner({
+        id: `combo-${fx.seq}`,
+        type: 'draw_chain',
+        title: count >= 4 ? `MEGA COMBO +${count}!!` : `DRAW COMBO +${count}!`,
+        subtitle: `${fx.actorNickname || 'Pemain'} menumpuk total hukuman +${count} kartu!`,
         count,
         colorHex: count >= 4 ? '#EF4444' : '#F97316',
-      });
-      setTimeout(() => setComboBanner(null), 2200);
+      }, 2200);
+      // In non-stack mode, victim receives cards immediately
+      if ((unoState.pendingDrawCount || 0) === 0 && fx.targetId) {
+        spawnSlowDeal(fx.targetId, count);
+      }
     } else if (fx.type === 'skip') {
-      setComboBanner({
-        id: `combo-${Date.now()}`,
+      showBanner({
+        id: `combo-${fx.seq}`,
         type: 'skip_combo',
         title: 'TURN LOCKED! 🚫',
         subtitle: `${fx.targetNickname || 'Lawan'} kehilangan giliran!`,
         colorHex: '#FB7185',
-      });
-      setTimeout(() => setComboBanner(null), 1800);
+      }, 1700);
     } else if (fx.type === 'reverse') {
-      setComboBanner({
-        id: `combo-${Date.now()}`,
+      showBanner({
+        id: `combo-${fx.seq}`,
         type: 'reverse_clash',
-        title: 'REVERSE COUNTER! ⇄',
-        subtitle: 'Arah giliran berhasil diputar balik!',
+        title: 'REVERSE! ⇄',
+        subtitle: 'Arah giliran diputar balik!',
         colorHex: '#38BDF8',
-      });
-      setTimeout(() => setComboBanner(null), 1800);
+      }, 1700);
     } else if (fx.type === 'wild') {
-      setComboBanner({
-        id: `combo-${Date.now()}`,
+      showBanner({
+        id: `combo-${fx.seq}`,
         type: 'wild_chain',
         title: 'COLOR SHIFT! 🌈',
         subtitle: `Meja berganti ke warna ${fx.chosenColor ? fx.chosenColor.toUpperCase() : 'BARU'}!`,
         colorHex: '#A855F7',
-      });
-      setTimeout(() => setComboBanner(null), 1800);
+      }, 1700);
     }
 
     if (fx.type === 'catch' || fx.type === 'swap' || fx.type === 'rotate') {
