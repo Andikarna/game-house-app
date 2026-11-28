@@ -14,6 +14,7 @@ import { UnoTableRing } from './UnoTableRing';
 import { UnoCenterPile } from './UnoCenterPile';
 import { UnoPlayerHand } from './UnoPlayerHand';
 import { UnoFxOverlay } from './UnoFxOverlay';
+import { UnoAnimationLayer, CardFlightEvent, ComboCardBanner } from './UnoAnimationLayer';
 import { UnoColorPickerModal } from './UnoColorPickerModal';
 import { UnoSwapTargetModal } from './UnoSwapTargetModal';
 import { UnoResultModal } from './UnoResultModal';
@@ -59,6 +60,11 @@ export const UnoView: React.FC = () => {
     baseVersion: number;
   } | null>(null);
 
+  // Card Flight Animations & Combo Stacking
+  const [cardFlights, setCardFlights] = useState<CardFlightEvent[]>([]);
+  const [comboBanner, setComboBanner] = useState<ComboCardBanner | null>(null);
+  const prevHandCountRef = useRef<number>(0);
+  const prevTopCardIdRef = useRef<string>('');
   const lastFxSeqRef = useRef<number>(0);
 
   useEffect(() => {
@@ -77,6 +83,51 @@ export const UnoView: React.FC = () => {
     const timer = setTimeout(() => setOptimisticMove(null), 2500);
     return () => clearTimeout(timer);
   }, [unoState?.stateVersion, optimisticMove]);
+
+  // Card Flight on Draw (Detect hand increase)
+  useEffect(() => {
+    if (!unoState) return;
+    const currentHandCount = unoState.myHand?.length || 0;
+    if (prevHandCountRef.current > 0 && currentHandCount > prevHandCountRef.current) {
+      const drawnCount = currentHandCount - prevHandCountRef.current;
+      const newFlights: CardFlightEvent[] = [];
+      for (let i = 0; i < Math.min(drawnCount, 4); i++) {
+        newFlights.push({
+          id: `draw-${Date.now()}-${i}`,
+          from: 'deck',
+          to: 'hand',
+          duration: 0.45 + i * 0.08,
+          isFaceDown: true,
+        });
+      }
+      setCardFlights((prev) => [...prev, ...newFlights]);
+    }
+    prevHandCountRef.current = currentHandCount;
+  }, [unoState?.myHand?.length]);
+
+  // Card Flight when opponent draws or discards
+  useEffect(() => {
+    if (!unoState?.topCard) return;
+    const currentTopId = unoState.topCard.id;
+    if (prevTopCardIdRef.current && prevTopCardIdRef.current !== currentTopId) {
+      // Someone played a card to center!
+      const isMe = unoState.lastFx?.actorId === playerId;
+      if (!isMe) {
+        setCardFlights((prev) => [
+          ...prev,
+          {
+            id: `play-${currentTopId}-${Date.now()}`,
+            card: unoState.topCard,
+            from: 'opponent',
+            to: 'center',
+            duration: 0.42,
+            isFaceDown: false,
+          },
+        ]);
+      }
+    }
+    prevTopCardIdRef.current = currentTopId;
+  }, [unoState?.topCard, unoState?.lastFx?.actorId, playerId]);
 
   // Smooth local countdown
   useEffect(() => {
@@ -116,6 +167,47 @@ export const UnoView: React.FC = () => {
       if (fx.type === 'draw2' || fx.type === 'wild_draw4') setShakeTrigger((s) => s + 1);
     }
 
+    // Trigger COMBO banners for action chains / heavy plays
+    if (fx.type === 'draw2' || fx.type === 'wild_draw4') {
+      const count = fx.drawCount || (fx.type === 'draw2' ? 2 : 4);
+      setComboBanner({
+        id: `combo-${Date.now()}`,
+        type: 'draw_chain',
+        title: count >= 4 ? `MEGA STRIKE +${count}!!` : `DRAW COMBO +${count}!`,
+        subtitle: `${fx.actorNickname || 'Pemain'} melipatgandakan hukuman kartu!`,
+        count,
+        colorHex: count >= 4 ? '#EF4444' : '#F97316',
+      });
+      setTimeout(() => setComboBanner(null), 2200);
+    } else if (fx.type === 'skip') {
+      setComboBanner({
+        id: `combo-${Date.now()}`,
+        type: 'skip_combo',
+        title: 'TURN LOCKED! 🚫',
+        subtitle: `${fx.targetNickname || 'Lawan'} kehilangan giliran!`,
+        colorHex: '#FB7185',
+      });
+      setTimeout(() => setComboBanner(null), 1800);
+    } else if (fx.type === 'reverse') {
+      setComboBanner({
+        id: `combo-${Date.now()}`,
+        type: 'reverse_clash',
+        title: 'REVERSE COUNTER! ⇄',
+        subtitle: 'Arah giliran berhasil diputar balik!',
+        colorHex: '#38BDF8',
+      });
+      setTimeout(() => setComboBanner(null), 1800);
+    } else if (fx.type === 'wild') {
+      setComboBanner({
+        id: `combo-${Date.now()}`,
+        type: 'wild_chain',
+        title: 'COLOR SHIFT! 🌈',
+        subtitle: `Meja berganti ke warna ${fx.chosenColor ? fx.chosenColor.toUpperCase() : 'BARU'}!`,
+        colorHex: '#A855F7',
+      });
+      setTimeout(() => setComboBanner(null), 1800);
+    }
+
     if (fx.type === 'catch' || fx.type === 'swap' || fx.type === 'rotate') {
       addToast(fx.message, fx.type === 'catch' ? 'warning' : 'info');
     }
@@ -140,6 +232,20 @@ export const UnoView: React.FC = () => {
         color: resolvedColor,
         baseVersion: unoState.stateVersion || 0,
       });
+
+      // Spawn flying card animation from player hand to center
+      setCardFlights((prev) => [
+        ...prev,
+        {
+          id: `my-play-${card.id}-${Date.now()}`,
+          card,
+          from: 'hand',
+          to: 'center',
+          duration: 0.35,
+          isFaceDown: false,
+        },
+      ]);
+
       emitUnoInput({
         action: 'play-card',
         cardId: card.id,
@@ -160,8 +266,23 @@ export const UnoView: React.FC = () => {
     [unoState, commitPlayCard]
   );
 
+  const handleFlightComplete = useCallback((id: string) => {
+    setCardFlights((prev) => prev.filter((f) => f.id !== id));
+  }, []);
+
   const handleDrawCard = useCallback(() => {
     soundManager.playCardDraw();
+    // Immediate optimistic flight from deck to hand
+    setCardFlights((prev) => [
+      ...prev,
+      {
+        id: `local-draw-${Date.now()}`,
+        from: 'deck',
+        to: 'hand',
+        duration: 0.38,
+        isFaceDown: true,
+      },
+    ]);
     emitUnoInput({ action: 'draw-card' });
   }, [emitUnoInput]);
 
@@ -279,10 +400,10 @@ export const UnoView: React.FC = () => {
       />
 
       {/* Oval Casino Table Rim & Inner Golden/Neon Trim */}
-      <div className="fixed inset-4 sm:inset-8 md:inset-x-16 md:inset-y-10 rounded-[80px] sm:rounded-[140px] border-[6px] sm:border-[10px] border-[#0B141D]/90 shadow-[inset_0_0_90px_rgba(0,0,0,0.75),0_0_60px_rgba(0,0,0,0.85)] pointer-events-none" />
+      <div className="fixed inset-2 sm:inset-4 md:inset-x-8 md:inset-y-4 rounded-[50px] sm:rounded-[90px] border-[4px] sm:border-[8px] border-[#0A1826]/90 shadow-[inset_0_0_80px_rgba(0,0,0,0.8),0_0_50px_rgba(0,0,0,0.9)] pointer-events-none" />
       <div
-        className="fixed inset-7 sm:inset-12 md:inset-x-20 md:inset-y-14 rounded-[68px] sm:rounded-[124px] border border-amber-300/15 pointer-events-none transition-colors duration-700"
-        style={{ boxShadow: `inset 0 0 60px ${colorMeta.hex}18` }}
+        className="fixed inset-4 sm:inset-7 md:inset-x-12 md:inset-y-7 rounded-[42px] sm:rounded-[78px] border border-amber-300/20 pointer-events-none transition-colors duration-700"
+        style={{ boxShadow: `inset 0 0 50px ${colorMeta.hex}22` }}
       />
 
       {/* Overhead Stage Spotlight */}
@@ -442,6 +563,13 @@ export const UnoView: React.FC = () => {
 
       {/* VFX */}
       <UnoFxOverlay lastFx={unoState.lastFx} />
+
+      {/* Card Flight & Combo Stacking Animations */}
+      <UnoAnimationLayer
+        flights={cardFlights}
+        onFlightComplete={handleFlightComplete}
+        comboBanner={comboBanner}
+      />
 
       {/* Emotes & Chat */}
       <FloatingEmoteLayer />
