@@ -16,6 +16,7 @@ interface UnoCenterPileProps {
   isMyTurn: boolean;
   canDraw: boolean;
   currentTurnNickname: string;
+  nextTurnNickname?: string;
   turnTimeLeft: number;
   onDrawClick: () => void;
 }
@@ -30,6 +31,7 @@ export const UnoCenterPile: React.FC<UnoCenterPileProps> = ({
   isMyTurn,
   canDraw,
   currentTurnNickname,
+  nextTurnNickname,
   turnTimeLeft,
   onDrawClick,
 }) => {
@@ -60,15 +62,23 @@ export const UnoCenterPile: React.FC<UnoCenterPileProps> = ({
           </span>
         </motion.div>
 
-        {/* Turn indicator */}
+        {/* Turn indicator with Next Turn player */}
         <div
-          className={`px-3.5 py-1.5 rounded-full border backdrop-blur-xl text-xs font-black flex items-center gap-1.5 transition-all duration-300 ${
+          className={`px-3.5 py-1.5 rounded-full border backdrop-blur-xl text-xs font-black flex items-center gap-2 transition-all duration-300 ${
             isMyTurn
               ? 'bg-gradient-to-r from-amber-600/35 to-orange-600/35 border-amber-400/70 text-amber-100 shadow-[0_0_22px_rgba(249,115,22,0.6)]'
               : 'bg-black/40 border-white/12 text-slate-300'
           }`}
         >
-          <span>{isMyTurn ? '🔥 GILIRANMU!' : `Giliran: ${currentTurnNickname}`}</span>
+          <div className="flex items-center gap-1.5">
+            <span>{isMyTurn ? '🔥 GILIRANMU!' : `Giliran: ${currentTurnNickname}`}</span>
+            {nextTurnNickname && (
+              <span className="hidden sm:inline-flex items-center gap-0.5 text-[10px] font-bold text-slate-400 pl-1 border-l border-white/15">
+                <span className="text-slate-500">→</span>
+                <span className="text-slate-300">{nextTurnNickname}</span>
+              </span>
+            )}
+          </div>
           <span
             className={`font-mono px-1.5 py-0.5 rounded-lg text-[11px] ${
               isCritical

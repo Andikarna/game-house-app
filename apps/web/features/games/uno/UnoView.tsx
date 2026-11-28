@@ -111,14 +111,16 @@ export const UnoView: React.FC = () => {
     const currentTopId = unoState.topCard.id;
     if (prevTopCardIdRef.current && prevTopCardIdRef.current !== currentTopId) {
       // Someone played a card to center!
-      const isMe = unoState.lastFx?.actorId === playerId;
+      const actorId = unoState.lastFx?.actorId;
+      const isMe = actorId === playerId;
       if (!isMe) {
+        // If actorId is provided, flight originates from that specific player's pod!
         setCardFlights((prev) => [
           ...prev,
           {
             id: `play-${currentTopId}-${Date.now()}`,
             card: unoState.topCard,
-            from: 'opponent',
+            from: actorId || 'opponent',
             to: 'center',
             duration: 0.42,
             isFaceDown: false,
@@ -372,6 +374,20 @@ export const UnoView: React.FC = () => {
   const currentTurnPlayer = unoState.players[unoState.currentTurnPlayerId];
   const canDraw = isMyTurn && !unoState.drawnPlayableCardId;
 
+  // Calculate next turn player based on current direction
+  const nextTurnPlayerId = useMemo(() => {
+    if (!unoState) return undefined;
+    const order = unoState.playerOrder || [];
+    if (order.length <= 1) return undefined;
+    const currentIdx = order.indexOf(unoState.currentTurnPlayerId);
+    if (currentIdx === -1) return undefined;
+    const step = unoState.direction === 1 ? 1 : -1;
+    const nextIdx = (currentIdx + step + order.length) % order.length;
+    return order[nextIdx];
+  }, [unoState?.playerOrder, unoState?.currentTurnPlayerId, unoState?.direction]);
+
+  const nextTurnPlayer = nextTurnPlayerId ? unoState.players[nextTurnPlayerId] : undefined;
+
   const modeBadgeLabel =
     unoState.gameMode === 'uno-chaos' ? 'Chaos 7-0'
     : unoState.gameMode === 'uno-stack' ? 'Turbo Stack'
@@ -505,6 +521,7 @@ export const UnoView: React.FC = () => {
       <UnoTableRing
         opponentsOrdered={opponentsOrdered}
         currentTurnPlayerId={unoState.currentTurnPlayerId}
+        nextTurnPlayerId={nextTurnPlayerId}
         activeColor={displayedActiveColor}
         turnTimeLeft={turnTimeLeft}
         turnDurationSeconds={unoState.turnDurationSeconds || 20}
@@ -526,6 +543,7 @@ export const UnoView: React.FC = () => {
           isMyTurn={isMyTurn}
           canDraw={canDraw}
           currentTurnNickname={currentTurnPlayer?.nickname || 'Pemain'}
+          nextTurnNickname={nextTurnPlayer?.nickname}
           turnTimeLeft={turnTimeLeft}
           onDrawClick={handleDrawCard}
         />

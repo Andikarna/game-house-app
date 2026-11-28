@@ -15,6 +15,7 @@ import { Bot, AlertTriangle, Flame, Wifi, WifiOff } from 'lucide-react';
 interface UnoTableRingProps {
   opponentsOrdered: UnoPlayerPublic[];
   currentTurnPlayerId: string;
+  nextTurnPlayerId?: string;
   activeColor: UnoColor;
   turnTimeLeft: number;
   turnDurationSeconds: number;
@@ -27,6 +28,7 @@ interface UnoTableRingProps {
 export const UnoTableRing: React.FC<UnoTableRingProps> = ({
   opponentsOrdered,
   currentTurnPlayerId,
+  nextTurnPlayerId,
   activeColor,
   turnTimeLeft,
   turnDurationSeconds,
@@ -43,12 +45,13 @@ export const UnoTableRing: React.FC<UnoTableRingProps> = ({
   const strokeOffset = circumference * (1 - timerRatio);
 
   return (
-    <div className="w-full max-w-5xl mx-auto px-2 z-20">
+    <div className="w-full max-w-5xl mx-auto px-2 z-20 pt-1 sm:pt-2">
       <div
         className={`flex flex-wrap items-start justify-center gap-2 sm:gap-3.5`}
       >
         {opponentsOrdered.map((opp, idx) => {
           const isTurn = opp.playerId === currentTurnPlayerId;
+          const isNextTurn = opp.playerId === nextTurnPlayerId && !isTurn;
           const isVulnerableUno = opp.cardCount === 1 && !opp.calledUno;
           const isSafeUno = opp.cardCount === 1 && opp.calledUno;
           const isTargeted =
@@ -65,6 +68,7 @@ export const UnoTableRing: React.FC<UnoTableRingProps> = ({
           return (
             <motion.div
               key={opp.playerId}
+              id={`uno-player-pod-${opp.playerId}`}
               layout
               animate={{
                 scale: isTurn ? 1.07 : isTargeted ? [1, 1.08, 0.96, 1] : 1,
@@ -75,16 +79,22 @@ export const UnoTableRing: React.FC<UnoTableRingProps> = ({
               style={{
                 background: isTurn
                   ? `linear-gradient(145deg, ${colorMeta.hex}2A, rgba(5,12,24,0.92))`
+                  : isNextTurn
+                  ? 'linear-gradient(145deg, rgba(30,58,138,0.35), rgba(6,13,24,0.9))'
                   : isVulnerableUno
                   ? 'linear-gradient(145deg, rgba(127,29,29,0.55), rgba(30,8,14,0.9))'
                   : 'linear-gradient(145deg, rgba(15,28,46,0.78), rgba(6,13,24,0.88))',
                 borderColor: isTurn
                   ? `${colorMeta.hex}AA`
+                  : isNextTurn
+                  ? 'rgba(96,165,250,0.5)'
                   : isVulnerableUno
                   ? 'rgba(251,113,133,0.75)'
                   : 'rgba(255,255,255,0.12)',
                 boxShadow: isTurn
                   ? `0 10px 30px -6px ${colorMeta.glow}, inset 0 1px 0 rgba(255,255,255,0.18)`
+                  : isNextTurn
+                  ? '0 0 18px -4px rgba(59,130,246,0.5)'
                   : isVulnerableUno
                   ? '0 0 24px -4px rgba(244,63,94,0.7)'
                   : '0 8px 20px -8px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.08)',
@@ -94,11 +104,18 @@ export const UnoTableRing: React.FC<UnoTableRingProps> = ({
                 <motion.div
                   initial={{ scale: 0.8, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
-                  className="absolute -top-2.5 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider text-slate-950 shadow-md"
+                  className="absolute -top-3 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider text-slate-950 shadow-md ring-2 ring-white/40"
                   style={{ backgroundColor: colorMeta.hex }}
                 >
                   GILIRAN
                 </motion.div>
+              )}
+              {isNextTurn && (
+                <div
+                  className="absolute -top-2.5 px-1.5 py-0.5 rounded-full text-[7.5px] font-extrabold uppercase tracking-wider bg-blue-500/80 text-white shadow border border-blue-300/40"
+                >
+                  SELANJUTNYA
+                </div>
               )}
               {/* Avatar with timer ring */}
               <div className="relative flex items-center justify-center mb-1">

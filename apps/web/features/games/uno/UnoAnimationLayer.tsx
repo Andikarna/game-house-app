@@ -52,37 +52,67 @@ export const UnoAnimationLayer: React.FC<UnoAnimationLayerProps> = ({
             const w = window.innerWidth;
             const h = window.innerHeight;
 
+            // Helper to get element center
+            const getElCenter = (selectorOrId: string) => {
+              const el = document.getElementById(selectorOrId) || document.querySelector(selectorOrId);
+              if (el) {
+                const rect = el.getBoundingClientRect();
+                return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+              }
+              return null;
+            };
+
             // Start coords
             if (flight.from === 'deck') {
-              startX = w * 0.45;
-              startY = h * 0.44;
+              startX = w * 0.44;
+              startY = h * 0.45;
             } else if (flight.from === 'center') {
               startX = w * 0.54;
-              startY = h * 0.44;
+              startY = h * 0.45;
+            } else if (flight.from === 'hand') {
+              startX = w * 0.5;
+              startY = h * 0.88;
             } else if (typeof flight.from === 'object') {
               startX = flight.from.x;
               startY = flight.from.y;
+            } else if (typeof flight.from === 'string') {
+              // Try finding specific player pod DOM element (e.g. uno-player-pod-xxx)
+              const elCenter = getElCenter(`uno-player-pod-${flight.from}`);
+              if (elCenter) {
+                startX = elCenter.x;
+                startY = elCenter.y;
+              } else {
+                startX = w * 0.5;
+                startY = h * 0.16;
+              }
             } else {
-              // From opponent (top area)
               startX = w * 0.5;
-              startY = h * 0.12;
+              startY = h * 0.16;
             }
 
             // End coords
             if (flight.to === 'hand') {
-              startX = startX || w * 0.45;
+              startX = startX || w * 0.44;
               endX = w * 0.5;
               endY = h * 0.88;
             } else if (flight.to === 'center') {
               endX = w * 0.54;
-              endY = h * 0.44;
+              endY = h * 0.45;
             } else if (typeof flight.to === 'object') {
               endX = flight.to.x;
               endY = flight.to.y;
+            } else if (typeof flight.to === 'string') {
+              const elCenter = getElCenter(`uno-player-pod-${flight.to}`);
+              if (elCenter) {
+                endX = elCenter.x;
+                endY = elCenter.y;
+              } else {
+                endX = w * 0.5;
+                endY = h * 0.16;
+              }
             } else {
-              // To opponent (top area)
               endX = w * 0.5;
-              endY = h * 0.12;
+              endY = h * 0.16;
             }
           }
 
