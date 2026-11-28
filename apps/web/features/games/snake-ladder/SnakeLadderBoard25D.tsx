@@ -405,17 +405,19 @@ export const SnakeLadderBoard25D: React.FC<SnakeLadderBoard25DProps> = ({
             const pA = getTileCenter(prevTile);
             const pB = getTileCenter(nextTile);
             const facing: 1 | -1 = pB.x >= pA.x ? 1 : -1;
-            const smoothT = localT < 0.5 ? 2 * localT * localT : 1 - Math.pow(-2 * localT + 2, 2) / 2;
-            const zHop = Math.sin(localT * Math.PI) * 26;
+            const isBounceStep = prevTile === 100 && nextTile === 99;
+            // Smooth continuous walking pace (no stop-and-hop at every tile)
+            const moveT = localT;
+            const stepZ = isBounceStep ? Math.sin(localT * Math.PI) * 16 : 0;
 
             overridePawnPos[move.playerId] = {
-              x: pA.x + (pB.x - pA.x) * smoothT,
-              y: pA.y + (pB.y - pA.y) * smoothT,
-              z: zHop,
+              x: pA.x + (pB.x - pA.x) * moveT,
+              y: pA.y + (pB.y - pA.y) * moveT,
+              z: stepZ,
               spin: 0,
-              scale: 1 + Math.sin(localT * Math.PI) * 0.1,
+              scale: 1,
               facing,
-              walkCycle: localT,
+              walkCycle: (elapsed / anim.stepDuration) * 1.5,
               isWalking: true,
               isClimbing: false,
               isCelebrating: false,
@@ -815,13 +817,12 @@ export const SnakeLadderBoard25D: React.FC<SnakeLadderBoard25DProps> = ({
           }
 
           const rowDir: 1 | -1 = Math.floor((vPos - 1) / 10) % 2 === 0 ? 1 : -1;
-          const idleBob = isTurn ? Math.abs(Math.sin(timeSec * 3.8)) * 6 : 0;
 
           drawQueue.push({
             playerId: p.playerId,
             x: basePt.x + offX,
             y: basePt.y + offY,
-            z: idleBob,
+            z: 0,
             spin: 0,
             scale: isTurn ? 1.07 : 0.98,
             facing: rowDir,
@@ -1745,25 +1746,26 @@ function draw3DCharacterPawn(
   ctx.lineWidth = pawn.isMe ? 2.6 : 1.8;
   ctx.stroke();
 
-  // Compute limb walk/climb/celebration kinematics
+  // Compute natural human walking / climbing / celebration limb kinematics
   const phase = pawn.isWalking
     ? pawn.walkCycle * Math.PI * 2
     : pawn.isClimbing
     ? timeSec * 16
     : 0;
-  const strideX = pawn.isWalking ? Math.sin(phase) * 7.5 : 0;
+  const strideX = pawn.isWalking ? Math.sin(phase) * 10.5 : 0;
+  // Foot only lifts slightly while swinging forward, stays planted flat on push-back
   const legLiftL = pawn.isWalking
-    ? Math.max(0, Math.cos(phase)) * 4.5
+    ? Math.max(0, -Math.cos(phase)) * 3.5
     : pawn.isClimbing
     ? Math.max(0, Math.sin(phase)) * 5
     : 0;
   const legLiftR = pawn.isWalking
-    ? Math.max(0, -Math.cos(phase)) * 4.5
+    ? Math.max(0, Math.cos(phase)) * 3.5
     : pawn.isClimbing
     ? Math.max(0, -Math.sin(phase)) * 5
     : 0;
   const bodyBob = pawn.isWalking
-    ? Math.abs(Math.sin(phase)) * 2.5
+    ? Math.abs(Math.sin(phase)) * 2.2
     : pawn.isCelebrating
     ? Math.abs(Math.sin(timeSec * 8)) * 3
     : Math.sin(timeSec * 3.2) * 1.1;
@@ -1772,7 +1774,7 @@ function draw3DCharacterPawn(
   ctx.save();
   ctx.scale(pawn.facing, 1);
   if (pawn.isWalking) {
-    ctx.rotate(0.08); // Subtle forward sprint lean
+    ctx.rotate(0.06); // Natural forward walking posture
   }
 
   // Flowing 3D Cape or Scarf (Jago, Luna, Bayu, Rama)
@@ -1802,7 +1804,7 @@ function draw3DCharacterPawn(
     : pawn.isClimbing
     ? -1.8 + Math.sin(phase) * 0.5
     : pawn.isWalking
-    ? -Math.sin(phase) * 0.7
+    ? -Math.sin(phase) * 0.88
     : 0.25;
   draw3DLimb(
     ctx,
@@ -1815,10 +1817,11 @@ function draw3DCharacterPawn(
     char3D.handColor || char3D.skinColor
   );
 
-  // 4. Back & Front 3D Legs + Sneakers
+  // 4. Back & Front 3D Legs + Sneakers (heel-to-toe walking stride)
   const drawLeg = (hipX: number, liftY: number, swingX: number, isBack: boolean) => {
     const footX = hipX + swingX;
-    const footY = 2 - liftY;
+    const footY = 2.5 - liftY;
+    const footTilt = pawn.isWalking ? -liftY * 0.06 : 0;
     ctx.save();
     ctx.strokeStyle = '#0f172a';
     ctx.lineWidth = 7.4;
@@ -1836,23 +1839,25 @@ function draw3DCharacterPawn(
     ctx.stroke();
 
     // 3D Sneaker with white sole highlight
+    ctx.translate(footX + 2.2, footY + 1.5);
+    ctx.rotate(footTilt);
     ctx.fillStyle = char3D.shoeColor;
     ctx.strokeStyle = '#0f172a';
     ctx.lineWidth = 1.8;
     ctx.beginPath();
-    ctx.ellipse(footX + 2.2, footY + 1.5, 5.2, 3.2, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, 0, 5.4, 3.2, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
 
     ctx.fillStyle = '#ffffff';
     ctx.beginPath();
-    ctx.ellipse(footX + 2.5, footY + 3.1, 4.4, 1.1, 0, 0, Math.PI);
+    ctx.ellipse(0.3, 1.6, 4.5, 1.1, 0, 0, Math.PI);
     ctx.fill();
     ctx.restore();
   };
 
-  drawLeg(-4.5, legLiftL, -strideX, true);
-  drawLeg(4.5, legLiftR, strideX, false);
+  drawLeg(-4.2, legLiftL, -strideX, true);
+  drawLeg(4.2, legLiftR, strideX, false);
 
   // 5. 3D Sculpted Torso / Outfit
   ctx.save();
@@ -1890,7 +1895,7 @@ function draw3DCharacterPawn(
     : pawn.isClimbing
     ? -1.8 - Math.sin(phase) * 0.5
     : pawn.isWalking
-    ? Math.sin(phase) * 0.75
+    ? Math.sin(phase) * 0.9
     : -0.22;
   draw3DLimb(
     ctx,
