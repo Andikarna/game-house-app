@@ -495,7 +495,16 @@ export async function POST(
     }
 
     // 3c. UNO ACTION
-    if (action === 'uno_action' || (isUno && action === 'input')) {
+    if (
+      action === 'uno_action' ||
+      (isUno &&
+        (action === 'input' ||
+          action === 'play-card' ||
+          action === 'draw-card' ||
+          action === 'pass-turn' ||
+          action === 'call-uno' ||
+          action === 'catch-uno'))
+    ) {
       const { gameState: newGameState, results } = await persistUnoTransition(code, roomData, playerId, body);
       return NextResponse.json({
         success: true,
