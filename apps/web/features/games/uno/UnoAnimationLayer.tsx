@@ -202,11 +202,11 @@ const ComboBannerItem: React.FC<{ banner: ComboCardBanner }> = React.memo(({ ban
       animate={bannerAnim.animate}
       exit={bannerAnim.exit}
       transition={bannerAnim.transition}
-      className="absolute left-1/2 top-[19%] sm:top-[20%] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none z-50"
+      className="absolute left-1/2 top-[29%] sm:top-[27%] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none z-50 max-w-[88vw]"
     >
       {/* Subtle radiant aura */}
       <div
-        className="hidden md:block absolute -inset-12 rounded-full opacity-50 blur-2xl pointer-events-none"
+        className="hidden md:block absolute -inset-10 rounded-full opacity-45 blur-2xl pointer-events-none"
         style={{
           background: `radial-gradient(circle, ${banner.colorHex} 0%, transparent 70%)`,
         }}
@@ -214,27 +214,27 @@ const ComboBannerItem: React.FC<{ banner: ComboCardBanner }> = React.memo(({ ban
 
       {/* Glowing pill badge */}
       <div
-        className="relative px-4 py-2 sm:px-7 sm:py-3 rounded-2xl sm:rounded-3xl border-2 md:backdrop-blur-xl shadow-2xl flex flex-col items-center text-center"
+        className="relative px-3.5 py-1.5 sm:px-6 sm:py-2.5 rounded-2xl border-2 md:backdrop-blur-xl shadow-xl flex flex-col items-center text-center"
         style={{
           background: 'linear-gradient(135deg, rgba(12,18,32,0.96), rgba(4,8,16,0.94))',
           borderColor: banner.colorHex,
-          boxShadow: `0 0 36px ${banner.colorHex}77, inset 0 1px 0 rgba(255,255,255,0.3)`,
+          boxShadow: `0 0 28px ${banner.colorHex}66, inset 0 1px 0 rgba(255,255,255,0.25)`,
         }}
       >
-        <div className="flex items-center gap-1.5 sm:gap-2">
-          <span className="text-lg sm:text-2xl">⚡</span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-sm sm:text-xl">⚡</span>
           <span
-            className="text-base sm:text-2xl font-black uppercase tracking-wider text-transparent bg-clip-text"
+            className="text-sm sm:text-xl font-black uppercase tracking-wider text-transparent bg-clip-text whitespace-nowrap"
             style={{
               backgroundImage: `linear-gradient(to right, #FFFFFF, ${banner.colorHex}, #FFFFFF)`,
-              filter: `drop-shadow(0 2px 8px ${banner.colorHex})`,
+              filter: `drop-shadow(0 2px 6px ${banner.colorHex})`,
             }}
           >
             {banner.title}
           </span>
-          <span className="text-lg sm:text-2xl">⚡</span>
+          <span className="text-sm sm:text-xl">⚡</span>
         </div>
-        <p className="text-[11px] sm:text-sm font-bold text-amber-200/95 mt-0.5 drop-shadow">
+        <p className="text-[10px] sm:text-xs font-bold text-amber-200/95 mt-0.5 drop-shadow leading-tight">
           {banner.subtitle}
         </p>
       </div>

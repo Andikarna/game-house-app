@@ -23,6 +23,24 @@ interface UnoTableRingProps {
   lastFxTargetId?: string;
   lastFxType?: string;
   onCatchUno: (targetPlayerId: string) => void;
+  children?: React.ReactNode;
+}
+
+/**
+ * Returns clockwise angles (in degrees, -90 = top, 0 = right, -180 = left)
+ * arranged in an arc/circle around the center table so the bottom remains
+ * open for the local player's hand.
+ */
+function getCircularAngles(count: number): number[] {
+  if (count <= 0) return [];
+  if (count === 1) return [-90];
+  if (count === 2) return [-145, -35];
+  if (count === 3) return [-174, -90, -6];
+  if (count === 4) return [-186, -124, -56, 6];
+  if (count === 5) return [-192, -141, -90, -39, 12];
+  const start = -198;
+  const end = 18;
+  return Array.from({ length: count }, (_, i) => start + ((end - start) * i) / (count - 1));
 }
 
 export const UnoTableRing: React.FC<UnoTableRingProps> = ({
@@ -36,46 +54,72 @@ export const UnoTableRing: React.FC<UnoTableRingProps> = ({
   lastFxTargetId,
   lastFxType,
   onCatchUno,
+  children,
 }) => {
   const colorMeta = UNO_COLOR_META[activeColor] || UNO_COLOR_META.blue;
   const count = opponentsOrdered.length;
+  const angles = getCircularAngles(count);
   const timerRatio = Math.max(0, Math.min(1, turnTimeLeft / Math.max(1, turnDurationSeconds)));
   const ringRadius = 26;
   const circumference = 2 * Math.PI * ringRadius;
   const strokeOffset = circumference * (1 - timerRatio);
+  const isCrowded = count >= 6;
 
   return (
-    <div className="w-full max-w-5xl mx-auto px-2 z-20 pt-1 sm:pt-2">
+    <div className="relative w-full max-w-5xl mx-auto flex-1 min-h-[340px] sm:min-h-[450px] md:min-h-[480px] flex items-center justify-center z-20 my-1">
+      {/* Subtle circular seating track */}
       <div
-        className={`flex flex-wrap items-start justify-center gap-2 sm:gap-3.5`}
-      >
-        {opponentsOrdered.map((opp, idx) => {
-          const isTurn = opp.playerId === currentTurnPlayerId;
-          const isNextTurn = opp.playerId === nextTurnPlayerId && !isTurn;
-          const isVulnerableUno = opp.cardCount === 1 && !opp.calledUno;
-          const isSafeUno = opp.cardCount === 1 && opp.calledUno;
-          const isTargeted =
-            lastFxTargetId === opp.playerId &&
-            ['skip','draw2','wild_draw4','catch','swap'].includes(lastFxType || '');
-          const isActor = lastFxActorId === opp.playerId && !isTurn;
+        className="hidden sm:block absolute inset-x-10 inset-y-8 rounded-[999px] border border-white/[0.04] pointer-events-none"
+      />
 
-          const charId = normalizeAvatarId(opp.avatar);
-          const charMeta = AVATAR_OPTIONS.find((a) => a.id === charId) || AVATAR_OPTIONS[0];
-          const mid = (count - 1) / 2;
-          const arcDrop = count <= 5 ? Math.pow(Math.abs(idx - mid), 1.5) * 4 : 0;
-          const miniCardsCount = Math.min(5, Math.max(1, opp.cardCount));
+      {/* Center table (Draw/Discard piles + ticker) */}
+      <div className="relative z-10 flex flex-col items-center justify-center scale-[0.74] sm:scale-95 md:scale-100 mt-7 sm:mt-8">
+        {children}
+      </div>
 
-          return (
+      {/* Opponents positioned around the circle */}
+      {opponentsOrdered.map((opp, idx) => {
+        const isTurn = opp.playerId === currentTurnPlayerId;
+        const isNextTurn = opp.playerId === nextTurnPlayerId && !isTurn;
+        const isVulnerableUno = opp.cardCount === 1 && !opp.calledUno;
+        const isSafeUno = opp.cardCount === 1 && opp.calledUno;
+        const isTargeted =
+          lastFxTargetId === opp.playerId &&
+          ['skip', 'draw2', 'wild_draw4', 'catch', 'swap'].includes(lastFxType || '');
+        const isActor = lastFxActorId === opp.playerId && !isTurn;
+
+        const charId = normalizeAvatarId(opp.avatar);
+        const charMeta = AVATAR_OPTIONS.find((a) => a.id === charId) || AVATAR_OPTIONS[0];
+        const miniCardsCount = Math.min(5, Math.max(1, opp.cardCount));
+
+        const rad = ((angles[idx] ?? -90) * Math.PI) / 180;
+        const rx = count >= 5 ? 42.5 : 41;
+        const ry = count >= 5 ? 40 : 37.5;
+        const leftPct = 50 + Math.cos(rad) * rx;
+        const topPct = 50 + Math.sin(rad) * ry;
+
+        return (
+          <div
+            key={opp.playerId}
+            className="absolute -translate-x-1/2 -translate-y-1/2 z-20"
+            style={{
+              left: `${leftPct.toFixed(2)}%`,
+              top: `${topPct.toFixed(2)}%`,
+            }}
+          >
             <motion.div
-              key={opp.playerId}
               id={`uno-player-pod-${opp.playerId}`}
               layout
               animate={{
                 scale: isTurn ? 1.07 : isTargeted ? [1, 1.08, 0.96, 1] : 1,
-                y: isTurn ? arcDrop - 5 : arcDrop,
+                y: isTurn ? -3 : 0,
               }}
               transition={{ type: 'spring', stiffness: 380, damping: 24 }}
-              className="relative flex flex-col items-center py-2 px-2.5 sm:py-2.5 sm:px-3 min-w-[84px] sm:min-w-[126px] max-w-[132px] sm:max-w-[152px] rounded-2xl sm:rounded-3xl border md:backdrop-blur-xl transition-colors duration-300"
+              className={`relative flex flex-col items-center rounded-2xl sm:rounded-3xl border md:backdrop-blur-xl transition-colors duration-300 ${
+                isCrowded
+                  ? 'py-1 px-1.5 sm:py-2 sm:px-2.5 w-[64px] sm:w-[112px]'
+                  : 'py-1.5 px-1.5 sm:py-2.5 sm:px-3 w-[72px] sm:w-[126px]'
+              }`}
               style={{
                 background: isTurn
                   ? `linear-gradient(145deg, ${colorMeta.hex}2A, rgba(5,12,24,0.92))`
@@ -130,28 +174,32 @@ export const UnoTableRing: React.FC<UnoTableRingProps> = ({
 
                 {isTurn && (
                   <svg
-                    className="w-[60px] h-[60px] -rotate-90 absolute pointer-events-none"
+                    className="w-[44px] h-[44px] sm:w-[58px] sm:h-[58px] -rotate-90 absolute pointer-events-none"
                     viewBox="0 0 60 60"
                   >
                     <circle
                       cx="30" cy="30" r={ringRadius}
-                      fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="3"
+                      fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="3.5"
                     />
                     <circle
                       cx="30" cy="30" r={ringRadius}
                       fill="none"
                       stroke={turnTimeLeft <= 5 ? '#FB7185' : colorMeta.hex}
-                      strokeWidth="3"
+                      strokeWidth="3.5"
                       strokeLinecap="round"
                       strokeDasharray={circumference}
                       strokeDashoffset={strokeOffset}
                       className="transition-all duration-300"
-                      style={{ filter: `drop-shadow(0 0 6px ${turnTimeLeft <= 5 ? '#FB7185' : colorMeta.hex}66)` }}
                     />
                   </svg>
                 )}
 
-                <ClimberAvatarIcon avatar={opp.avatar} size={42} shape="circle" />
+                <div className="sm:hidden">
+                  <ClimberAvatarIcon avatar={opp.avatar} size={30} shape="circle" />
+                </div>
+                <div className="hidden sm:block">
+                  <ClimberAvatarIcon avatar={opp.avatar} size={42} shape="circle" />
+                </div>
 
                 {opp.isBot && (
                   <span
@@ -185,13 +233,13 @@ export const UnoTableRing: React.FC<UnoTableRingProps> = ({
               </div>
 
               {/* Nickname */}
-              <div className="text-[10px] sm:text-[11px] font-extrabold text-white truncate max-w-full px-0.5">
+              <div className="text-[9px] sm:text-[11px] font-extrabold text-white truncate max-w-full px-0.5 leading-tight">
                 {opp.nickname}
               </div>
 
               {/* Card count chip with dynamic mini fan */}
-              <div className="flex items-center justify-center gap-1.5 mt-1">
-                <div className="relative flex items-center justify-center h-4">
+              <div className="flex items-center justify-center gap-1 sm:gap-1.5 mt-0.5 sm:mt-1">
+                <div className="hidden sm:flex relative items-center justify-center h-4">
                   {Array.from({ length: miniCardsCount }).map((_, cIdx) => {
                     const spread = (cIdx - (miniCardsCount - 1) / 2) * 8;
                     return (
@@ -203,8 +251,9 @@ export const UnoTableRing: React.FC<UnoTableRingProps> = ({
                     );
                   })}
                 </div>
+                <div className="sm:hidden w-2.5 h-3.5 rounded-[2px] bg-gradient-to-br from-[#EF233C] to-[#9B061E] border border-white/80 shadow-sm shrink-0" />
                 <span
-                  className={`text-[11px] font-black px-1.5 py-0.2 rounded-md ${
+                  className={`text-[10px] sm:text-[11px] font-black px-1 sm:px-1.5 py-0.2 rounded-md ${
                     opp.cardCount <= 2
                       ? 'bg-rose-500/30 text-rose-200 border border-rose-400/60 shadow-[0_0_8px_rgba(244,63,94,0.4)]'
                       : opp.cardCount <= 4
@@ -260,9 +309,9 @@ export const UnoTableRing: React.FC<UnoTableRingProps> = ({
                 />
               )}
             </motion.div>
-          );
-        })}
-      </div>
+          </div>
+        );
+      })}
     </div>
   );
 };

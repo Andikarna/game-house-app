@@ -13,7 +13,6 @@ import {
 import { UnoTableRing } from './UnoTableRing';
 import { UnoCenterPile } from './UnoCenterPile';
 import { UnoPlayerHand } from './UnoPlayerHand';
-import { UnoFxOverlay } from './UnoFxOverlay';
 import { UnoAnimationLayer, CardFlightEvent, ComboCardBanner } from './UnoAnimationLayer';
 import { UnoColorPickerModal } from './UnoColorPickerModal';
 import { UnoSwapTargetModal } from './UnoSwapTargetModal';
@@ -632,7 +631,7 @@ export const UnoView: React.FC = () => {
 
       <ActiveVoteKickBanner />
 
-      {/* ── OPPONENTS RING ── */}
+      {/* ── CIRCULAR TABLE RING + CENTER PILES ── */}
       <UnoTableRing
         opponentsOrdered={opponentsOrdered}
         currentTurnPlayerId={unoState.currentTurnPlayerId}
@@ -644,10 +643,7 @@ export const UnoView: React.FC = () => {
         lastFxTargetId={unoState.lastFx?.targetId}
         lastFxType={unoState.lastFx?.type}
         onCatchUno={handleCatchUno}
-      />
-
-      {/* ── CENTER TABLE ── */}
-      <div className="flex flex-col items-center justify-center flex-1 my-1">
+      >
         <UnoCenterPile
           topCard={displayedTopCard}
           recentDiscards={unoState.recentDiscards || [displayedTopCard]}
@@ -678,7 +674,7 @@ export const UnoView: React.FC = () => {
             </motion.div>
           )}
         </AnimatePresence>
-      </div>
+      </UnoTableRing>
 
       {/* ── PLAYER HAND ── */}
       <UnoPlayerHand
@@ -694,9 +690,6 @@ export const UnoView: React.FC = () => {
         onCallUno={handleCallUno}
       />
 
-      {/* VFX */}
-      <UnoFxOverlay lastFx={unoState.lastFx} />
-
       {/* Card Flight & Combo Stacking Animations */}
       <UnoAnimationLayer
         flights={cardFlights}
@@ -707,9 +700,7 @@ export const UnoView: React.FC = () => {
       {/* Emotes & Chat */}
       <FloatingEmoteLayer />
       <LudoChatBox />
-      <div className="fixed bottom-4 left-4 z-30">
-        <EmotePicker />
-      </div>
+      <EmotePicker />
 
       {/* Modals */}
       <UnoColorPickerModal
