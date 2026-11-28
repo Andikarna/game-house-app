@@ -51,15 +51,15 @@ const resolveEndpoint = (
 
   if (target === 'deck') {
     const el = getElCenter('uno-draw-pile');
-    return el ? { x: el.x, y: el.y - 10 } : { x: w * 0.44, y: h * 0.45 };
+    return el || { x: w * 0.42, y: h * 0.45 };
   }
   if (target === 'center') {
     const el = getElCenter('uno-discard-pile');
-    return el ? { x: el.x, y: el.y - 10 } : { x: w * 0.54, y: h * 0.45 };
+    return el || { x: w * 0.58, y: h * 0.45 };
   }
   if (target === 'hand') {
     const el = getElCenter('uno-player-hand');
-    return el ? { x: el.x, y: el.y + 10 } : { x: w * 0.5, y: h * 0.88 };
+    return el || { x: w * 0.5, y: h * 0.86 };
   }
   if (typeof target === 'object') {
     return { x: target.x, y: target.y };
@@ -90,35 +90,35 @@ const FlyingCardItem: React.FC<{
   const animConfig = useMemo(() => {
     const start = resolveEndpoint(flight.from, 'from');
     const end = resolveEndpoint(flight.to, 'to');
-    const w = typeof window !== 'undefined' ? window.innerWidth : 400;
-    const h = typeof window !== 'undefined' ? window.innerHeight : 700;
-    const showX = w * 0.5;
-    const showY = h * 0.42;
 
     if (flight.showcaseFirst && flight.card && !flight.isFaceDown) {
-      const duration = flight.duration || 1.0;
+      const duration = flight.duration || 1.1;
+      // Hover slightly above the open discard pile so the card is clearly shown,
+      // then smoothly settle straight down onto the exact open pile position & size.
+      const hoverX = end.x;
+      const hoverY = end.y - 26;
       return {
         isShowcase: true,
         duration,
         delay: 0,
         initial: {
-          x: start.x - 38,
-          y: start.y - 55,
-          scale: 0.72,
-          rotate: -10,
+          x: start.x,
+          y: start.y,
+          scale: 0.65,
+          rotate: -8,
           opacity: 0.9,
         },
         animate: {
-          x: [start.x - 38, showX - 38, showX - 38],
-          y: [start.y - 55, showY - 55, showY - 55],
-          scale: [0.72, 1.38, 1.38],
-          rotate: [-10, 0, 0],
-          opacity: [0.92, 1, 1],
+          x: [start.x, hoverX, hoverX, end.x],
+          y: [start.y, hoverY, hoverY, end.y],
+          scale: [0.65, 1.2, 1.2, 1],
+          rotate: [-8, 0, 0, 0],
+          opacity: [0.9, 1, 1, 1],
         },
         transition: {
           duration,
-          times: [0, 0.35, 1],
-          ease: 'easeOut' as const,
+          times: [0, 0.34, 0.64, 1],
+          ease: [0.22, 1, 0.36, 1] as const,
         },
       };
     }
@@ -130,18 +130,18 @@ const FlyingCardItem: React.FC<{
       duration,
       delay,
       initial: {
-        x: start.x - 38,
-        y: start.y - 55,
-        scale: 0.75,
-        rotate: -12,
+        x: start.x,
+        y: start.y,
+        scale: 0.72,
+        rotate: -10,
         opacity: delay > 0 ? 0 : 0.92,
       },
       animate: {
-        x: end.x - 38,
-        y: end.y - 55,
-        scale: 0.95,
+        x: end.x,
+        y: end.y,
+        scale: 0.92,
         rotate: 0,
-        opacity: 0.95,
+        opacity: 0.96,
       },
       transition: {
         duration,
@@ -154,7 +154,7 @@ const FlyingCardItem: React.FC<{
 
   // Safety cleanup timer guarantees flight runs at most once
   useEffect(() => {
-    const totalMs = (animConfig.duration + (animConfig.delay || 0) + 0.15) * 1000;
+    const totalMs = (animConfig.duration + (animConfig.delay || 0) + 0.12) * 1000;
     const timer = setTimeout(finishOnce, totalMs);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -164,26 +164,24 @@ const FlyingCardItem: React.FC<{
     <motion.div
       initial={animConfig.initial}
       animate={animConfig.animate}
-      exit={{ opacity: 0, scale: 0.7 }}
+      exit={{ opacity: 0 }}
       transition={animConfig.transition}
       onAnimationComplete={finishOnce}
-      className={
-        animConfig.isShowcase
-          ? 'absolute left-0 top-0 flex flex-col items-center gap-1.5 drop-shadow-[0_16px_32px_rgba(0,0,0,0.75)]'
-          : 'absolute left-0 top-0 shadow-2xl filter drop-shadow-[0_12px_24px_rgba(0,0,0,0.6)]'
-      }
+      className="absolute left-0 top-0 pointer-events-none"
       style={{ perspective: 1000 }}
     >
-      {flight.card && !flight.isFaceDown ? (
-        <UnoCard card={flight.card} size="sm" />
-      ) : (
-        <UnoCard faceDown size="sm" />
-      )}
-      {animConfig.isShowcase && flight.actorName && (
-        <span className="px-2 py-0.5 rounded-full bg-slate-950/90 border border-white/20 text-[10px] font-black text-white shadow-md whitespace-nowrap">
-          {flight.actorName}
-        </span>
-      )}
+      <div className="relative -translate-x-1/2 -translate-y-1/2 flex items-center justify-center drop-shadow-[0_14px_28px_rgba(0,0,0,0.65)]">
+        {flight.card && !flight.isFaceDown ? (
+          <UnoCard card={flight.card} size={animConfig.isShowcase ? 'md' : 'sm'} />
+        ) : (
+          <UnoCard faceDown size="sm" />
+        )}
+        {animConfig.isShowcase && flight.actorName && (
+          <span className="absolute top-full mt-1.5 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full bg-slate-950/90 border border-white/20 text-[10px] font-black text-white shadow-md whitespace-nowrap">
+            {flight.actorName}
+          </span>
+        )}
+      </div>
     </motion.div>
   );
 });

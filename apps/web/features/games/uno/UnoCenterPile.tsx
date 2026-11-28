@@ -134,8 +134,8 @@ export const UnoCenterPile: React.FC<UnoCenterPileProps> = ({
 
           <div className="relative flex items-center gap-4 sm:gap-8 z-10">
             {/* Draw pile */}
-            <div id="uno-draw-pile" className="relative flex flex-col items-center">
-              <div className="relative">
+            <div className="relative flex flex-col items-center">
+              <div id="uno-draw-pile" className="relative">
                 {/* Stack shadow cards */}
                 <div className="absolute top-2 left-2 w-[76px] sm:w-[88px] h-[110px] sm:h-[128px] rounded-2xl bg-slate-900/80 border border-slate-700/50" />
                 <div className="absolute top-1 left-1 w-[76px] sm:w-[88px] h-[110px] sm:h-[128px] rounded-2xl bg-slate-800/80 border border-slate-700/50" />
@@ -207,7 +207,7 @@ export const UnoCenterPile: React.FC<UnoCenterPileProps> = ({
             </div>
 
             {/* Discard pile */}
-            <div id="uno-discard-pile" className="relative flex flex-col items-center">
+            <div className="relative flex flex-col items-center">
               <div className="relative">
                 {underCards.map((c, idx) => (
                   <div
@@ -222,6 +222,7 @@ export const UnoCenterPile: React.FC<UnoCenterPileProps> = ({
                 ))}
 
                 <div
+                  id="uno-discard-pile"
                   className="relative rounded-2xl"
                   style={{ filter: `drop-shadow(0 0 18px ${colorMeta.glow})` }}
                 >
