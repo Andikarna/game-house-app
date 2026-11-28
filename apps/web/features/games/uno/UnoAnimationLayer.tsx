@@ -96,28 +96,29 @@ const FlyingCardItem: React.FC<{
     const showY = h * 0.42;
 
     if (flight.showcaseFirst && flight.card && !flight.isFaceDown) {
-      const duration = flight.duration || 1.45;
+      const duration = flight.duration || 1.0;
       return {
         isShowcase: true,
         duration,
+        delay: 0,
         initial: {
           x: start.x - 38,
           y: start.y - 55,
           scale: 0.72,
-          rotate: -12,
-          opacity: 0.95,
+          rotate: -10,
+          opacity: 0.9,
         },
         animate: {
-          x: [start.x - 38, showX - 38, showX - 38, end.x - 38],
-          y: [start.y - 55, showY - 55, showY - 55, end.y - 55],
-          scale: [0.72, 1.42, 1.42, 0.92],
-          rotate: [-12, 0, 0, 4],
-          opacity: [0.95, 1, 1, 0.85],
+          x: [start.x - 38, showX - 38, showX - 38],
+          y: [start.y - 55, showY - 55, showY - 55],
+          scale: [0.72, 1.38, 1.38],
+          rotate: [-10, 0, 0],
+          opacity: [0.92, 1, 1],
         },
         transition: {
           duration,
-          times: [0, 0.25, 0.7, 1],
-          ease: 'easeInOut' as const,
+          times: [0, 0.35, 1],
+          ease: 'easeOut' as const,
         },
       };
     }

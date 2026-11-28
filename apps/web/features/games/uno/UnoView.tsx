@@ -131,15 +131,15 @@ export const UnoView: React.FC = () => {
         if (prevTopCardRef.current) {
           setHeldTopCard({ flightId, card: prevTopCardRef.current });
         }
-        // Show card at center first, then land on discard pile so opponents can clearly see it
+        // Show card at center only (replace any previous showcase so cards never stack on screen)
         setCardFlights((prev) => [
-          ...prev,
+          ...prev.filter((f) => !f.showcaseFirst),
           {
             id: flightId,
             card: unoState.topCard,
             from: actorId || 'opponent',
             to: 'center',
-            duration: 1.45,
+            duration: 1.05,
             isFaceDown: false,
             showcaseFirst: true,
             actorName: unoState.lastFx?.actorNickname || (actorId ? unoState.players[actorId]?.nickname : undefined),
@@ -301,13 +301,13 @@ export const UnoView: React.FC = () => {
         setHeldTopCard({ flightId, card: unoState.topCard });
       }
       setCardFlights((prev) => [
-        ...prev,
+        ...prev.filter((f) => !f.showcaseFirst),
         {
           id: flightId,
           card,
           from: 'hand',
           to: 'center',
-          duration: 1.3,
+          duration: 0.95,
           isFaceDown: false,
           showcaseFirst: true,
           actorName: 'Anda',
