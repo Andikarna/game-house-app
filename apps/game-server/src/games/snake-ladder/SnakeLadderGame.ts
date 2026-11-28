@@ -435,8 +435,8 @@ export class SnakeLadderGame implements GameModule {
       timestamp: now,
     };
 
-    // Estimate animation duration (dice roll 550ms + walk steps * 180ms + trigger 950ms)
-    const animDurationMs = 600 + walkPath.length * 185 + (trigger ? 950 : 150) + (bouncedAt100 ? 250 : 0);
+    // Estimate animation duration (dice reveal + 1s pause 1450ms + walk steps * 290ms + trigger 950ms + settle)
+    const animDurationMs = 1550 + walkPath.length * 290 + (trigger ? 980 : 220) + (bouncedAt100 ? 250 : 0);
 
     // Build descriptive notice
     if (toTile === 100) {

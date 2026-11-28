@@ -31,12 +31,36 @@ export const SnakeLadderView: React.FC = () => {
   const [isVoteKickModalOpen, setIsVoteKickModalOpen] = useState(false);
   const [is25D, setIs25D] = useState(true);
   const [isAnimatingBoard, setIsAnimatingBoard] = useState(false);
+  const [completedMoveSeq, setCompletedMoveSeq] = useState(0);
+  const [forceShowResult, setForceShowResult] = useState(false);
 
   const lastNotifiedSeqRef = useRef<number>(0);
 
   useEffect(() => {
     soundManager.playSnakeLadderBGM();
   }, []);
+
+  // Reset move completion & result gate when a new match begins
+  useEffect(() => {
+    if (!gameState || gameState.gameId !== 'snake-ladder') return;
+    const snakeState = gameState as SnakeLadderGameState;
+    if (!snakeState.lastMove) {
+      setCompletedMoveSeq(0);
+      setForceShowResult(false);
+    }
+  }, [gameState]);
+
+  // Safety fallback so result modal can never stall if reconnecting onto an already-finished match
+  useEffect(() => {
+    if (!gameResults) {
+      setForceShowResult(false);
+      return;
+    }
+    const timer = setTimeout(() => {
+      setForceShowResult(true);
+    }, 9000);
+    return () => clearTimeout(timer);
+  }, [gameResults]);
 
   // Synchronized Toast announcements for ladder climbs, snake bites, and bounce-backs
   useEffect(() => {
@@ -47,7 +71,7 @@ export const SnakeLadderView: React.FC = () => {
     lastNotifiedSeqRef.current = move.seq;
 
     const moverName = snakeState.players[move.playerId]?.nickname || 'Pemain';
-    const walkDelay = 1450 + move.walkPath.length * 165 + 120;
+    const walkDelay = 1450 + move.walkPath.length * 290 + 140;
 
     if (move.trigger?.type === 'ladder') {
       const trig = move.trigger;
@@ -100,6 +124,13 @@ export const SnakeLadderView: React.FC = () => {
   const snakeState = gameState as SnakeLadderGameState;
   const isMyTurn = snakeState.currentTurnPlayerId === playerId;
   const myPlayer = snakeState.players[playerId];
+  const lastMove = snakeState.lastMove;
+  const isWinningPawnSettled =
+    !lastMove ||
+    lastMove.toTile < 100 ||
+    completedMoveSeq >= lastMove.seq ||
+    forceShowResult;
+  const shouldShowResultModal = Boolean(gameResults && isWinningPawnSettled);
 
   return (
     <div className="min-h-screen w-full bg-slate-950 text-white flex flex-col items-center justify-between p-2 sm:p-4 pb-6 overflow-x-hidden relative select-none">
@@ -179,6 +210,7 @@ export const SnakeLadderView: React.FC = () => {
           myPlayerId={playerId}
           is25D={is25D}
           onAnimationBusyChange={setIsAnimatingBoard}
+          onMoveCompleted={(seq) => setCompletedMoveSeq((prev) => Math.max(prev, seq))}
         />
       </div>
 
@@ -223,7 +255,7 @@ export const SnakeLadderView: React.FC = () => {
         gameState={snakeState}
       />
 
-      {gameResults && (
+      {shouldShowResultModal && gameResults && (
         <SnakeLadderResultModal
           results={gameResults}
           isHost={isHost}

@@ -119,6 +119,11 @@ export const SnakeLadderTurnHUD: React.FC<SnakeLadderTurnHUDProps> = ({
                   <span className={`text-[11px] font-bold truncate ${isMe ? 'text-white' : 'text-slate-300'}`}>
                     {p.nickname}
                   </span>
+                  {isMe && (
+                    <span className="text-[8px] font-black text-emerald-300 bg-emerald-500/20 border border-emerald-400/50 px-1 rounded shrink-0">
+                      YOU
+                    </span>
+                  )}
                   {p.isBot && (
                     <span className="text-[8px] font-extrabold text-purple-300 bg-purple-900/60 border border-purple-500/40 px-1 rounded shrink-0">
                       BOT
@@ -128,7 +133,7 @@ export const SnakeLadderTurnHUD: React.FC<SnakeLadderTurnHUDProps> = ({
 
                 <div className="flex items-center gap-1 shrink-0">
                   <span className="text-[10px] font-black font-mono text-amber-300">
-                    {p.position}/100
+                    {p.position === 0 ? 'Belum Masuk' : `${p.position}/100`}
                   </span>
                   {!isMe && onTriggerVoteKick && gameState.playerOrder.length > 2 && (
                     <button
