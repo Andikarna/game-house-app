@@ -13,7 +13,7 @@ import { ClimberAvatarIcon } from '../../../components/ui/AvatarSelector';
 import { Bot, AlertTriangle, Flame } from 'lucide-react';
 
 interface UnoTableRingProps {
-  opponentsOrdered: UnoPlayerPublic[]; // Ordered clockwise starting after local player
+  opponentsOrdered: UnoPlayerPublic[];
   currentTurnPlayerId: string;
   activeColor: UnoColor;
   turnTimeLeft: number;
@@ -37,16 +37,14 @@ export const UnoTableRing: React.FC<UnoTableRingProps> = ({
   const colorMeta = UNO_COLOR_META[activeColor] || UNO_COLOR_META.blue;
   const count = opponentsOrdered.length;
   const timerRatio = Math.max(0, Math.min(1, turnTimeLeft / Math.max(1, turnDurationSeconds)));
-  const ringRadius = 26;
+  const ringRadius = 29;
   const circumference = 2 * Math.PI * ringRadius;
   const strokeOffset = circumference * (1 - timerRatio);
 
-  // Compute responsive grid columns on mobile, and clean semi-elliptical arc coordinates on desktop
   return (
     <div className="w-full max-w-5xl mx-auto px-2 z-20">
-      {/* Compact Grid for Mobile & Small Tablets (handles 3..9 opponents cleanly without overlap) */}
       <div
-        className={`grid gap-2 sm:gap-2.5 ${
+        className={`grid gap-2 sm:gap-3 ${
           count <= 3
             ? 'grid-cols-3'
             : count <= 5
@@ -70,7 +68,6 @@ export const UnoTableRing: React.FC<UnoTableRingProps> = ({
 
           const charId = normalizeAvatarId(opp.avatar);
           const charMeta = AVATAR_OPTIONS.find((a) => a.id === charId) || AVATAR_OPTIONS[0];
-          const fanCount = Math.min(5, Math.max(1, opp.cardCount));
 
           return (
             <motion.div
@@ -81,43 +78,52 @@ export const UnoTableRing: React.FC<UnoTableRingProps> = ({
                 y: isTurn ? -3 : 0,
               }}
               transition={{ type: 'spring', stiffness: 360, damping: 24 }}
-              className={`relative flex flex-col items-center p-2 rounded-2xl border backdrop-blur-md transition-all ${
+              className={`relative flex flex-col items-center py-2.5 px-2 rounded-2xl border backdrop-blur-md transition-all ${
                 isTurn
-                  ? 'bg-surface-elevated/95 shadow-xl'
+                  ? 'bg-[#091322]/90 shadow-2xl'
                   : isVulnerableUno
-                  ? 'bg-rose-950/60 border-rose-400/80 shadow-[0_0_20px_rgba(244,63,94,0.4)]'
-                  : 'bg-surface/75 border-slate-800/90'
+                  ? 'bg-rose-950/75 border-rose-400 shadow-[0_0_24px_rgba(244,63,94,0.5)]'
+                  : 'bg-[#07111C]/75 border-white/10 hover:border-white/20'
               }`}
               style={
                 isTurn
                   ? {
                       borderColor: colorMeta.hex,
-                      boxShadow: `0 0 24px -4px ${colorMeta.glow}`,
+                      boxShadow: `0 0 26px -4px ${colorMeta.glow}`,
                     }
                   : undefined
               }
             >
-              {/* Avatar + Circular Turn Timer SVG Ring */}
-              <div className="relative flex items-center justify-center mb-1">
+              {/* Neon Concentric Character Ring + Turn Timer */}
+              <div className="relative flex items-center justify-center mb-1.5">
+                {/* Permanent Character Neon Halo Ring */}
+                <div
+                  className="absolute -inset-1.5 rounded-full opacity-80 pointer-events-none"
+                  style={{
+                    border: `2px solid ${charMeta.color}`,
+                    boxShadow: `0 0 16px ${charMeta.color}88, inset 0 0 10px ${charMeta.color}55`,
+                  }}
+                />
+
                 {isTurn && (
                   <svg
-                    className="w-14 h-14 -rotate-90 absolute pointer-events-none"
-                    viewBox="0 0 60 60"
+                    className="w-16 h-16 -rotate-90 absolute pointer-events-none"
+                    viewBox="0 0 66 66"
                   >
                     <circle
-                      cx="30"
-                      cy="30"
+                      cx="33"
+                      cy="33"
                       r={ringRadius}
                       fill="none"
-                      stroke="rgba(255,255,255,0.12)"
+                      stroke="rgba(255,255,255,0.16)"
                       strokeWidth="3.5"
                     />
                     <circle
-                      cx="30"
-                      cy="30"
+                      cx="33"
+                      cy="33"
                       r={ringRadius}
                       fill="none"
-                      stroke={turnTimeLeft <= 5 ? '#F43F5E' : colorMeta.hex}
+                      stroke={turnTimeLeft <= 5 ? '#F43F5E' : '#FDE047'}
                       strokeWidth="3.5"
                       strokeLinecap="round"
                       strokeDasharray={circumference}
@@ -127,16 +133,8 @@ export const UnoTableRing: React.FC<UnoTableRingProps> = ({
                   </svg>
                 )}
 
-                <div
-                  className="rounded-full p-0.5 transition-all"
-                  style={{
-                    boxShadow: isTurn ? `0 0 18px ${charMeta.color}88` : undefined,
-                  }}
-                >
-                  <ClimberAvatarIcon avatar={opp.avatar} size={42} shape="circle" />
-                </div>
+                <ClimberAvatarIcon avatar={opp.avatar} size={46} shape="circle" />
 
-                {/* Bot Badge */}
                 {opp.isBot && (
                   <span
                     title="AI Bot"
@@ -146,20 +144,18 @@ export const UnoTableRing: React.FC<UnoTableRingProps> = ({
                   </span>
                 )}
 
-                {/* Safe UNO Flame Badge */}
                 {isSafeUno && (
                   <motion.span
                     initial={{ scale: 0 }}
                     animate={{ scale: [1, 1.15, 1] }}
                     transition={{ repeat: Infinity, duration: 1.2 }}
-                    className="absolute -top-1.5 -right-2 px-1.5 py-0.5 rounded-full bg-gradient-to-r from-amber-500 to-rose-600 text-[9px] font-black text-white border border-white/60 shadow-lg flex items-center gap-0.5"
+                    className="absolute -top-2 -right-2 px-1.5 py-0.5 rounded-full bg-gradient-to-r from-amber-500 to-rose-600 text-[9px] font-black text-white border border-white/70 shadow-lg flex items-center gap-0.5"
                   >
                     <Flame className="w-2.5 h-2.5 fill-yellow-200" />
                     UNO
                   </motion.span>
                 )}
 
-                {/* Offline Dot */}
                 {!opp.isConnected && !opp.isBot && (
                   <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-slate-500 border-2 border-slate-900" />
                 )}
@@ -167,29 +163,22 @@ export const UnoTableRing: React.FC<UnoTableRingProps> = ({
 
               {/* Nickname */}
               <div className="w-full text-center">
-                <div className="text-[11px] font-extrabold text-white truncate px-0.5">
+                <div className="text-[11px] sm:text-xs font-extrabold text-white truncate px-0.5">
                   {opp.nickname}
                 </div>
               </div>
 
-              {/* Overlapping Mini Card Fan + Count */}
+              {/* Classic Mini Red Card Stack + Count Badge (matches reference!) */}
               <div className="flex items-center justify-center gap-1.5 mt-1">
-                <div className="flex items-center -space-x-2">
-                  {Array.from({ length: fanCount }).map((_, idx) => (
-                    <div
-                      key={idx}
-                      className="w-3 h-4.5 rounded-[3px] bg-gradient-to-br from-slate-900 via-rose-950 to-slate-950 border border-rose-400/70 shadow-sm"
-                      style={{
-                        transform: `rotate(${(idx - (fanCount - 1) / 2) * 8}deg)`,
-                      }}
-                    />
-                  ))}
+                <div className="relative flex items-center justify-center">
+                  <div className="w-3.5 h-4.5 rounded-[3px] bg-gradient-to-br from-[#EF233C] to-[#9B061E] border border-white/80 shadow -rotate-6" />
+                  <div className="w-3.5 h-4.5 rounded-[3px] bg-gradient-to-br from-[#EF233C] to-[#9B061E] border border-white/80 shadow rotate-6 -ml-2" />
                 </div>
                 <span
-                  className={`text-[11px] font-black px-1.5 py-0.2 rounded-md ${
+                  className={`text-xs font-black px-1.5 rounded-md ${
                     opp.cardCount <= 2
-                      ? 'bg-rose-500/25 text-rose-300 border border-rose-400/50'
-                      : 'bg-slate-800/90 text-slate-200 border border-slate-700'
+                      ? 'bg-rose-500/30 text-rose-200 border border-rose-400/60'
+                      : 'text-amber-300'
                   }`}
                 >
                   {opp.cardCount}
@@ -210,14 +199,13 @@ export const UnoTableRing: React.FC<UnoTableRingProps> = ({
                 </motion.button>
               )}
 
-              {/* Last Action Micro Pill */}
               <AnimatePresence>
                 {opp.lastAction && !isVulnerableUno && (
                   <motion.span
                     key={opp.lastAction}
                     initial={{ opacity: 0, y: 4 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="mt-1 text-[9px] font-bold text-slate-400 truncate max-w-full"
+                    className="mt-0.5 text-[9px] font-bold text-slate-300/80 truncate max-w-full"
                   >
                     {opp.lastAction}
                   </motion.span>

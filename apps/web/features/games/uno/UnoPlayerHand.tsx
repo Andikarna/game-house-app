@@ -102,7 +102,7 @@ export const UnoPlayerHand: React.FC<UnoPlayerHandProps> = ({
             variant={pendingDrawCount > 0 ? 'danger' : 'secondary'}
             onClick={onDrawCard}
             icon={<Layers className="w-3.5 h-3.5" />}
-            className={`text-xs font-black shadow-lg ${
+            className={`text-xs font-black shadow-lg bg-[#07111C]/85 border-white/20 ${
               pendingDrawCount > 0 ? 'animate-pulse ring-2 ring-rose-300' : ''
             }`}
           >
@@ -131,7 +131,7 @@ export const UnoPlayerHand: React.FC<UnoPlayerHandProps> = ({
           </motion.button>
         )}
 
-        <span className="px-2.5 py-1 rounded-xl bg-surface/80 border border-slate-700/70 text-[11px] font-bold text-slate-300">
+        <span className="px-3 py-1 rounded-xl bg-[#07111C]/80 border border-white/15 text-[11px] font-bold text-slate-200">
           Kartu Kamu: <strong className="text-white">{hand.length}</strong>
         </span>
       </div>

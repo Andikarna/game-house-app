@@ -286,18 +286,24 @@ export const UnoView: React.FC = () => {
       animate={shakeTrigger > 0 ? { x: [0, -6, 6, -4, 4, 0] } : undefined}
       transition={{ duration: 0.35 }}
       key={shakeTrigger > 0 ? `shake-${Math.floor(shakeTrigger / 9999)}` : 'uno-arena'}
-      className="min-h-screen w-full bg-[#070B19] text-white flex flex-col justify-between p-2 sm:p-4 pb-4 overflow-x-hidden relative select-none"
+      className="min-h-screen w-full bg-[#06241B] text-white flex flex-col justify-between p-2 sm:p-4 pb-4 overflow-x-hidden relative select-none"
     >
+      {/* Original UNO Emerald Casino Felt Tabletop & Mahogany Side Rails */}
+      <div
+        className="fixed inset-0 pointer-events-none"
+        style={{
+          background:
+            'radial-gradient(ellipse 78% 70% at 50% 48%, #0E4D38 0%, #093325 52%, #041812 100%)',
+        }}
+      />
+      {/* Left & Right Dark Table Border Rails */}
+      <div className="fixed inset-y-0 left-0 w-3 sm:w-8 bg-gradient-to-r from-[#070B14] via-[#0B1220]/90 to-transparent pointer-events-none" />
+      <div className="fixed inset-y-0 right-0 w-3 sm:w-8 bg-gradient-to-l from-[#070B14] via-[#0B1220]/90 to-transparent pointer-events-none" />
       {/* Dynamic Ambient Color Aura matching Active UNO Color */}
       <div
-        className="fixed -top-24 left-1/4 w-[460px] h-[460px] rounded-full blur-[120px] opacity-25 pointer-events-none transition-colors duration-700"
+        className="fixed top-1/3 left-1/2 -translate-x-1/2 w-[520px] h-[360px] rounded-full blur-[130px] opacity-25 pointer-events-none transition-colors duration-700"
         style={{ backgroundColor: colorMeta.hex }}
       />
-      <div
-        className="fixed bottom-0 right-1/4 w-[420px] h-[420px] rounded-full blur-[130px] opacity-20 pointer-events-none transition-colors duration-700"
-        style={{ backgroundColor: colorMeta.hex }}
-      />
-      <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.03)_0%,transparent_70%)] pointer-events-none" />
 
       {/* 1. TOP ARENA HEADER */}
       <header className="w-full max-w-5xl mx-auto flex items-center justify-between px-3 py-2 rounded-2xl bg-surface/85 backdrop-blur-md border border-slate-700/60 shadow-lg z-30 mb-2">
