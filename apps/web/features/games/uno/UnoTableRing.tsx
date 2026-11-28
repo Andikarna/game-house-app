@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   UnoPlayerPublic,
@@ -23,6 +23,7 @@ interface UnoTableRingProps {
   lastFxActorId?: string;
   lastFxTargetId?: string;
   lastFxType?: string;
+  compactHorizontal?: boolean;
   onCatchUno: (targetPlayerId: string) => void;
   children?: React.ReactNode;
 }
@@ -39,8 +40,8 @@ function getCircularAngles(count: number): number[] {
   if (count === 3) return [-174, -90, -6];
   if (count === 4) return [-186, -124, -56, 6];
   if (count === 5) return [-192, -141, -90, -39, 12];
-  const start = -198;
-  const end = 18;
+  const start = count >= 8 ? -204 : -198;
+  const end = count >= 8 ? 24 : 18;
   return Array.from({ length: count }, (_, i) => start + ((end - start) * i) / (count - 1));
 }
 
@@ -55,9 +56,28 @@ export const UnoTableRing: React.FC<UnoTableRingProps> = ({
   lastFxActorId,
   lastFxTargetId,
   lastFxType,
+  compactHorizontal = false,
   onCatchUno,
   children,
 }) => {
+  const arenaRef = useRef<HTMLDivElement>(null);
+  const [arenaSize, setArenaSize] = useState({ w: 800, h: 460 });
+
+  useEffect(() => {
+    const el = arenaRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const update = () => {
+      const rect = el.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        setArenaSize({ w: rect.width, h: rect.height });
+      }
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [compactHorizontal]);
+
   const colorMeta = UNO_COLOR_META[activeColor] || UNO_COLOR_META.blue;
   const count = opponentsOrdered.length;
   const angles = getCircularAngles(count);
@@ -66,8 +86,8 @@ export const UnoTableRing: React.FC<UnoTableRingProps> = ({
   const circumference = 2 * Math.PI * ringRadius;
   const strokeOffset = circumference * (1 - timerRatio);
   const isCrowded = count >= 6;
-  const rx = count >= 5 ? 42.5 : 41;
-  const ry = count >= 5 ? 40 : 37.5;
+  const rx = count >= 8 ? 44 : count >= 5 ? 42.5 : 41;
+  const ry = count >= 8 ? 41 : count >= 5 ? 40 : 37.5;
 
   // Build directional arrow markers between every adjacent pair of seats around the circle
   // (including the bottom seat = local player at +90 deg).
@@ -97,9 +117,10 @@ export const UnoTableRing: React.FC<UnoTableRingProps> = ({
     const firstId = opponentsOrdered[0].playerId;
     const isMyTurnNow = !opponentsOrdered.some((o) => o.playerId === currentTurnPlayerId);
     const isNextMe = !opponentsOrdered.some((o) => o.playerId === nextTurnPlayerId) && Boolean(nextTurnPlayerId);
+    const leftBottomMid = Math.max(122, Math.min(148, (90 + (angles[0] + 360)) / 2));
     list.push({
       key: 'gap-bottom-left',
-      midAngle: (90 + (angles[0] + 360)) / 2,
+      midAngle: leftBottomMid,
       isActiveFlow:
         (direction === 1 && isMyTurnNow && nextTurnPlayerId === firstId) ||
         (direction === -1 && currentTurnPlayerId === firstId && isNextMe),
@@ -107,9 +128,10 @@ export const UnoTableRing: React.FC<UnoTableRingProps> = ({
 
     // Gap between last opponent (angles[count - 1]) and local player (+90 deg)
     const lastId = opponentsOrdered[count - 1].playerId;
+    const rightBottomMid = Math.max(32, Math.min(58, (angles[count - 1] + 90) / 2));
     list.push({
       key: 'gap-bottom-right',
-      midAngle: (angles[count - 1] + 90) / 2,
+      midAngle: rightBottomMid,
       isActiveFlow:
         (direction === 1 && currentTurnPlayerId === lastId && isNextMe) ||
         (direction === -1 && isMyTurnNow && nextTurnPlayerId === lastId),
@@ -119,25 +141,62 @@ export const UnoTableRing: React.FC<UnoTableRingProps> = ({
   }, [count, opponentsOrdered, angles, direction, currentTurnPlayerId, nextTurnPlayerId]);
 
   return (
-    <div className="relative w-full max-w-5xl mx-auto flex-1 min-h-[340px] sm:min-h-[450px] md:min-h-[480px] flex items-center justify-center z-20 my-1">
+    <div
+      ref={arenaRef}
+      className={`relative w-full max-w-5xl mx-auto flex-1 flex items-center justify-center z-20 ${
+        compactHorizontal
+          ? 'min-h-[210px] my-0'
+          : 'min-h-[340px] sm:min-h-[450px] md:min-h-[480px] my-1'
+      }`}
+    >
       {/* Subtle circular seating track */}
       <div
         className="hidden sm:block absolute inset-x-10 inset-y-8 rounded-[999px] border border-white/[0.04] pointer-events-none"
       />
 
-      {/* Directional rotation arrows between players (UNO-themed) */}
+      {/* Directional rotation arrows placed cleanly along the inner orbit so pods never hide them */}
       {turnArrows.map((arrow) => {
         const rad = (arrow.midAngle * Math.PI) / 180;
-        const arrowRx = rx * 0.95;
-        const arrowRy = ry * 0.95;
+        const innerScale = isCrowded ? 0.72 : 0.78;
+        const arrowRx = rx * innerScale;
+        const arrowRy = ry * (isCrowded ? 0.75 : 0.8);
         const leftPct = 50 + Math.cos(rad) * arrowRx;
         const topPct = 50 + Math.sin(rad) * arrowRy;
-        const tangentDeg = arrow.midAngle + (direction === 1 ? 90 : -90);
+
+        // Compute true screen-pixel tangent on the ellipse
+        const dx = -arenaSize.w * arrowRx * Math.sin(rad);
+        const dy = arenaSize.h * arrowRy * Math.cos(rad);
+        const baseTangentDeg = (Math.atan2(dy, dx) * 180) / Math.PI;
+        const tangentDeg = direction === 1 ? baseTangentDeg : baseTangentDeg + 180;
+
+        const sizeCls = compactHorizontal
+          ? arrow.isActiveFlow
+            ? 'w-8 h-8 scale-110'
+            : 'w-6 h-6 opacity-75'
+          : isCrowded
+          ? arrow.isActiveFlow
+            ? 'w-8 h-8 sm:w-11 sm:h-11 scale-110'
+            : 'w-6 h-6 sm:w-8 sm:h-8 opacity-75'
+          : arrow.isActiveFlow
+          ? 'w-10 h-10 sm:w-13 sm:h-13 scale-110'
+          : 'w-8 h-8 sm:w-10 sm:h-10 opacity-75';
+
+        const svgCls = compactHorizontal
+          ? arrow.isActiveFlow
+            ? 'w-5 h-5 relative z-10'
+            : 'w-4 h-4 relative z-10'
+          : isCrowded
+          ? arrow.isActiveFlow
+            ? 'w-5 h-5 sm:w-6 sm:h-6 relative z-10'
+            : 'w-4 h-4 sm:w-5 sm:h-5 relative z-10'
+          : arrow.isActiveFlow
+          ? 'w-6 h-6 sm:w-7 sm:h-7 relative z-10'
+          : 'w-5 h-5 sm:w-6 sm:h-6 relative z-10';
 
         return (
           <div
             key={arrow.key}
-            className="absolute -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none transition-all duration-300"
+            className="absolute -translate-x-1/2 -translate-y-1/2 z-[15] pointer-events-none transition-all duration-300"
             style={{
               left: `${leftPct.toFixed(2)}%`,
               top: `${topPct.toFixed(2)}%`,
@@ -146,25 +205,21 @@ export const UnoTableRing: React.FC<UnoTableRingProps> = ({
           >
             {/* Outer UNO 4-color / active-color rim */}
             <div
-              className={`relative rounded-full p-[2px] transition-all duration-300 ${
-                arrow.isActiveFlow
-                  ? 'w-10 h-10 sm:w-14 sm:h-14 scale-110'
-                  : 'w-8 h-8 sm:w-11 sm:h-11 opacity-75'
-              }`}
+              className={`relative rounded-full p-[2px] transition-all duration-300 ${sizeCls}`}
               style={{
                 background: arrow.isActiveFlow
                   ? `conic-gradient(from 0deg, #EF233C, #FACC15, #22C55E, #2589FF, #EF233C)`
                   : `linear-gradient(135deg, ${colorMeta.hex}99, rgba(255,255,255,0.22))`,
                 boxShadow: arrow.isActiveFlow
-                  ? `0 0 22px ${colorMeta.glow}, 0 6px 14px rgba(0,0,0,0.7)`
-                  : '0 4px 12px rgba(0,0,0,0.55)',
+                  ? `0 0 20px ${colorMeta.glow}, 0 6px 14px rgba(0,0,0,0.7)`
+                  : '0 4px 10px rgba(0,0,0,0.55)',
               }}
             >
-              {/* Inner UNO card-inspired badge rotated along circle tangent */}
+              {/* Inner UNO card-inspired badge rotated along ellipse tangent */}
               <div
                 className="w-full h-full rounded-full flex items-center justify-center relative overflow-hidden"
                 style={{
-                  transform: `rotate(${tangentDeg}deg)`,
+                  transform: `rotate(${tangentDeg.toFixed(1)}deg)`,
                   background: arrow.isActiveFlow
                     ? `radial-gradient(circle at 35% 30%, ${colorMeta.hex}55, #070E1A 78%)`
                     : 'radial-gradient(circle at 35% 30%, rgba(20,34,56,0.96), #060C16 80%)',
@@ -179,13 +234,8 @@ export const UnoTableRing: React.FC<UnoTableRingProps> = ({
                   }}
                 />
 
-                {/* Bold UNO Arcade Directional Arrow SVG (pointing right 0 deg, rotated by tangentDeg) */}
-                <svg
-                  viewBox="0 0 36 36"
-                  className={arrow.isActiveFlow ? 'w-6 h-6 sm:w-8 sm:h-8 relative z-10' : 'w-5 h-5 sm:w-6 sm:h-6 relative z-10'}
-                  fill="none"
-                >
-                  {/* Trailing speed chevron */}
+                {/* Bold UNO Arcade Directional Arrow SVG */}
+                <svg viewBox="0 0 36 36" className={svgCls} fill="none">
                   <path
                     d="M7 12l5 6-5 6"
                     stroke={arrow.isActiveFlow ? '#FACC15' : colorMeta.hex}
@@ -194,7 +244,6 @@ export const UnoTableRing: React.FC<UnoTableRingProps> = ({
                     strokeLinejoin="round"
                     opacity={arrow.isActiveFlow ? 0.95 : 0.7}
                   />
-                  {/* Main bold UNO arrowhead */}
                   <path
                     d="M15 9l10 9-10 9"
                     stroke="#050912"
@@ -209,7 +258,6 @@ export const UnoTableRing: React.FC<UnoTableRingProps> = ({
                     strokeLinecap="round"
                     strokeLinejoin="round"
                   />
-                  {/* Accent dot at tail */}
                   <circle
                     cx="26.5"
                     cy="18"
@@ -224,7 +272,13 @@ export const UnoTableRing: React.FC<UnoTableRingProps> = ({
       })}
 
       {/* Center table (Draw/Discard piles + ticker) */}
-      <div className="relative z-10 flex flex-col items-center justify-center scale-[0.74] sm:scale-95 md:scale-100 mt-7 sm:mt-8">
+      <div
+        className={`relative z-10 flex flex-col items-center justify-center ${
+          compactHorizontal
+            ? 'scale-[0.58] my-0'
+            : 'scale-[0.70] sm:scale-95 md:scale-100 mt-7 sm:mt-8'
+        }`}
+      >
         {children}
       </div>
 
@@ -265,9 +319,13 @@ export const UnoTableRing: React.FC<UnoTableRingProps> = ({
               }}
               transition={{ type: 'spring', stiffness: 380, damping: 24 }}
               className={`relative flex flex-col items-center rounded-2xl sm:rounded-3xl border md:backdrop-blur-xl transition-colors duration-300 ${
-                isCrowded
-                  ? 'py-1 px-1.5 sm:py-2 sm:px-2.5 w-[64px] sm:w-[112px]'
-                  : 'py-1.5 px-1.5 sm:py-2.5 sm:px-3 w-[72px] sm:w-[126px]'
+                compactHorizontal
+                  ? isCrowded
+                    ? 'py-1 px-1.5 w-[64px]'
+                    : 'py-1 px-2 w-[78px]'
+                  : isCrowded
+                  ? 'py-1 px-1.5 sm:py-2 sm:px-2.5 w-[60px] sm:w-[112px]'
+                  : 'py-1.5 px-1.5 sm:py-2.5 sm:px-3 w-[70px] sm:w-[126px]'
               }`}
               style={{
                 background: isTurn

@@ -26,7 +26,7 @@ import { ClimberAvatarIcon } from '../../../components/ui/AvatarSelector';
 import { soundManager } from '../../../components/audio/SoundManager';
 import { MusicControl } from '../../../components/audio/MusicControl';
 import { getGlobalSocket } from '../../../hooks/useSocket';
-import { LogOut, UserMinus, Trophy, Zap, Layers, Star } from 'lucide-react';
+import { LogOut, UserMinus, Trophy, Zap, Layers, Star, RotateCw } from 'lucide-react';
 
 export const UnoView: React.FC = () => {
   const {
@@ -50,6 +50,31 @@ export const UnoView: React.FC = () => {
   const [pendingSwapCard, setPendingSwapCard] = useState<UnoCardType | null>(null);
   const [shakeTrigger, setShakeTrigger] = useState(0);
   const [turnTimeLeft, setTurnTimeLeft] = useState<number>(20);
+  const [mobileLayout, setMobileLayout] = useState<'vertical' | 'horizontal'>(() => {
+    if (typeof window === 'undefined') return 'vertical';
+    return localStorage.getItem('gh_uno_mobile_layout') === 'horizontal' ? 'horizontal' : 'vertical';
+  });
+  const [viewport, setViewport] = useState<{ w: number; h: number }>({ w: 1200, h: 800 });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const syncViewport = () => setViewport({ w: window.innerWidth, h: window.innerHeight });
+    syncViewport();
+    window.addEventListener('resize', syncViewport);
+    return () => window.removeEventListener('resize', syncViewport);
+  }, []);
+
+  const toggleMobileLayout = useCallback(() => {
+    setMobileLayout((prev) => {
+      const next = prev === 'horizontal' ? 'vertical' : 'horizontal';
+      try { localStorage.setItem('gh_uno_mobile_layout', next); } catch {}
+      return next;
+    });
+  }, []);
+
+  const isMobileDevice = Math.min(viewport.w, viewport.h) < 768;
+  const needsCssRotation = isMobileDevice && mobileLayout === 'horizontal' && viewport.w < viewport.h;
+  const isCompactHorizontal = isMobileDevice && (mobileLayout === 'horizontal' || viewport.w > viewport.h);
 
   // Optimistic card prediction
   const [optimisticMove, setOptimisticMove] = useState<{
@@ -470,12 +495,18 @@ export const UnoView: React.FC = () => {
       animate={shakeTrigger > 0 ? { x: [0, -7, 7, -4, 4, 0] } : undefined}
       transition={{ duration: 0.38 }}
       key={shakeTrigger > 0 ? `shake-${Math.floor(shakeTrigger / 9999)}` : 'uno-arena'}
-      className="min-h-screen w-full text-white flex flex-col justify-between p-2 sm:p-3 pb-4 overflow-x-hidden relative select-none"
+      className={
+        needsCssRotation
+          ? 'fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rotate-90 w-[100dvh] h-[100dvw] text-white flex flex-col justify-between p-1.5 pb-2 overflow-hidden select-none z-30'
+          : `min-h-screen w-full text-white flex flex-col justify-between ${
+              isCompactHorizontal ? 'p-1.5 pb-2' : 'p-2 sm:p-3 pb-4'
+            } overflow-x-hidden relative select-none`
+      }
       style={{ background: '#030810' }}
     >
       {/* ── Deep casino stage + radial emerald felt tabletop ── */}
       <div
-        className="fixed inset-0 pointer-events-none"
+        className="absolute inset-0 pointer-events-none"
         style={{
           background:
             'radial-gradient(ellipse 90% 80% at 50% 48%, #115E43 0%, #07291D 52%, #020B08 100%)',
@@ -484,7 +515,7 @@ export const UnoView: React.FC = () => {
 
       {/* Casino felt diamond lattice pattern */}
       <div
-        className="fixed inset-0 pointer-events-none opacity-[0.07]"
+        className="absolute inset-0 pointer-events-none opacity-[0.07]"
         style={{
           backgroundImage: `radial-gradient(#ffffff 0.75px, transparent 0.75px), radial-gradient(#ffffff 0.75px, transparent 0.75px)`,
           backgroundSize: '28px 28px',
@@ -494,7 +525,7 @@ export const UnoView: React.FC = () => {
 
       {/* Diagonal subtle felt weave */}
       <div
-        className="fixed inset-0 pointer-events-none opacity-[0.04]"
+        className="absolute inset-0 pointer-events-none opacity-[0.04]"
         style={{
           backgroundImage:
             'repeating-linear-gradient(45deg, rgba(255,255,255,0.25) 0px, rgba(255,255,255,0.25) 1px, transparent 1px, transparent 16px)',
@@ -502,17 +533,17 @@ export const UnoView: React.FC = () => {
       />
 
       {/* Oval Casino Table Rim & Inner Golden/Neon Trim */}
-      <div className="fixed inset-1.5 sm:inset-4 md:inset-x-8 md:inset-y-4 rounded-[34px] sm:rounded-[90px] border-[3px] sm:border-[8px] border-[#0A1826]/90 md:shadow-[inset_0_0_80px_rgba(0,0,0,0.8),0_0_50px_rgba(0,0,0,0.9)] pointer-events-none" />
+      <div className="absolute inset-1.5 sm:inset-4 md:inset-x-8 md:inset-y-4 rounded-[34px] sm:rounded-[90px] border-[3px] sm:border-[8px] border-[#0A1826]/90 md:shadow-[inset_0_0_80px_rgba(0,0,0,0.8),0_0_50px_rgba(0,0,0,0.9)] pointer-events-none" />
       <div
-        className="fixed inset-3 sm:inset-7 md:inset-x-12 md:inset-y-7 rounded-[28px] sm:rounded-[78px] border border-amber-300/20 pointer-events-none transition-colors duration-700"
+        className="absolute inset-3 sm:inset-7 md:inset-x-12 md:inset-y-7 rounded-[28px] sm:rounded-[78px] border border-amber-300/20 pointer-events-none transition-colors duration-700"
         style={{ boxShadow: `inset 0 0 36px ${colorMeta.hex}20` }}
       />
       <div
-        className="hidden sm:block fixed inset-6 sm:inset-10 md:inset-x-16 md:inset-y-10 rounded-[36px] sm:rounded-[68px] border border-dashed border-white/10 pointer-events-none"
+        className="hidden sm:block absolute inset-6 sm:inset-10 md:inset-x-16 md:inset-y-10 rounded-[36px] sm:rounded-[68px] border border-dashed border-white/10 pointer-events-none"
       />
 
       {/* Subtle center tabletop watermark */}
-      <div className="fixed inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden">
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden">
         <div className="text-[56px] sm:text-[140px] font-black italic tracking-tighter text-white/[0.025] -rotate-12">
           UNO PARTY
         </div>
@@ -520,7 +551,7 @@ export const UnoView: React.FC = () => {
 
       {/* Lightweight mobile radial color aura (zero GPU blur filter cost) */}
       <div
-        className="md:hidden fixed inset-0 pointer-events-none opacity-20 transition-colors duration-500"
+        className="md:hidden absolute inset-0 pointer-events-none opacity-20 transition-colors duration-500"
         style={{
           background: `radial-gradient(circle at 50% 45%, ${colorMeta.hex} 0%, transparent 62%)`,
         }}
@@ -583,6 +614,19 @@ export const UnoView: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
+          {/* Mobile-only Horizontal / Vertical Resolution Mode Toggle */}
+          {isMobileDevice && (
+            <button
+              type="button"
+              onClick={toggleMobileLayout}
+              title={mobileLayout === 'horizontal' ? 'Ganti ke Mode Vertikal' : 'Ganti ke Mode Horizontal'}
+              className="flex items-center gap-1 px-2 py-1 rounded-xl bg-sky-500/15 hover:bg-sky-500/25 border border-sky-400/40 text-sky-200 text-[10px] font-black transition-all cursor-pointer"
+            >
+              <RotateCw className="w-3 h-3" />
+              <span>{mobileLayout === 'horizontal' ? 'Vert' : 'Horiz'}</span>
+            </button>
+          )}
+
           {/* Ping pill */}
           <div
             className="flex items-center gap-1 px-2 py-1 rounded-xl text-[10px] sm:text-[11px] font-black"
@@ -643,6 +687,7 @@ export const UnoView: React.FC = () => {
         lastFxActorId={unoState.lastFx?.actorId}
         lastFxTargetId={unoState.lastFx?.targetId}
         lastFxType={unoState.lastFx?.type}
+        compactHorizontal={isCompactHorizontal}
         onCatchUno={handleCatchUno}
       >
         <UnoCenterPile
@@ -685,6 +730,7 @@ export const UnoView: React.FC = () => {
         isMyTurn={isMyTurn}
         pendingDrawCount={unoState.pendingDrawCount}
         drawnPlayableCardId={unoState.drawnPlayableCardId}
+        compactHorizontal={isCompactHorizontal}
         onPlayCard={handleCardClick}
         onDrawCard={handleDrawCard}
         onPassTurn={handlePassTurn}
@@ -696,6 +742,7 @@ export const UnoView: React.FC = () => {
         flights={cardFlights}
         onFlightComplete={handleFlightComplete}
         comboBanner={comboBanner}
+        isRotated90={needsCssRotation}
       />
 
       {/* Emotes & Chat */}

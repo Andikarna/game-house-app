@@ -30,42 +30,49 @@ interface UnoAnimationLayerProps {
   flights: CardFlightEvent[];
   onFlightComplete: (id: string) => void;
   comboBanner: ComboCardBanner | null;
+  isRotated90?: boolean;
 }
 
-const getElCenter = (selectorOrId: string) => {
+const getElCenter = (selectorOrId: string, isRotated90: boolean) => {
   const el = document.getElementById(selectorOrId) || document.querySelector(selectorOrId);
   if (el) {
     const rect = el.getBoundingClientRect();
-    return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    const sx = rect.left + rect.width / 2;
+    const sy = rect.top + rect.height / 2;
+    if (isRotated90 && typeof window !== 'undefined') {
+      return { x: sy, y: window.innerWidth - sx };
+    }
+    return { x: sx, y: sy };
   }
   return null;
 };
 
 const resolveEndpoint = (
   target: { x: number; y: number } | 'deck' | 'center' | 'hand' | string,
-  role: 'from' | 'to'
+  role: 'from' | 'to',
+  isRotated90: boolean
 ) => {
   if (typeof window === 'undefined') return { x: 0, y: 0 };
-  const w = window.innerWidth;
-  const h = window.innerHeight;
+  const w = isRotated90 ? window.innerHeight : window.innerWidth;
+  const h = isRotated90 ? window.innerWidth : window.innerHeight;
 
   if (target === 'deck') {
-    const el = getElCenter('uno-draw-pile');
+    const el = getElCenter('uno-draw-pile', isRotated90);
     return el || { x: w * 0.42, y: h * 0.45 };
   }
   if (target === 'center') {
-    const el = getElCenter('uno-discard-pile');
+    const el = getElCenter('uno-discard-pile', isRotated90);
     return el || { x: w * 0.58, y: h * 0.45 };
   }
   if (target === 'hand') {
-    const el = getElCenter('uno-player-hand');
+    const el = getElCenter('uno-player-hand', isRotated90);
     return el || { x: w * 0.5, y: h * 0.86 };
   }
   if (typeof target === 'object') {
     return { x: target.x, y: target.y };
   }
   if (typeof target === 'string') {
-    const el = getElCenter(`uno-player-pod-${target}`);
+    const el = getElCenter(`uno-player-pod-${target}`, isRotated90);
     if (el) return el;
   }
   return role === 'from' ? { x: w * 0.5, y: h * 0.16 } : { x: w * 0.5, y: h * 0.45 };
@@ -73,8 +80,9 @@ const resolveEndpoint = (
 
 const FlyingCardItem: React.FC<{
   flight: CardFlightEvent;
+  isRotated90: boolean;
   onFlightComplete: (id: string) => void;
-}> = React.memo(({ flight, onFlightComplete }) => {
+}> = React.memo(({ flight, isRotated90, onFlightComplete }) => {
   const onCompleteRef = useRef(onFlightComplete);
   onCompleteRef.current = onFlightComplete;
   const completedRef = useRef(false);
@@ -88,8 +96,8 @@ const FlyingCardItem: React.FC<{
   // Freeze start/show/end coordinates and keyframe objects ONCE per flight.id
   // so 250ms parent countdown re-renders NEVER restart Framer Motion keyframes.
   const animConfig = useMemo(() => {
-    const start = resolveEndpoint(flight.from, 'from');
-    const end = resolveEndpoint(flight.to, 'to');
+    const start = resolveEndpoint(flight.from, 'from', isRotated90);
+    const end = resolveEndpoint(flight.to, 'to', isRotated90);
 
     if (flight.showcaseFirst && flight.card && !flight.isFaceDown) {
       const duration = flight.duration || 1.1;
@@ -247,15 +255,21 @@ export const UnoAnimationLayer: React.FC<UnoAnimationLayerProps> = ({
   flights,
   onFlightComplete,
   comboBanner,
+  isRotated90 = false,
 }) => {
   return (
-    <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
+    <div
+      className={`${
+        isRotated90 ? 'absolute inset-0' : 'fixed inset-0'
+      } pointer-events-none z-50 overflow-hidden`}
+    >
       {/* 1. Flying Cards */}
       <AnimatePresence>
         {flights.map((flight) => (
           <FlyingCardItem
             key={flight.id}
             flight={flight}
+            isRotated90={isRotated90}
             onFlightComplete={onFlightComplete}
           />
         ))}

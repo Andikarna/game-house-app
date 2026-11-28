@@ -14,6 +14,7 @@ interface UnoPlayerHandProps {
   isMyTurn: boolean;
   pendingDrawCount: number;
   drawnPlayableCardId: string | null;
+  compactHorizontal?: boolean;
   onPlayCard: (card: UnoCardType) => void;
   onDrawCard: () => void;
   onPassTurn: () => void;
@@ -35,6 +36,7 @@ export const UnoPlayerHand: React.FC<UnoPlayerHandProps> = ({
   isMyTurn,
   pendingDrawCount,
   drawnPlayableCardId,
+  compactHorizontal = false,
   onPlayCard,
   onDrawCard,
   onPassTurn,
@@ -71,7 +73,11 @@ export const UnoPlayerHand: React.FC<UnoPlayerHandProps> = ({
   const hasPlayable = isMyTurn && playableCardIds.length > 0 && !drawnPlayableCardId;
 
   return (
-    <div className="w-full max-w-5xl mx-auto flex flex-col items-center gap-2 z-20 pb-2">
+    <div
+      className={`w-full max-w-5xl mx-auto flex flex-col items-center z-20 ${
+        compactHorizontal ? 'gap-0.5 pb-0.5 scale-[0.82] origin-bottom' : 'gap-2 pb-2'
+      }`}
+    >
       {/* Action bar */}
       <div className="flex flex-wrap items-center justify-center gap-2 px-3">
 
