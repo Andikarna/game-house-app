@@ -63,8 +63,10 @@ export const UnoView: React.FC = () => {
   // Card Flight Animations & Combo Stacking
   const [cardFlights, setCardFlights] = useState<CardFlightEvent[]>([]);
   const [comboBanner, setComboBanner] = useState<ComboCardBanner | null>(null);
+  const [heldTopCard, setHeldTopCard] = useState<{ flightId: string; card: UnoCardType } | null>(null);
   const prevHandCountRef = useRef<number>(0);
   const prevTopCardIdRef = useRef<string>('');
+  const prevTopCardRef = useRef<UnoCardType | null>(null);
   const lastFxSeqRef = useRef<number>(0);
   const lastLocalDrawAtRef = useRef<number>(0);
   const comboTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -125,11 +127,15 @@ export const UnoView: React.FC = () => {
       const actorId = unoState.lastFx?.actorId;
       const isMe = actorId === playerId;
       if (!isMe) {
+        const flightId = `play-${currentTopId}-${Date.now()}`;
+        if (prevTopCardRef.current) {
+          setHeldTopCard({ flightId, card: prevTopCardRef.current });
+        }
         // Show card at center first, then land on discard pile so opponents can clearly see it
         setCardFlights((prev) => [
           ...prev,
           {
-            id: `play-${currentTopId}-${Date.now()}`,
+            id: flightId,
             card: unoState.topCard,
             from: actorId || 'opponent',
             to: 'center',
@@ -142,6 +148,7 @@ export const UnoView: React.FC = () => {
       }
     }
     prevTopCardIdRef.current = currentTopId;
+    prevTopCardRef.current = unoState.topCard;
   }, [unoState?.topCard?.id, playerId]);
 
   // Smooth local countdown
@@ -288,11 +295,15 @@ export const UnoView: React.FC = () => {
         baseVersion: unoState.stateVersion || 0,
       });
 
-      // Show card at center first, then land on discard pile
+      // Show card at center first, then land on discard pile; keep previous topCard on pile until landing
+      const flightId = `my-play-${card.id}-${Date.now()}`;
+      if (unoState.topCard) {
+        setHeldTopCard({ flightId, card: unoState.topCard });
+      }
       setCardFlights((prev) => [
         ...prev,
         {
-          id: `my-play-${card.id}-${Date.now()}`,
+          id: flightId,
           card,
           from: 'hand',
           to: 'center',
@@ -325,6 +336,7 @@ export const UnoView: React.FC = () => {
 
   const handleFlightComplete = useCallback((id: string) => {
     setCardFlights((prev) => prev.filter((f) => f.id !== id));
+    setHeldTopCard((curr) => (curr?.flightId === id ? null : curr));
   }, []);
 
   const handleDrawCard = useCallback(() => {
@@ -432,7 +444,7 @@ export const UnoView: React.FC = () => {
   const myPlayer = unoState.players[playerId];
   const isMyTurn = unoState.currentTurnPlayerId === playerId && !optimisticMove;
   const displayedActiveColor: UnoColor = optimisticMove?.color || unoState.activeColor || 'red';
-  const displayedTopCard = optimisticMove?.card || unoState.topCard;
+  const displayedTopCard = heldTopCard ? heldTopCard.card : (optimisticMove?.card || unoState.topCard);
   const displayedHand = optimisticMove
     ? (unoState.myHand || []).filter((c) => c.id !== optimisticMove.cardId)
     : unoState.myHand || [];
