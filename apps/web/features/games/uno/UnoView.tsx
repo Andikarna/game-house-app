@@ -355,6 +355,18 @@ export const UnoView: React.FC = () => {
       .filter((p): p is UnoPlayerPublic => Boolean(p));
   }, [unoState, playerId]);
 
+  // Calculate next turn player based on current direction (must be before early return!)
+  const nextTurnPlayerId = useMemo(() => {
+    if (!unoState) return undefined;
+    const order = unoState.playerOrder || [];
+    if (order.length <= 1) return undefined;
+    const currentIdx = order.indexOf(unoState.currentTurnPlayerId);
+    if (currentIdx === -1) return undefined;
+    const step = unoState.direction === 1 ? 1 : -1;
+    const nextIdx = (currentIdx + step + order.length) % order.length;
+    return order[nextIdx];
+  }, [unoState?.playerOrder, unoState?.currentTurnPlayerId, unoState?.direction]);
+
   if (!unoState) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-[#030810] text-slate-300 gap-4">
@@ -380,18 +392,6 @@ export const UnoView: React.FC = () => {
   const colorMeta = UNO_COLOR_META[displayedActiveColor] || UNO_COLOR_META.blue;
   const currentTurnPlayer = unoState.players[unoState.currentTurnPlayerId];
   const canDraw = isMyTurn && !unoState.drawnPlayableCardId;
-
-  // Calculate next turn player based on current direction
-  const nextTurnPlayerId = useMemo(() => {
-    if (!unoState) return undefined;
-    const order = unoState.playerOrder || [];
-    if (order.length <= 1) return undefined;
-    const currentIdx = order.indexOf(unoState.currentTurnPlayerId);
-    if (currentIdx === -1) return undefined;
-    const step = unoState.direction === 1 ? 1 : -1;
-    const nextIdx = (currentIdx + step + order.length) % order.length;
-    return order[nextIdx];
-  }, [unoState?.playerOrder, unoState?.currentTurnPlayerId, unoState?.direction]);
 
   const nextTurnPlayer = nextTurnPlayerId ? unoState.players[nextTurnPlayerId] : undefined;
 
