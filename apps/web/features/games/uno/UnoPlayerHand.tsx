@@ -65,9 +65,9 @@ export const UnoPlayerHand: React.FC<UnoPlayerHandProps> = ({
     sortedHand.length <= 5
       ? '-space-x-1 sm:space-x-1'
       : sortedHand.length <= 9
-      ? '-space-x-5 sm:-space-x-3'
+      ? '-space-x-7 sm:-space-x-3'
       : sortedHand.length <= 13
-      ? '-space-x-8 sm:-space-x-6'
+      ? '-space-x-9 sm:-space-x-6'
       : '-space-x-11 sm:-space-x-9';
 
   const hasPlayable = isMyTurn && playableCardIds.length > 0 && !drawnPlayableCardId;
@@ -158,7 +158,7 @@ export const UnoPlayerHand: React.FC<UnoPlayerHandProps> = ({
       </div>
 
       {/* Hand strip */}
-      <div id="uno-player-hand" className="w-full overflow-x-auto pb-5 pt-14 px-6 flex justify-start sm:justify-center scrollbar-none">
+      <div id="uno-player-hand" className="w-full overflow-x-auto pb-2 sm:pb-4 pt-6 sm:pt-12 px-3 sm:px-6 flex justify-start sm:justify-center scrollbar-none">
         <div className={`flex items-end ${overlapClass} mx-auto`}>
           <AnimatePresence initial={false}>
             {sortedHand.map((card, idx) => {

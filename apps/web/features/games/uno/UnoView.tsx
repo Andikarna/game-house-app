@@ -590,37 +590,52 @@ export const UnoView: React.FC = () => {
       />
 
       {/* ── TOP HEADER ── */}
-      <header className="w-full max-w-5xl mx-auto flex items-center justify-between px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-2xl bg-[#0C1A2A]/95 md:bg-[#0C1A2A]/90 md:backdrop-blur-xl border border-white/8 shadow-lg md:shadow-[0_8px_32px_rgba(0,0,0,0.6)] z-30 mb-1.5 sm:mb-2 relative">
+      <header className="w-full max-w-5xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-2xl bg-[#0C1A2A]/95 md:bg-[#0C1A2A]/90 md:backdrop-blur-xl border border-white/8 shadow-lg md:shadow-[0_8px_32px_rgba(0,0,0,0.6)] z-30 mb-1 sm:mb-2 relative shrink-0">
         {/* Accent line at top of header */}
         <div
           className="absolute top-0 left-6 right-6 h-px rounded-full pointer-events-none transition-all duration-700"
           style={{ background: `linear-gradient(90deg, transparent, ${colorMeta.hex}80, transparent)` }}
         />
 
-        <div className="flex items-center gap-2.5 min-w-0">
-          {myPlayer && <ClimberAvatarIcon avatar={myPlayer.avatar} size={34} shape="circle" />}
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <h3 className="text-xs sm:text-sm font-black text-white">UNO Party</h3>
-              <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-lg border ${modeBadgeColor} uppercase`}>
-                {modeBadgeLabel}
+        <div className="flex items-center justify-between sm:justify-start gap-2 min-w-0">
+          <div className="flex items-center gap-2 min-w-0">
+            {myPlayer && <ClimberAvatarIcon avatar={myPlayer.avatar} size={28} shape="circle" />}
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 flex-nowrap">
+                <h3 className="text-xs sm:text-sm font-black text-white whitespace-nowrap">UNO Party</h3>
+                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-lg border whitespace-nowrap shrink-0 ${modeBadgeColor} uppercase`}>
+                  {modeBadgeLabel}
+                </span>
+              </div>
+              <span className="text-[10px] text-slate-400 font-mono block truncate">
+                Room <strong className="text-amber-400 font-black">{room?.code}</strong>
+                {' '}• {unoState.playerOrder.length} Pemain
               </span>
             </div>
-            <span className="text-[10px] text-slate-400 font-mono block truncate mt-0.5">
-              Room <strong className="text-amber-400 font-black">{room?.code}</strong>
-              {' '}• {unoState.playerOrder.length} Pemain
-            </span>
           </div>
-        </div>
 
-        <div className="flex items-center gap-1.5 shrink-0">
-          {/* Mobile-only Horizontal / Vertical Resolution Mode Toggle */}
+          {/* Mobile-only quick Horz/Vert toggle on Row 1 right */}
           {isMobileDevice && (
             <button
               type="button"
               onClick={toggleMobileLayout}
               title={mobileLayout === 'horizontal' ? 'Ganti ke Mode Vertikal' : 'Ganti ke Mode Horizontal'}
-              className="flex items-center gap-1 px-2 py-1 rounded-xl bg-sky-500/15 hover:bg-sky-500/25 border border-sky-400/40 text-sky-200 text-[10px] font-black transition-all cursor-pointer"
+              className="sm:hidden flex items-center gap-1 px-2 py-1 rounded-xl bg-sky-500/15 hover:bg-sky-500/25 border border-sky-400/40 text-sky-200 text-[10px] font-black transition-all cursor-pointer shrink-0"
+            >
+              <RotateCw className="w-3 h-3" />
+              <span>{mobileLayout === 'horizontal' ? 'Vert' : 'Horiz'}</span>
+            </button>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between sm:justify-end gap-1 sm:gap-1.5 shrink-0">
+          {/* Desktop/Landscape mobile toggle */}
+          {isMobileDevice && (
+            <button
+              type="button"
+              onClick={toggleMobileLayout}
+              title={mobileLayout === 'horizontal' ? 'Ganti ke Mode Vertikal' : 'Ganti ke Mode Horizontal'}
+              className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-xl bg-sky-500/15 hover:bg-sky-500/25 border border-sky-400/40 text-sky-200 text-[10px] font-black transition-all cursor-pointer"
             >
               <RotateCw className="w-3 h-3" />
               <span>{mobileLayout === 'horizontal' ? 'Vert' : 'Horiz'}</span>
@@ -640,36 +655,38 @@ export const UnoView: React.FC = () => {
             <span>{ping > 0 ? `${ping}ms` : 'Live'}</span>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setIsLeaderboardOpen(true)}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-amber-500/12 hover:bg-amber-500/22 border border-amber-500/30 text-amber-300 text-[11px] font-black transition-all cursor-pointer"
-          >
-            <Trophy className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Rank</span>
-          </button>
-
-          {unoState.playerOrder.length > 2 && (
+          <div className="flex items-center gap-1 sm:gap-1.5">
             <button
               type="button"
-              onClick={() => setIsVoteKickModalOpen(true)}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-rose-500/12 hover:bg-rose-500/22 border border-rose-500/30 text-rose-300 text-[11px] font-black transition-all cursor-pointer"
+              onClick={() => setIsLeaderboardOpen(true)}
+              className="flex items-center gap-1 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-xl bg-amber-500/12 hover:bg-amber-500/22 border border-amber-500/30 text-amber-300 text-[11px] font-black transition-all cursor-pointer"
             >
-              <UserMinus className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Kick</span>
+              <Trophy className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Rank</span>
             </button>
-          )}
 
-          <MusicControl compact />
+            {unoState.playerOrder.length > 2 && (
+              <button
+                type="button"
+                onClick={() => setIsVoteKickModalOpen(true)}
+                className="flex items-center gap-1 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-xl bg-rose-500/12 hover:bg-rose-500/22 border border-rose-500/30 text-rose-300 text-[11px] font-black transition-all cursor-pointer"
+              >
+                <UserMinus className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Kick</span>
+              </button>
+            )}
 
-          <button
-            type="button"
-            onClick={handleLeaveRoom}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white/5 hover:bg-rose-600/18 border border-white/10 hover:border-rose-500/40 text-xs font-bold text-slate-300 hover:text-rose-400 transition-all cursor-pointer"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Keluar</span>
-          </button>
+            <MusicControl compact />
+
+            <button
+              type="button"
+              onClick={handleLeaveRoom}
+              className="flex items-center gap-1 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-xl bg-white/5 hover:bg-rose-600/18 border border-white/10 hover:border-rose-500/40 text-xs font-bold text-slate-300 hover:text-rose-400 transition-all cursor-pointer"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Keluar</span>
+            </button>
+          </div>
         </div>
       </header>
 

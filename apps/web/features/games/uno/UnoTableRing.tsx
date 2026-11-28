@@ -86,8 +86,9 @@ export const UnoTableRing: React.FC<UnoTableRingProps> = ({
   const circumference = 2 * Math.PI * ringRadius;
   const strokeOffset = circumference * (1 - timerRatio);
   const isCrowded = count >= 6;
-  const rx = count >= 8 ? 44 : count >= 5 ? 42.5 : 41;
-  const ry = count >= 8 ? 41 : count >= 5 ? 40 : 37.5;
+  const rx = count >= 8 ? 43 : count >= 5 ? 42 : 40.5;
+  const ry = count >= 8 ? (compactHorizontal ? 38 : 37) : count >= 5 ? 37 : 35.5;
+  const centerY = compactHorizontal ? 50 : 53;
 
   // Build directional arrow markers between every adjacent pair of seats around the circle
   // (including the bottom seat = local player at +90 deg).
@@ -146,7 +147,7 @@ export const UnoTableRing: React.FC<UnoTableRingProps> = ({
       className={`relative w-full max-w-5xl mx-auto flex-1 flex items-center justify-center z-20 ${
         compactHorizontal
           ? 'min-h-[210px] my-0'
-          : 'min-h-[340px] sm:min-h-[450px] md:min-h-[480px] my-1'
+          : 'min-h-[370px] sm:min-h-[460px] md:min-h-[490px] mt-1 mb-0.5'
       }`}
     >
       {/* Subtle circular seating track */}
@@ -157,11 +158,11 @@ export const UnoTableRing: React.FC<UnoTableRingProps> = ({
       {/* Directional rotation arrows placed cleanly along the inner orbit so pods never hide them */}
       {turnArrows.map((arrow) => {
         const rad = (arrow.midAngle * Math.PI) / 180;
-        const innerScale = isCrowded ? 0.72 : 0.78;
+        const innerScale = isCrowded ? 0.71 : 0.78;
         const arrowRx = rx * innerScale;
-        const arrowRy = ry * (isCrowded ? 0.75 : 0.8);
+        const arrowRy = ry * (isCrowded ? 0.73 : 0.8);
         const leftPct = 50 + Math.cos(rad) * arrowRx;
-        const topPct = 50 + Math.sin(rad) * arrowRy;
+        const topPct = centerY + Math.sin(rad) * arrowRy;
 
         // Compute true screen-pixel tangent on the ellipse
         const dx = -arenaSize.w * arrowRx * Math.sin(rad);
@@ -276,7 +277,9 @@ export const UnoTableRing: React.FC<UnoTableRingProps> = ({
         className={`relative z-10 flex flex-col items-center justify-center ${
           compactHorizontal
             ? 'scale-[0.58] my-0'
-            : 'scale-[0.70] sm:scale-95 md:scale-100 mt-7 sm:mt-8'
+            : isCrowded
+            ? 'scale-[0.62] sm:scale-95 md:scale-100 mt-8 sm:mt-8'
+            : 'scale-[0.72] sm:scale-95 md:scale-100 mt-7 sm:mt-8'
         }`}
       >
         {children}
@@ -299,7 +302,7 @@ export const UnoTableRing: React.FC<UnoTableRingProps> = ({
 
         const rad = ((angles[idx] ?? -90) * Math.PI) / 180;
         const leftPct = 50 + Math.cos(rad) * rx;
-        const topPct = 50 + Math.sin(rad) * ry;
+        const topPct = centerY + Math.sin(rad) * ry;
 
         return (
           <div
@@ -324,8 +327,8 @@ export const UnoTableRing: React.FC<UnoTableRingProps> = ({
                     ? 'py-1 px-1.5 w-[64px]'
                     : 'py-1 px-2 w-[78px]'
                   : isCrowded
-                  ? 'py-1 px-1.5 sm:py-2 sm:px-2.5 w-[60px] sm:w-[112px]'
-                  : 'py-1.5 px-1.5 sm:py-2.5 sm:px-3 w-[70px] sm:w-[126px]'
+                  ? 'py-1 px-1 sm:py-2 sm:px-2.5 w-[54px] sm:w-[112px]'
+                  : 'py-1.5 px-1.5 sm:py-2.5 sm:px-3 w-[68px] sm:w-[126px]'
               }`}
               style={{
                 background: isTurn
@@ -492,14 +495,16 @@ export const UnoTableRing: React.FC<UnoTableRingProps> = ({
               </AnimatePresence>
 
               {/* Last action chip */}
-              {opp.lastAction && !isVulnerableUno && (
+              {opp.lastAction && !isVulnerableUno && !compactHorizontal && (
                 <AnimatePresence mode="wait">
                   <motion.span
                     key={opp.lastAction}
                     initial={{ opacity: 0, y: 3 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0 }}
-                    className="text-[8px] font-bold text-slate-400/70 truncate max-w-full mt-0.5"
+                    className={`${
+                      isCrowded ? 'hidden sm:block' : 'block'
+                    } text-[8px] font-bold text-slate-400/70 truncate max-w-full mt-0.5`}
                   >
                     {opp.lastAction}
                   </motion.span>
