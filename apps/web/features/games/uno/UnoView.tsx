@@ -637,6 +637,7 @@ export const UnoView: React.FC = () => {
         currentTurnPlayerId={unoState.currentTurnPlayerId}
         nextTurnPlayerId={nextTurnPlayerId}
         activeColor={displayedActiveColor}
+        direction={unoState.direction}
         turnTimeLeft={turnTimeLeft}
         turnDurationSeconds={unoState.turnDurationSeconds || 20}
         lastFxActorId={unoState.lastFx?.actorId}

@@ -17,6 +17,7 @@ interface UnoTableRingProps {
   currentTurnPlayerId: string;
   nextTurnPlayerId?: string;
   activeColor: UnoColor;
+  direction: 1 | -1;
   turnTimeLeft: number;
   turnDurationSeconds: number;
   lastFxActorId?: string;
@@ -48,6 +49,7 @@ export const UnoTableRing: React.FC<UnoTableRingProps> = ({
   currentTurnPlayerId,
   nextTurnPlayerId,
   activeColor,
+  direction,
   turnTimeLeft,
   turnDurationSeconds,
   lastFxActorId,
@@ -64,6 +66,57 @@ export const UnoTableRing: React.FC<UnoTableRingProps> = ({
   const circumference = 2 * Math.PI * ringRadius;
   const strokeOffset = circumference * (1 - timerRatio);
   const isCrowded = count >= 6;
+  const rx = count >= 5 ? 42.5 : 41;
+  const ry = count >= 5 ? 40 : 37.5;
+
+  // Build directional arrow markers between every adjacent pair of seats around the circle
+  // (including the bottom seat = local player at +90 deg).
+  const turnArrows = React.useMemo(() => {
+    if (count === 0) return [];
+    const list: Array<{
+      key: string;
+      midAngle: number;
+      isActiveFlow: boolean;
+    }> = [];
+
+    // Opponent-to-opponent gaps (clockwise)
+    for (let i = 0; i < count - 1; i++) {
+      const fromId = opponentsOrdered[i].playerId;
+      const toId = opponentsOrdered[i + 1].playerId;
+      const isActiveFlow =
+        (direction === 1 && currentTurnPlayerId === fromId && nextTurnPlayerId === toId) ||
+        (direction === -1 && currentTurnPlayerId === toId && nextTurnPlayerId === fromId);
+      list.push({
+        key: `gap-${i}`,
+        midAngle: (angles[i] + angles[i + 1]) / 2,
+        isActiveFlow,
+      });
+    }
+
+    // Gap between local player (+90 deg) and first opponent (angles[0])
+    const firstId = opponentsOrdered[0].playerId;
+    const isMyTurnNow = !opponentsOrdered.some((o) => o.playerId === currentTurnPlayerId);
+    const isNextMe = !opponentsOrdered.some((o) => o.playerId === nextTurnPlayerId) && Boolean(nextTurnPlayerId);
+    list.push({
+      key: 'gap-bottom-left',
+      midAngle: (90 + (angles[0] + 360)) / 2,
+      isActiveFlow:
+        (direction === 1 && isMyTurnNow && nextTurnPlayerId === firstId) ||
+        (direction === -1 && currentTurnPlayerId === firstId && isNextMe),
+    });
+
+    // Gap between last opponent (angles[count - 1]) and local player (+90 deg)
+    const lastId = opponentsOrdered[count - 1].playerId;
+    list.push({
+      key: 'gap-bottom-right',
+      midAngle: (angles[count - 1] + 90) / 2,
+      isActiveFlow:
+        (direction === 1 && currentTurnPlayerId === lastId && isNextMe) ||
+        (direction === -1 && isMyTurnNow && nextTurnPlayerId === lastId),
+    });
+
+    return list;
+  }, [count, opponentsOrdered, angles, direction, currentTurnPlayerId, nextTurnPlayerId]);
 
   return (
     <div className="relative w-full max-w-5xl mx-auto flex-1 min-h-[340px] sm:min-h-[450px] md:min-h-[480px] flex items-center justify-center z-20 my-1">
@@ -71,6 +124,63 @@ export const UnoTableRing: React.FC<UnoTableRingProps> = ({
       <div
         className="hidden sm:block absolute inset-x-10 inset-y-8 rounded-[999px] border border-white/[0.04] pointer-events-none"
       />
+
+      {/* Directional rotation arrows between players */}
+      {turnArrows.map((arrow) => {
+        const rad = (arrow.midAngle * Math.PI) / 180;
+        const arrowRx = rx * 0.96;
+        const arrowRy = ry * 0.96;
+        const leftPct = 50 + Math.cos(rad) * arrowRx;
+        const topPct = 50 + Math.sin(rad) * arrowRy;
+        const tangentDeg = arrow.midAngle + (direction === 1 ? 90 : -90);
+
+        return (
+          <div
+            key={arrow.key}
+            className="absolute -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none transition-all duration-300"
+            style={{
+              left: `${leftPct.toFixed(2)}%`,
+              top: `${topPct.toFixed(2)}%`,
+            }}
+            title={direction === 1 ? 'Arah putaran searah jarum jam' : 'Arah putaran berlawanan jarum jam'}
+          >
+            <div
+              className={`flex items-center justify-center rounded-full border transition-all duration-300 ${
+                arrow.isActiveFlow
+                  ? 'w-6 h-6 sm:w-8 sm:h-8 scale-110'
+                  : 'w-5 h-5 sm:w-6 sm:h-6 opacity-65'
+              }`}
+              style={{
+                transform: `rotate(${tangentDeg}deg)`,
+                background: arrow.isActiveFlow
+                  ? `${colorMeta.hex}33`
+                  : 'rgba(8, 17, 30, 0.72)',
+                borderColor: arrow.isActiveFlow
+                  ? colorMeta.hex
+                  : 'rgba(255, 255, 255, 0.16)',
+                boxShadow: arrow.isActiveFlow
+                  ? `0 0 14px ${colorMeta.glow}`
+                  : 'none',
+              }}
+            >
+              {/* Double chevron pointing right (0 deg), rotated along circle tangent */}
+              <svg
+                viewBox="0 0 24 24"
+                className={arrow.isActiveFlow ? 'w-3.5 h-3.5 sm:w-4 sm:h-4' : 'w-3 h-3 sm:w-3.5 sm:h-3.5'}
+                fill="none"
+              >
+                <path
+                  d="M6 7l5 5-5 5M13 7l5 5-5 5"
+                  stroke={arrow.isActiveFlow ? '#FFFFFF' : colorMeta.hex}
+                  strokeWidth="2.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </div>
+          </div>
+        );
+      })}
 
       {/* Center table (Draw/Discard piles + ticker) */}
       <div className="relative z-10 flex flex-col items-center justify-center scale-[0.74] sm:scale-95 md:scale-100 mt-7 sm:mt-8">
@@ -93,8 +203,6 @@ export const UnoTableRing: React.FC<UnoTableRingProps> = ({
         const miniCardsCount = Math.min(5, Math.max(1, opp.cardCount));
 
         const rad = ((angles[idx] ?? -90) * Math.PI) / 180;
-        const rx = count >= 5 ? 42.5 : 41;
-        const ry = count >= 5 ? 40 : 37.5;
         const leftPct = 50 + Math.cos(rad) * rx;
         const topPct = 50 + Math.sin(rad) * ry;
 
