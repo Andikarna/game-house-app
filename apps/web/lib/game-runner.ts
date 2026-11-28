@@ -2,6 +2,7 @@ import { RoomInfo, Player } from '../shared';
 import { LudoGame } from './games/ludo/LudoGame';
 import { SnakeLadderGame } from './games/snake-ladder/SnakeLadderGame';
 import { PanjatPinangGame } from './games/panjat-pinang/PanjatPinangGame';
+import { UnoGame } from './games/uno/UnoGame';
 
 const dummyIo: any = {
   to: () => ({
@@ -18,6 +19,10 @@ export function createInitialGameState(room: RoomInfo): any {
     const snake = new SnakeLadderGame();
     snake.initialize(room.id, room.players, room.settings, dummyIo);
     return snake.getState();
+  } else if (room.settings.gameId === 'uno') {
+    const uno = new UnoGame();
+    uno.initialize(room.id, room.players, room.settings, dummyIo);
+    return uno.getStateWithSecrets();
   } else {
     const panjat = new PanjatPinangGame();
     panjat.initialize(room.id, room.players, room.settings, dummyIo);
@@ -255,4 +260,71 @@ export function removeSnakePlayer(
   restoreSnakeState(snake, currentGameState);
   snake.removePlayer(targetPlayerId);
   return snake.getState();
+}
+
+export function processUnoAction(
+  room: RoomInfo,
+  currentGameState: any,
+  playerId: string,
+  actionData: any
+): { gameState: any; results: any | null } {
+  const uno = new UnoGame();
+  uno.initialize(room.id, room.players, room.settings, dummyIo);
+  if (currentGameState) {
+    uno.restoreState(currentGameState);
+  }
+
+  uno.handleInput(playerId, actionData);
+  const newGameState = uno.getStateWithSecrets();
+  const results = uno.isFinished() ? uno.getResults() : null;
+  uno.cleanup();
+  return { gameState: newGameState, results };
+}
+
+export function checkUnoTimeout(
+  room: RoomInfo,
+  currentGameState: any
+): { changed: boolean; gameState: any; results: any | null } {
+  if (
+    !currentGameState ||
+    currentGameState.gameId !== 'uno' ||
+    currentGameState.status === 'finished'
+  ) {
+    return { changed: false, gameState: currentGameState, results: null };
+  }
+
+  const uno = new UnoGame();
+  uno.initialize(room.id, room.players, room.settings, dummyIo);
+  uno.restoreState(currentGameState);
+
+  const changed = uno.checkTimeouts(Date.now());
+  if (changed) {
+    const newGameState = uno.getStateWithSecrets();
+    const results = uno.isFinished() ? uno.getResults() : null;
+    uno.cleanup();
+    return { changed: true, gameState: newGameState, results };
+  }
+
+  uno.cleanup();
+  return { changed: false, gameState: currentGameState, results: null };
+}
+
+export function removeUnoPlayer(
+  room: RoomInfo,
+  currentGameState: any,
+  targetPlayerId: string
+): any {
+  const uno = new UnoGame();
+  uno.initialize(room.id, room.players, room.settings, dummyIo);
+  if (currentGameState) {
+    uno.restoreState(currentGameState);
+  }
+  uno.removePlayer(targetPlayerId);
+  const updated = uno.getStateWithSecrets();
+  uno.cleanup();
+  return updated;
+}
+
+export function sanitizeUnoForClient(gameState: any, playerId?: string | null): any {
+  return UnoGame.sanitizeStateForPlayer(gameState, playerId);
 }

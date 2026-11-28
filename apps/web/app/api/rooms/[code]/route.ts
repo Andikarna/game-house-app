@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { safeDbQuery } from '../../../../lib/db';
 import { getRoomByCode, saveMemoryRoom, RoomEntry } from '../../../../lib/room-service';
-import { checkLudoTimeout, checkSnakeTimeout } from '../../../../lib/game-runner';
+import { checkLudoTimeout, checkSnakeTimeout, checkUnoTimeout, sanitizeUnoForClient } from '../../../../lib/game-runner';
+import { updateUnoRoomCAS, recordUnoMatchResult } from '../../../../lib/uno-supabase';
 
 export const dynamic = 'force-dynamic';
 export const preferredRegion = 'sin1';
@@ -30,15 +31,11 @@ export async function GET(
     const clientVk = searchParams.get('vk') === '1';
     const now = Date.now();
 
-    // Throttle heartbeat updates to at most once every 15 seconds per player
+    // Throttle heartbeat updates to at most once every 15 seconds per player (skip MySQL for UNO)
     if (playerId) {
       const lastSeen = lastHeartbeatMap.get(playerId) || 0;
       if (now - lastSeen > 15000) {
         lastHeartbeatMap.set(playerId, now);
-        safeDbQuery(
-          'UPDATE gh_players SET last_seen_at = ?, is_connected = 1 WHERE id = ? AND room_code = ?',
-          [now, playerId, code]
-        ).catch(() => {});
       }
     }
 
@@ -57,6 +54,17 @@ export async function GET(
       return NextResponse.json({ success: false, error: 'Room not found.' }, { status: 404 });
     }
 
+    if (playerId && roomData.room.settings.gameId !== 'uno') {
+      const lastSeen = lastHeartbeatMap.get(playerId) || 0;
+      if (now - lastSeen > 15000) {
+        lastHeartbeatMap.set(playerId, now);
+        safeDbQuery(
+          'UPDATE gh_players SET last_seen_at = ?, is_connected = 1 WHERE id = ? AND room_code = ?',
+          [now, playerId, code]
+        ).catch(() => {});
+      }
+    }
+
     // Never return a transient 0-player room snapshot to polling clients
     if (!roomData.room.players || roomData.room.players.length === 0) {
       return NextResponse.json(
@@ -66,15 +74,20 @@ export async function GET(
     }
 
     let ludoChanged = false;
+    const isUno = roomData.room.settings.gameId === 'uno';
 
-    // Check if Ludo or Snake-Ladder turn timed out, bot needs to act, or passAt expired
+    // Check if Ludo, Snake-Ladder, or UNO turn timed out or bot needs to act
     if (
       roomData.room.status === 'in-game' &&
-      (roomData.room.settings.gameId === 'ludo' || roomData.room.settings.gameId === 'snake-ladder') &&
+      (roomData.room.settings.gameId === 'ludo' ||
+        roomData.room.settings.gameId === 'snake-ladder' ||
+        isUno) &&
       roomData.gameState
     ) {
       const { changed, gameState: updatedState, results } =
-        roomData.room.settings.gameId === 'snake-ladder'
+        isUno
+          ? checkUnoTimeout(roomData.room, roomData.gameState)
+          : roomData.room.settings.gameId === 'snake-ladder'
           ? checkSnakeTimeout(roomData.room, roomData.gameState)
           : checkLudoTimeout(roomData.room, roomData.gameState);
       if (changed) {
@@ -85,7 +98,32 @@ export async function GET(
         const nextUpdatedAt = Math.max(Date.now(), expectedUpdatedAt + 1);
 
         let wonRace = true;
-        if (expectedUpdatedAt > 0) {
+        if (isUno) {
+          const nextEntry: RoomEntry = {
+            ...roomData,
+            room: { ...roomData.room, status: newStatus },
+            gameState: updatedState,
+            gameResults: results,
+            dbUpdatedAt: nextUpdatedAt,
+          };
+          const casRes = await updateUnoRoomCAS(code, expectedUpdatedAt, nextEntry);
+          wonRace = casRes.wonRace;
+          if (!wonRace && casRes.fresh) {
+            roomData.room = casRes.fresh.room;
+            roomData.gameState = casRes.fresh.gameState;
+            roomData.gameResults = casRes.fresh.gameResults;
+            roomData.dbUpdatedAt = casRes.fresh.dbUpdatedAt;
+          }
+          if (wonRace && results) {
+            recordUnoMatchResult({
+              roomCode: code,
+              gameMode: roomData.room.settings.gameMode,
+              rankings: results.rankings || [],
+              totalTurns: updatedState?.turnCount || 0,
+              durationMs: Math.max(0, Date.now() - (updatedState?.startedAt || Date.now())),
+            }).catch(() => {});
+          }
+        } else if (expectedUpdatedAt > 0) {
           const [updateRes] = await safeDbQuery<any>(
             'UPDATE gh_rooms SET game_state_json = ?, game_results_json = ?, status = ?, updated_at = ? WHERE code = ? AND updated_at = ?',
             [JSON.stringify(updatedState), resultsJson, newStatus, nextUpdatedAt, code, expectedUpdatedAt]
@@ -115,7 +153,7 @@ export async function GET(
             roomData.chatMessages,
             nextUpdatedAt
           );
-        } else {
+        } else if (!isUno) {
           const fresh = await getRoomByCode(code, { includeAux: true });
           if (fresh && fresh.room.players.length > 0) {
             roomData.room = fresh.room;
@@ -132,7 +170,9 @@ export async function GET(
     if (roomData.activeVoteKick && Date.now() > roomData.activeVoteKick.expiresAt) {
       roomData.activeVoteKick = null;
       saveMemoryRoom(roomData.room, roomData.gameState, roomData.gameResults, null);
-      safeDbQuery('DELETE FROM gh_vote_kicks WHERE room_code = ?', [code]).catch(() => {});
+      if (!isUno) {
+        safeDbQuery('DELETE FROM gh_vote_kicks WHERE room_code = ?', [code]).catch(() => {});
+      }
     }
 
     const recentChats = (roomData.chatMessages || []).filter((c) => now - c.timestamp < 15000);
@@ -166,7 +206,7 @@ export async function GET(
       success: true,
       u: roomData.dbUpdatedAt || 0,
       room: roomData.room,
-      gameState: roomData.gameState,
+      gameState: isUno ? sanitizeUnoForClient(roomData.gameState, playerId) : roomData.gameState,
       gameResults: roomData.gameResults,
       emotes: recentEmotes,
       voteKick: roomData.activeVoteKick || null,

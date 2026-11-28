@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { KeyRound, Users, Dices, Trophy, Zap, Shield, HelpCircle } from 'lucide-react';
 
 export const HowToPlay: React.FC = () => {
-  const [guideTab, setGuideTab] = useState<'general' | 'panjat-pinang' | 'ludo' | 'snake-ladder' | 'impostor-desa' | 'hidden-team'>('general');
+  const [guideTab, setGuideTab] = useState<'general' | 'uno' | 'panjat-pinang' | 'ludo' | 'snake-ladder' | 'impostor-desa' | 'hidden-team'>('general');
 
   const generalSteps = [
     {
@@ -30,6 +30,24 @@ export const HowToPlay: React.FC = () => {
       title: 'Tanding & Raih Kemenangan!',
       description: 'Bermain real-time bersama teman di browser. Pemenang akan dinobatkan di podium juara lengkap dengan animasi selebrasi!',
       icon: <Trophy className="w-5 h-5 text-amber-400" />,
+    },
+  ];
+
+  const unoTips = [
+    {
+      key: 'Cocok Warna / Angka',
+      action: 'Buang Kartu Cepat',
+      tip: 'Mainkan kartu dengan warna, angka, atau simbol yang sama dengan kartu meja, atau keluarkan Wild (+4) untuk mengubah warna!',
+    },
+    {
+      key: 'Teriak UNO! (Tombol U)',
+      action: 'Wajib Saat 1-2 Kartu',
+      tip: 'Tekan tombol UNO saat tersisa 2 atau 1 kartu! Jika lupa, lawan bisa menekan TANGKAP +2 dan menghukummu menarik 2 kartu!',
+    },
+    {
+      key: 'Turbo Stack & Chaos 7-0',
+      action: 'Kombo Serangan',
+      tip: 'Di mode Stack, balas +2 dengan +2/+4! Di mode Chaos, angka 7 menukar tangan kartu dengan lawan & angka 0 memutar semua tangan!',
     },
   ];
 
@@ -161,6 +179,16 @@ export const HowToPlay: React.FC = () => {
             Alur Party Room
           </button>
           <button
+            onClick={() => setGuideTab('uno')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+              guideTab === 'uno'
+                ? 'bg-rose-600 text-white shadow-glow-orange'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            Tips UNO Party
+          </button>
+          <button
             onClick={() => setGuideTab('panjat-pinang')}
             className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
               guideTab === 'panjat-pinang'
@@ -236,6 +264,26 @@ export const HowToPlay: React.FC = () => {
                 <p className="text-xs text-slate-300 leading-relaxed">
                   {item.description}
                 </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Tab: UNO Party Tips */}
+      {guideTab === 'uno' && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-6">
+          {unoTips.map((tip, idx) => (
+            <div
+              key={idx}
+              className="p-6 rounded-3xl bg-surface border border-rose-500/30 shadow-xl flex flex-col justify-between"
+            >
+              <div>
+                <div className="inline-block px-3 py-1 rounded-xl bg-rose-600/20 text-rose-300 border border-rose-500/40 text-xs font-black mb-3">
+                  {tip.key}
+                </div>
+                <h4 className="text-lg font-black text-white mb-2">{tip.action}</h4>
+                <p className="text-xs text-slate-300 leading-relaxed">{tip.tip}</p>
               </div>
             </div>
           ))}

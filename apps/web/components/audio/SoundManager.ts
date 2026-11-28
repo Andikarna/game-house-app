@@ -1,11 +1,12 @@
 // Procedural Studio-Grade Web Audio API Sound & Multi-Genre Soundtrack Engine for GameHouse
 
-export type MusicTrackId = 'lobby' | 'ludo' | 'snake-ladder' | 'impostor-desa' | 'hidden-team' | 'panjat-pinang';
+export type MusicTrackId = 'lobby' | 'ludo' | 'snake-ladder' | 'uno' | 'impostor-desa' | 'hidden-team' | 'panjat-pinang';
 
 export const MUSIC_TRACK_META: Record<MusicTrackId, { label: string; emoji: string; genre: string }> = {
   lobby: { label: 'Party Lounge', emoji: '🪩', genre: 'Funky Synth-Pop Groove' },
   ludo: { label: 'Board Bounce', emoji: '🎲', genre: 'Playful Marimba Jazz' },
   'snake-ladder': { label: 'Ular Rimba', emoji: '🐍', genre: 'Tropical Jungle Bounce' },
+  uno: { label: 'Neon Deck', emoji: '🃏', genre: 'Electro Lounge Shuffle' },
   'impostor-desa': { label: 'Misteri Kampung', emoji: '🔍', genre: 'Sneaky Detective Chimes' },
   'hidden-team': { label: 'Dewan Noir', emoji: '🕵️', genre: 'Cyber-Noir Espionage' },
   'panjat-pinang': { label: 'Pesta 17-an', emoji: '🥁', genre: 'Festive Gamelan Party' },
@@ -242,6 +243,7 @@ class SoundManager {
       lobby: 0.129,
       ludo: 0.125,
       'snake-ladder': 0.122,
+      uno: 0.121,
       'impostor-desa': 0.139,
       'hidden-team': 0.131,
       'panjat-pinang': 0.115,
@@ -258,6 +260,9 @@ class SoundManager {
             break;
           case 'snake-ladder':
             this.scheduleSnakeLadderStep(this.currentStep, this.nextNoteTime);
+            break;
+          case 'uno':
+            this.scheduleUnoStep(this.currentStep, this.nextNoteTime);
             break;
           case 'impostor-desa':
             this.scheduleImpostorStep(this.currentStep, this.nextNoteTime);
@@ -284,12 +289,13 @@ class SoundManager {
   public playPanjatBGM() { this.startBGM('panjat-pinang'); }
   public playLudoBGM() { this.startBGM('ludo'); }
   public playSnakeLadderBGM() { this.startBGM('snake-ladder'); }
+  public playUnoBGM() { this.startBGM('uno'); }
   public playLobbyBGM() { this.startBGM('lobby'); }
   public playImpostorBGM() { this.startBGM('impostor-desa'); }
   public playHiddenTeamBGM() { this.startBGM('hidden-team'); }
 
   public cycleTrack(): MusicTrackId {
-    const order: MusicTrackId[] = ['lobby', 'ludo', 'snake-ladder', 'impostor-desa', 'hidden-team', 'panjat-pinang'];
+    const order: MusicTrackId[] = ['lobby', 'uno', 'ludo', 'snake-ladder', 'impostor-desa', 'hidden-team', 'panjat-pinang'];
     const idx = order.indexOf(this.currentTrack);
     const next = order[(idx + 1) % order.length];
     if (this.isMuted) {
@@ -1617,6 +1623,187 @@ class SoundManager {
       gain.connect(this.sfxGain || this.ctx.destination);
       osc.start(now);
       osc.stop(now + 0.34);
+    } catch {}
+  }
+
+  // =========================================================================
+  // UNO PARTY ("NEON DECK") BGM & CARD VFX SOUND EFFECTS
+  // =========================================================================
+
+  private scheduleUnoStep(step: number, time: number) {
+    if (!this.ctx || !this.bgmBus || this.isMuted) return;
+    const bar = Math.floor(step / 16);
+    const s = step % 16;
+
+    if (s === 0 || s === 6 || s === 10) {
+      this.playWarmKick(time, 0.3);
+    }
+    if (s === 4 || s === 12) {
+      this.playNoiseSnare(time, 0.14);
+    }
+    if (s % 2 === 1) {
+      this.playNoiseHihat(time, 0.035, 0.04);
+    }
+
+    const bass = [110.0, 98.0, 87.31, 82.41, 110.0, 130.81, 98.0, 123.47][bar];
+    if (s === 0 || s === 3 || s === 8 || s === 11 || s === 14) {
+      this.playSubBass(time, s === 14 ? bass * 1.5 : bass, 0.16, 0.22);
+    }
+
+    const arp = [440, 523.25, 659.25, 783.99, 659.25, 523.25, 587.33, 698.46];
+    if (s % 4 === 0) {
+      this.playFunkPluck(time, arp[(bar + s / 4) % arp.length], 0.16, 0.08);
+    }
+  }
+
+  public playCardFlick() {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+    try {
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(340, now);
+      osc.frequency.exponentialRampToValueAtTime(920, now + 0.065);
+      gain.gain.setValueAtTime(0.22 * this.volume, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+      osc.connect(gain);
+      gain.connect(this.sfxGain || this.ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.09);
+    } catch {}
+  }
+
+  public playCardDraw() {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+    try {
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(520, now);
+      osc.frequency.exponentialRampToValueAtTime(280, now + 0.09);
+      gain.gain.setValueAtTime(0.16 * this.volume, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+      osc.connect(gain);
+      gain.connect(this.sfxGain || this.ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.11);
+    } catch {}
+  }
+
+  public playUnoAction(type: 'skip' | 'reverse' | 'draw2' | 'wild' | 'wild_draw4' | 'swap' | 'rotate') {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+    try {
+      const now = this.ctx.currentTime;
+      if (type === 'skip') {
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(640, now);
+        osc.frequency.exponentialRampToValueAtTime(190, now + 0.18);
+        gain.gain.setValueAtTime(0.2 * this.volume, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+        osc.connect(gain);
+        gain.connect(this.sfxGain || this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.22);
+      } else if (type === 'reverse') {
+        [440, 587.33, 783.99, 587.33].forEach((freq, i) => {
+          const osc = this.ctx!.createOscillator();
+          const gain = this.ctx!.createGain();
+          const t = now + i * 0.045;
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, t);
+          gain.gain.setValueAtTime(0.18 * this.volume, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
+          osc.connect(gain);
+          gain.connect(this.sfxGain || this.ctx!.destination);
+          osc.start(t);
+          osc.stop(t + 0.1);
+        });
+      } else if (type === 'draw2' || type === 'wild_draw4') {
+        const chord = type === 'wild_draw4' ? [220, 277.18, 329.63, 440] : [261.63, 311.13, 392];
+        chord.forEach((f, i) => {
+          const osc = this.ctx!.createOscillator();
+          const gain = this.ctx!.createGain();
+          const t = now + i * 0.04;
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(f, t);
+          osc.frequency.exponentialRampToValueAtTime(f * 1.45, t + 0.2);
+          gain.gain.setValueAtTime(0.16 * this.volume, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.26);
+          osc.connect(gain);
+          gain.connect(this.sfxGain || this.ctx!.destination);
+          osc.start(t);
+          osc.stop(t + 0.28);
+        });
+      } else {
+        // Wild / Swap / Rotate shimmering arpeggio
+        [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
+          const osc = this.ctx!.createOscillator();
+          const gain = this.ctx!.createGain();
+          const t = now + i * 0.05;
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(f, t);
+          gain.gain.setValueAtTime(0.19 * this.volume, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+          osc.connect(gain);
+          gain.connect(this.sfxGain || this.ctx!.destination);
+          osc.start(t);
+          osc.stop(t + 0.24);
+        });
+      }
+    } catch {}
+  }
+
+  public playUnoShout() {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+    try {
+      const now = this.ctx.currentTime;
+      [587.33, 880, 1174.66].forEach((f, i) => {
+        const osc = this.ctx!.createOscillator();
+        const gain = this.ctx!.createGain();
+        const t = now + i * 0.055;
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(f, t);
+        gain.gain.setValueAtTime(0.28 * this.volume, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.34);
+        osc.connect(gain);
+        gain.connect(this.sfxGain || this.ctx!.destination);
+        osc.start(t);
+        osc.stop(t + 0.36);
+      });
+    } catch {}
+  }
+
+  public playUnoCatch() {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+    try {
+      const now = this.ctx.currentTime;
+      [440, 311.13, 523.25].forEach((f, i) => {
+        const osc = this.ctx!.createOscillator();
+        const gain = this.ctx!.createGain();
+        const t = now + i * 0.07;
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(f, t);
+        gain.gain.setValueAtTime(0.16 * this.volume, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+        osc.connect(gain);
+        gain.connect(this.sfxGain || this.ctx!.destination);
+        osc.start(t);
+        osc.stop(t + 0.2);
+      });
     } catch {}
   }
 }

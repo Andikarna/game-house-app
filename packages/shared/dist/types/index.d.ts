@@ -1,7 +1,7 @@
-export type GameId = 'panjat-pinang' | 'ludo' | 'snake-ladder' | 'impostor-desa' | 'obstacle-race' | 'card-battle' | 'mini-battle-arena' | 'hidden-team';
-export type GameMode = 'classic-race' | 'survival-climb' | 'skill-battle' | 'classic' | 'quick' | 'snake-classic' | 'snake-quick' | 'impostor-classic' | 'hidden-team-standard' | 'hidden-team-4r' | 'hidden-team-5r' | 'hidden-team-6r';
+export type GameId = 'panjat-pinang' | 'ludo' | 'snake-ladder' | 'uno' | 'impostor-desa' | 'obstacle-race' | 'card-battle' | 'mini-battle-arena' | 'hidden-team';
+export type GameMode = 'classic-race' | 'survival-climb' | 'skill-battle' | 'classic' | 'quick' | 'snake-classic' | 'snake-quick' | 'uno-classic' | 'uno-stack' | 'uno-chaos' | 'impostor-classic' | 'hidden-team-standard' | 'hidden-team-4r' | 'hidden-team-5r' | 'hidden-team-6r';
 export type RoomStatus = 'lobby' | 'countdown' | 'in-game' | 'finished';
-export type AvatarId = 'budi' | 'ujang' | 'rara' | 'koko' | 'jaya' | 'bayu' | 'siti' | 'jago' | 'climber-red' | 'climber-blue' | 'climber-green' | 'climber-yellow' | 'climber-purple' | 'climber-orange';
+export type AvatarId = 'budi' | 'ujang' | 'rara' | 'koko' | 'jaya' | 'bayu' | 'siti' | 'jago' | 'luna' | 'bima' | 'nala' | 'rama' | 'climber-red' | 'climber-blue' | 'climber-green' | 'climber-yellow' | 'climber-purple' | 'climber-orange';
 export interface Player {
     id: string;
     socketId: string;
@@ -359,7 +359,99 @@ export type ImpostorInput = {
     action: 'send-chat';
     message: string;
 };
-export type AnyGameState = PanjatPinangGameState | LudoGameState | SnakeLadderGameState | ImpostorPublicGameState;
+export type UnoColor = 'red' | 'blue' | 'green' | 'yellow';
+export type UnoCardColor = UnoColor | 'wild';
+export type UnoCardValue = '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | 'skip' | 'reverse' | 'draw2' | 'wild' | 'wild_draw4';
+export interface UnoCard {
+    id: string;
+    color: UnoCardColor;
+    value: UnoCardValue;
+}
+export type UnoFxType = 'start' | 'play' | 'draw' | 'skip' | 'reverse' | 'draw2' | 'wild' | 'wild_draw4' | 'uno' | 'catch' | 'swap' | 'rotate' | 'timeout' | 'win';
+export interface UnoActionFx {
+    seq: number;
+    type: UnoFxType;
+    actorId: string;
+    actorNickname?: string;
+    targetId?: string;
+    targetNickname?: string;
+    card?: UnoCard;
+    chosenColor?: UnoColor;
+    drawCount?: number;
+    direction?: 1 | -1;
+    message: string;
+    timestamp: number;
+}
+export interface UnoPlayerPublic {
+    playerId: string;
+    nickname: string;
+    avatar: AvatarId;
+    seatIndex: number;
+    cardCount: number;
+    calledUno: boolean;
+    unoPreArmed?: boolean;
+    lastAction?: string;
+    isConnected: boolean;
+    isBot?: boolean;
+    score: number;
+    rank?: number;
+}
+export interface UnoGameState {
+    gameId: 'uno';
+    gameMode: GameMode;
+    stateVersion: number;
+    status: RoomStatus;
+    playerOrder: string[];
+    players: Record<string, UnoPlayerPublic>;
+    currentTurnPlayerId: string;
+    direction: 1 | -1;
+    activeColor: UnoColor;
+    topCard: UnoCard;
+    recentDiscards: UnoCard[];
+    drawPileCount: number;
+    pendingDrawCount: number;
+    pendingDrawType: 'draw2' | 'wild_draw4' | null;
+    drawnPlayableCardId: string | null;
+    turnTimeRemaining: number;
+    turnStartedAt: number;
+    turnDurationSeconds: number;
+    turnCount: number;
+    startedAt: number;
+    lastFx: UnoActionFx | null;
+    lastMoveNotice: string;
+    winnerId: string | null;
+    rankings: PlayerGameResult[];
+    myHand?: UnoCard[];
+    playableCardIds?: string[];
+    privateHands?: Record<string, UnoCard[]>;
+    privateDeck?: UnoCard[];
+    privateDiscardPile?: UnoCard[];
+}
+export type UnoInput = {
+    action: 'play-card';
+    cardId: string;
+    chosenColor?: UnoColor;
+    targetPlayerId?: string;
+} | {
+    action: 'draw-card';
+} | {
+    action: 'pass-turn';
+} | {
+    action: 'call-uno';
+} | {
+    action: 'catch-uno';
+    targetPlayerId: string;
+};
+export interface UnoLeaderboardEntry {
+    nickname: string;
+    avatar: AvatarId;
+    wins: number;
+    matches_played: number;
+    total_score: number;
+    uno_shouts: number;
+    updated_at?: string;
+}
+export type AnyGameState = PanjatPinangGameState | LudoGameState | SnakeLadderGameState | UnoGameState | ImpostorPublicGameState;
 export type EmoteId = 'ggwp' | 'aaghh' | 'hahaha' | 'ez' | 'cepat' | 'otw' | 'santuy' | 'capekk' | 'trap' | 'sorry' | 'puyeng' | 'wush' | 'wow' | 'ampun' | 'jagoan' | 'licin' | 'merosot' | 'rip' | 'awas' | 'merdeka' | 'juara' | 'dakap' | 'tanya' | 'pelicin';
 export type EmoteCategory = 'all' | 'reaction' | 'taunt' | 'gameplay' | 'festival';
 export interface EmoteDefinition {

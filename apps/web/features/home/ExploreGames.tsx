@@ -22,6 +22,17 @@ export const ExploreGames: React.FC<ExploreProps> = ({ onSelectGame }) => {
     status: 'playable' | 'maintenance' | 'coming-soon';
   }[] = [
     {
+      id: 'uno',
+      title: 'UNO Party Arena',
+      description: 'Duel kartu UNO 4-10 pemain dengan efek partikel, kartu foil 3D, 12 karakter memukau, leaderboard Supabase & sinkronisasi real-time super cepat!',
+      emoji: '🃏',
+      players: '4-10 Pemain',
+      category: 'Party / Card Game',
+      tagColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
+      highlights: ['Efek VFX Partikel', 'Stack +2/+4 & Chaos 7-0', 'Supabase Realtime'],
+      status: 'playable',
+    },
+    {
       id: 'panjat-pinang',
       title: 'Panjat Pinang Battle',
       description: 'Lomba panjat tiang licin khas 17 Agustus. Sedang dalam pemeliharaan sistem fisika dan balancing kemampuan memanjat.',

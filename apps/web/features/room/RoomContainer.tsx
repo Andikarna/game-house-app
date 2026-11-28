@@ -9,6 +9,7 @@ import { LobbyView } from '../lobby/LobbyView';
 import { PanjatPinangView } from '../games/panjat-pinang/PanjatPinangView';
 import { LudoView } from '../games/ludo/LudoView';
 import { SnakeLadderView } from '../games/snake-ladder/SnakeLadderView';
+import { UnoView } from '../games/uno/UnoView';
 import { ImpostorDesaView } from '../games/impostor-desa/ImpostorDesaView';
 import { HiddenTeamView } from '../games/hidden-team/HiddenTeamView';
 import { Button } from '../../components/ui/Button';
@@ -214,6 +215,14 @@ export const RoomContainer: React.FC<RoomContainerProps> = ({ roomCode }) => {
       return (
         <>
           <SnakeLadderView />
+          <ToastContainer />
+        </>
+      );
+    }
+    if (room.settings.gameId === 'uno') {
+      return (
+        <>
+          <UnoView />
           <ToastContainer />
         </>
       );

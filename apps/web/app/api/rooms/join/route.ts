@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { safeDbQuery } from '../../../../lib/db';
 import { getRoomByCode, addPlayerToMemoryRoom, saveMemoryRoom, RoomEntry } from '../../../../lib/room-service';
+import { upsertUnoRoomToSupabase } from '../../../../lib/uno-supabase';
+import { sanitizeUnoForClient } from '../../../../lib/game-runner';
 import { AvatarId, Player } from '../../../../shared';
 
 export const dynamic = 'force-dynamic';
@@ -56,17 +58,27 @@ export async function POST(req: Request) {
       if (existingPlayer) {
         existingPlayer.avatar = avatar;
         existingPlayer.isConnected = true;
-        saveMemoryRoom(room, roomData.gameState, roomData.gameResults);
+        const nextUpdatedAt = Math.max(now, (roomData.dbUpdatedAt || 0) + 1);
+        saveMemoryRoom(room, roomData.gameState, roomData.gameResults, roomData.activeVoteKick, roomData.chatMessages, nextUpdatedAt);
 
-        await safeDbQuery(
-          'UPDATE gh_players SET avatar = ?, is_connected = 1, last_seen_at = ? WHERE id = ?',
-          [avatar, now, existingPlayer.id]
-        );
+        if (room.settings.gameId === 'uno') {
+          await upsertUnoRoomToSupabase({
+            ...roomData,
+            room,
+            dbUpdatedAt: nextUpdatedAt,
+          });
+        } else {
+          await safeDbQuery(
+            'UPDATE gh_players SET avatar = ?, is_connected = 1, last_seen_at = ? WHERE id = ?',
+            [avatar, now, existingPlayer.id]
+          );
+        }
 
         return NextResponse.json({
           success: true,
           room,
           playerId: existingPlayer.id,
+          gameState: room.settings.gameId === 'uno' ? sanitizeUnoForClient(roomData.gameState, existingPlayer.id) : undefined,
         });
       }
     }
@@ -78,7 +90,11 @@ export async function POST(req: Request) {
 
     // 3. Check capacity and bot replacement
     const isSixPlayerGame = room.settings.gameId === 'impostor-desa' || room.settings.gameId === 'hidden-team';
-    const maxCapacity = isSixPlayerGame ? 6 : (room.settings.maxPlayers || 4);
+    const maxCapacity = isSixPlayerGame
+      ? 6
+      : room.settings.gameId === 'uno'
+      ? Math.min(10, Math.max(4, room.settings.maxPlayers || 6))
+      : (room.settings.maxPlayers || 4);
 
     const botIndex = room.players.findIndex((p) => (p as any).is_bot || p.isBot);
     if (room.players.length >= maxCapacity && botIndex < 0) {
@@ -93,7 +109,9 @@ export async function POST(req: Request) {
     if (room.players.length >= maxCapacity && botIndex >= 0) {
       const botPlayer = room.players[botIndex];
       room.players.splice(botIndex, 1);
-      await safeDbQuery('DELETE FROM gh_players WHERE id = ?', [botPlayer.id]);
+      if (room.settings.gameId !== 'uno') {
+        await safeDbQuery('DELETE FROM gh_players WHERE id = ?', [botPlayer.id]);
+      }
     }
 
     // 4. Nickname deduplication (e.g. "Player (2)")
@@ -120,21 +138,31 @@ export async function POST(req: Request) {
 
     const updatedRoom = addPlayerToMemoryRoom(room.code, newPlayer) || room;
 
-    await safeDbQuery(
-      `INSERT INTO gh_players 
-        (id, room_code, nickname, avatar, is_host, is_ready, is_connected, last_seen_at, joined_at)
-       VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)
-       ON DUPLICATE KEY UPDATE
-        room_code = VALUES(room_code),
-        nickname = VALUES(nickname),
-        avatar = VALUES(avatar),
-        is_host = VALUES(is_host),
-        is_ready = VALUES(is_ready),
-        is_connected = 1,
-        last_seen_at = VALUES(last_seen_at),
-        joined_at = VALUES(joined_at)`,
-      [newPlayerId, room.code, finalNickname, avatar, newPlayer.isHost ? 1 : 0, newPlayer.isReady ? 1 : 0, now, now]
-    );
+    if (room.settings.gameId === 'uno') {
+      const nextUpdatedAt = Math.max(now, (roomData.dbUpdatedAt || 0) + 1);
+      saveMemoryRoom(updatedRoom, roomData.gameState, roomData.gameResults, roomData.activeVoteKick, roomData.chatMessages, nextUpdatedAt);
+      await upsertUnoRoomToSupabase({
+        ...roomData,
+        room: updatedRoom,
+        dbUpdatedAt: nextUpdatedAt,
+      });
+    } else {
+      await safeDbQuery(
+        `INSERT INTO gh_players 
+          (id, room_code, nickname, avatar, is_host, is_ready, is_connected, last_seen_at, joined_at)
+         VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)
+         ON DUPLICATE KEY UPDATE
+          room_code = VALUES(room_code),
+          nickname = VALUES(nickname),
+          avatar = VALUES(avatar),
+          is_host = VALUES(is_host),
+          is_ready = VALUES(is_ready),
+          is_connected = 1,
+          last_seen_at = VALUES(last_seen_at),
+          joined_at = VALUES(joined_at)`,
+        [newPlayerId, room.code, finalNickname, avatar, newPlayer.isHost ? 1 : 0, newPlayer.isReady ? 1 : 0, now, now]
+      );
+    }
 
     return NextResponse.json({
       success: true,

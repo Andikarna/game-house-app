@@ -61,3 +61,47 @@ body {
 button, input, select {
   -webkit-tap-highlight-color: transparent;
 }
+
+/* UNO Holographic Foil & Arena Keyframes */
+@keyframes unoHoloSweep {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes unoRingSpin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes unoRingSpinReverse {
+  from {
+    transform: rotate(360deg);
+  }
+  to {
+    transform: rotate(0deg);
+  }
+}
+
+.uno-holo-card {
+  background-size: 220% 220%;
+  animation: unoHoloSweep 4.5s ease infinite;
+}
+
+.uno-orbit-cw {
+  animation: unoRingSpin 14s linear infinite;
+}
+
+.uno-orbit-ccw {
+  animation: unoRingSpinReverse 14s linear infinite;
+}

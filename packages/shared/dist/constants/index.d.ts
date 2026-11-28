@@ -99,3 +99,17 @@ export declare const HIDDEN_TEAM_PHASE_TIMERS: {
 export declare const MAIN_CARDS_DECK: MainCard[];
 export declare const SNAKE_LADDER_LADDERS: LadderLink[];
 export declare const SNAKE_LADDER_SNAKES: SnakeLink[];
+export declare const UNO_PLAYER_LIMITS: {
+    minPlayers: number;
+    maxPlayers: number;
+    defaultPlayers: number;
+    turnDurationSeconds: number;
+    startingCards: number;
+};
+export declare const UNO_COLOR_META: Record<'red' | 'blue' | 'green' | 'yellow', {
+    label: string;
+    hex: string;
+    glow: string;
+    gradient: string;
+    ring: string;
+}>;
