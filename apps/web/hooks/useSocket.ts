@@ -129,7 +129,10 @@ export function useSocket() {
 
       targetSocket.on('game:finished', (results: any) => {
         setGameResults(results);
-        soundManager.playVictory();
+        // Snake-Ladder delays victory fanfare until the winning pawn stops on tile 100
+        if (results?.gameId !== 'snake-ladder') {
+          soundManager.playVictory();
+        }
       });
 
       // Impostor Desa Specific Events

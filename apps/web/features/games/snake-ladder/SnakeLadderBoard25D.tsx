@@ -7,6 +7,7 @@ import {
   SnakeLadderMoveEvent,
   SNAKE_LADDER_LADDERS,
   SNAKE_LADDER_SNAKES,
+  PRIMARY_AVATARS,
   SnakeLink,
   LadderLink,
   normalizeAvatarId,
@@ -18,6 +19,7 @@ interface SnakeLadderBoard25DProps {
   myPlayerId: string;
   is25D: boolean;
   onAnimationBusyChange?: (busy: boolean) => void;
+  onMoveCompleted?: (seq: number) => void;
 }
 
 interface Point2D {
@@ -50,12 +52,14 @@ interface FloatingBannerFX {
 
 interface ActivePawnAnim {
   move: SnakeLadderMoveEvent;
-  phase: 'walk' | 'trigger';
+  phase: 'walk' | 'trigger' | 'victory_hold';
   startTime: number;
   stepDuration: number;
   triggerDuration: number;
+  victoryHoldDuration: number;
   bouncedTriggered: boolean;
   triggerSoundPlayed: boolean;
+  victorySoundPlayed: boolean;
   lastHopIndex: number;
 }
 
@@ -64,6 +68,15 @@ interface QueuedPawnMove {
   readyAt: number;
 }
 
+interface StepTrailFX {
+  tile: number;
+  stepNum: number;
+  color: string;
+  expiresAt: number;
+}
+
+const STEP_DURATION_MS = 290;
+const VICTORY_HOLD_MS = 950;
 const PAWN_START_DELAY_MS = 1450; // ~450ms dice land & reveal + 1000ms pause so players can read the number
 
 const BOARD_SIZE = 1000;
@@ -104,7 +117,8 @@ export function getTileGridPos(tile: number): { rowFromTop: number; col: number 
 
 export function getTileCenter(tile: number): Point2D {
   if (tile <= 0) {
-    return { x: 30, y: 974 };
+    // Just outside the left edge of petak 1 so characters enter into the arena on their first roll
+    return { x: -32, y: 956 };
   }
   const { rowFromTop, col } = getTileGridPos(tile);
   return {
@@ -153,11 +167,17 @@ export const SnakeLadderBoard25D: React.FC<SnakeLadderBoard25DProps> = ({
   myPlayerId,
   is25D,
   onAnimationBusyChange,
+  onMoveCompleted,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const avatarImagesRef = useRef<Record<string, HTMLImageElement>>({});
   const gameStateRef = useRef(gameState);
   gameStateRef.current = gameState;
+
+  const onAnimationBusyChangeRef = useRef(onAnimationBusyChange);
+  onAnimationBusyChangeRef.current = onAnimationBusyChange;
+  const onMoveCompletedRef = useRef(onMoveCompleted);
+  onMoveCompletedRef.current = onMoveCompleted;
 
   const moveQueueRef = useRef<QueuedPawnMove[]>([]);
   const activeAnimRef = useRef<ActivePawnAnim | null>(null);
@@ -165,6 +185,7 @@ export const SnakeLadderBoard25D: React.FC<SnakeLadderBoard25DProps> = ({
   const visualPositionsRef = useRef<Record<string, number>>({});
   const particlesRef = useRef<ParticleFX[]>([]);
   const bannersRef = useRef<FloatingBannerFX[]>([]);
+  const stepTrailRef = useRef<StepTrailFX[]>([]);
   const boardShakeRef = useRef<number>(0);
   const activeLadderIdRef = useRef<string | null>(null);
   const angrySnakeIdRef = useRef<string | null>(null);
@@ -173,10 +194,9 @@ export const SnakeLadderBoard25D: React.FC<SnakeLadderBoard25DProps> = ({
   const ladderStartSet = useMemo(() => new Set(SNAKE_LADDER_LADDERS.map((l) => l.from)), []);
   const snakeHeadSet = useMemo(() => new Set(SNAKE_LADDER_SNAKES.map((s) => s.from)), []);
 
-  // Preload the 8 character avatar PNGs for crisp 2.5D pawn medallions
+  // Preload ALL 12 character avatar PNGs (including Luna, Bima, Nala, Rama) for 3D pawns
   useEffect(() => {
-    const avatars = ['budi', 'ujang', 'rara', 'koko', 'jaya', 'bayu', 'siti', 'jago'];
-    avatars.forEach((id) => {
+    PRIMARY_AVATARS.forEach((id) => {
       if (!avatarImagesRef.current[id]) {
         const img = new Image();
         img.src = `/assets/characters/${id}/avatar.png`;
@@ -185,14 +205,28 @@ export const SnakeLadderBoard25D: React.FC<SnakeLadderBoard25DProps> = ({
     });
   }, []);
 
-  // Initialize visual positions for any newly discovered player
+  // Initialize or reset visual positions (e.g. on game start or rematch when all reset to 0)
   useEffect(() => {
+    if (!gameState.lastMove) {
+      lastQueuedSeqRef.current = 0;
+      moveQueueRef.current = [];
+      activeAnimRef.current = null;
+      stepTrailRef.current = [];
+      activeLadderIdRef.current = null;
+      angrySnakeIdRef.current = null;
+      Object.values(gameState.players).forEach((p) => {
+        visualPositionsRef.current[p.playerId] = p.position;
+      });
+      onAnimationBusyChangeRef.current?.(false);
+      return;
+    }
+
     Object.values(gameState.players).forEach((p) => {
       if (visualPositionsRef.current[p.playerId] === undefined) {
         visualPositionsRef.current[p.playerId] = p.position;
       }
     });
-  }, [gameState.players]);
+  }, [gameState.players, gameState.lastMove]);
 
   // Queue incoming moves cleanly so animations never skip or collide
   useEffect(() => {
@@ -205,12 +239,12 @@ export const SnakeLadderBoard25D: React.FC<SnakeLadderBoard25DProps> = ({
     if (!activeAnimRef.current && moveQueueRef.current.length === 0) {
       visualPositionsRef.current[move.playerId] = move.fromTile;
     }
-    onAnimationBusyChange?.(true);
+    onAnimationBusyChangeRef.current?.(true);
     moveQueueRef.current.push({
       move,
       readyAt: performance.now() + PAWN_START_DELAY_MS,
     });
-  }, [gameState.lastMove, onAnimationBusyChange]);
+  }, [gameState.lastMove]);
 
   const spawnBurst = (
     x: number,
@@ -300,21 +334,39 @@ export const SnakeLadderBoard25D: React.FC<SnakeLadderBoard25DProps> = ({
         visualPositionsRef.current[nextMove.playerId] = nextMove.fromTile;
         activeLadderIdRef.current = null;
         angrySnakeIdRef.current = null;
-        onAnimationBusyChange?.(true);
+        stepTrailRef.current = [];
+        onAnimationBusyChangeRef.current?.(true);
 
         activeAnimRef.current = {
           move: nextMove,
-          phase: nextMove.walkPath.length > 0 ? 'walk' : 'trigger',
+          phase: nextMove.walkPath.length > 0 ? 'walk' : nextMove.trigger ? 'trigger' : 'victory_hold',
           startTime: nowMs,
-          stepDuration: 165,
+          stepDuration: STEP_DURATION_MS,
           triggerDuration: nextMove.trigger?.type === 'snake' ? 980 : 860,
+          victoryHoldDuration: VICTORY_HOLD_MS,
           bouncedTriggered: false,
           triggerSoundPlayed: false,
+          victorySoundPlayed: false,
           lastHopIndex: -1,
         };
       }
 
-      const overridePawnPos: Record<string, { x: number; y: number; z: number; spin: number; scale: number }> = {};
+      const overridePawnPos: Record<
+        string,
+        {
+          x: number;
+          y: number;
+          z: number;
+          spin: number;
+          scale: number;
+          facing: 1 | -1;
+          walkCycle: number;
+          isWalking: boolean;
+          isClimbing: boolean;
+          isCelebrating: boolean;
+          stepBadge?: string;
+        }
+      > = {};
 
       if (activeAnimRef.current) {
         const anim = activeAnimRef.current;
@@ -333,6 +385,22 @@ export const SnakeLadderBoard25D: React.FC<SnakeLadderBoard25DProps> = ({
               anim.lastHopIndex = stepIdx;
               soundManager.playPawnHop(stepIdx);
 
+              // Record step badge trail matching the dice count (1, 2, 3...)
+              const moverPalette = PAWN_COLORS[state.players[move.playerId]?.color || 'red'] || PAWN_COLORS.red;
+              stepTrailRef.current.push({
+                tile: nextTile,
+                stepNum: stepIdx + 1,
+                color: moverPalette.main,
+                expiresAt: nowMs + 1650,
+              });
+
+              if (prevTile === 0 && nextTile === 1) {
+                // Character enters the arena for the first time!
+                const t1 = getTileCenter(1);
+                spawnBurst(t1.x, t1.y, ['#34d399', '#facc15', '#ffffff'], 16, 'star', 1.4);
+                spawnBanner(t1.x + 28, t1.y - 26, '✨ MASUK ARENA!', '#ecfdf5', '#059669');
+              }
+
               if (prevTile === 100 && nextTile === 99 && !anim.bouncedTriggered) {
                 anim.bouncedTriggered = true;
                 const p100 = getTileCenter(100);
@@ -343,43 +411,57 @@ export const SnakeLadderBoard25D: React.FC<SnakeLadderBoard25DProps> = ({
 
               if (stepIdx > 0) {
                 const landPt = getTileCenter(prevTile);
-                spawnBurst(landPt.x, landPt.y, ['rgba(255,255,255,0.75)', '#fde68a'], 4, 'circle', 0.4);
+                spawnBurst(landPt.x, landPt.y, ['rgba(255,255,255,0.8)', '#fde68a'], 5, 'circle', 0.45);
               }
             }
 
             const pA = getTileCenter(prevTile);
             const pB = getTileCenter(nextTile);
+            const facing: 1 | -1 = pB.x >= pA.x ? 1 : -1;
             const smoothT = localT < 0.5 ? 2 * localT * localT : 1 - Math.pow(-2 * localT + 2, 2) / 2;
-            const zHop = Math.sin(localT * Math.PI) * 30;
+            const zHop = Math.sin(localT * Math.PI) * 26;
 
             overridePawnPos[move.playerId] = {
               x: pA.x + (pB.x - pA.x) * smoothT,
               y: pA.y + (pB.y - pA.y) * smoothT,
               z: zHop,
               spin: 0,
-              scale: 1 + Math.sin(localT * Math.PI) * 0.12,
+              scale: 1 + Math.sin(localT * Math.PI) * 0.1,
+              facing,
+              walkCycle: localT,
+              isWalking: true,
+              isClimbing: false,
+              isCelebrating: false,
+              stepBadge: `${stepIdx + 1}/${move.walkPath.length}`,
             };
             visualPositionsRef.current[move.playerId] = nextTile;
           } else {
             // Walk finished!
             const landTile = move.walkPath[move.walkPath.length - 1] ?? move.fromTile;
             const landPt = getTileCenter(landTile);
-            spawnBurst(landPt.x, landPt.y, ['#ffffff', '#fde68a'], 6, 'circle', 0.6);
+            spawnBurst(landPt.x, landPt.y, ['#ffffff', '#fde68a'], 8, 'circle', 0.6);
 
             if (move.trigger) {
               anim.phase = 'trigger';
               anim.startTime = nowMs;
+            } else if (move.toTile >= 100) {
+              // Hold the pawn clearly stopped at tile 100 before opening the victory popup
+              visualPositionsRef.current[move.playerId] = 100;
+              anim.phase = 'victory_hold';
+              anim.startTime = nowMs;
+              anim.victorySoundPlayed = true;
+              soundManager.playVictory();
+              spawnBurst(landPt.x, landPt.y, ['#facc15', '#22c55e', '#38bdf8', '#f43f5e'], 36, 'star', 2.2);
+              spawnBanner(landPt.x + 30, landPt.y + 38, '🏆 JUARA 100!', '#ffffff', '#d97706');
             } else {
               visualPositionsRef.current[move.playerId] = move.toTile;
-              if (move.toTile === 100) {
-                spawnBurst(landPt.x, landPt.y, ['#facc15', '#22c55e', '#38bdf8', '#f43f5e'], 34, 'star', 2.0);
-                spawnBanner(landPt.x + 30, landPt.y + 35, '🏆 JUARA 100!', '#ffffff', '#d97706');
-              } else if (move.bonusRoll) {
-                spawnBanner(landPt.x, landPt.y - 26, '🎲 BONUS DADU 6!', '#fef08a', '#4f46e5');
+              if (move.bonusRoll) {
+                spawnBanner(landPt.x, landPt.y - 28, '🎲 BONUS DADU 6!', '#fef08a', '#4f46e5');
               }
               activeAnimRef.current = null;
+              onMoveCompletedRef.current?.(move.seq);
               if (moveQueueRef.current.length === 0) {
-                onAnimationBusyChange?.(false);
+                onAnimationBusyChangeRef.current?.(false);
               }
             }
           }
@@ -393,7 +475,8 @@ export const SnakeLadderBoard25D: React.FC<SnakeLadderBoard25DProps> = ({
           if (!trig) {
             visualPositionsRef.current[move.playerId] = move.toTile;
             activeAnimRef.current = null;
-            if (moveQueueRef.current.length === 0) onAnimationBusyChange?.(false);
+            onMoveCompletedRef.current?.(move.seq);
+            if (moveQueueRef.current.length === 0) onAnimationBusyChangeRef.current?.(false);
           } else {
             if (!trigAnim.triggerSoundPlayed) {
               trigAnim.triggerSoundPlayed = true;
@@ -467,7 +550,12 @@ export const SnakeLadderBoard25D: React.FC<SnakeLadderBoard25DProps> = ({
                 y: py,
                 z: climbBob,
                 spin: Math.sin(p * Math.PI * 6) * 0.14,
-                scale: 1.15,
+                scale: 1.12,
+                facing: toPt.x >= fromPt.x ? 1 : -1,
+                walkCycle: (p * 6) % 1,
+                isWalking: false,
+                isClimbing: true,
+                isCelebrating: false,
               };
             } else {
               // Slide down the exact curved 2.5D snake spine!
@@ -496,7 +584,12 @@ export const SnakeLadderBoard25D: React.FC<SnakeLadderBoard25DProps> = ({
                 y: spinePt.y,
                 z: spinePt.z + 10,
                 spin: p * Math.PI * 4,
-                scale: 1.05 - p * 0.08,
+                scale: 1.02 - p * 0.08,
+                facing: 1,
+                walkCycle: 0,
+                isWalking: false,
+                isClimbing: false,
+                isCelebrating: false,
               };
             }
 
@@ -510,10 +603,72 @@ export const SnakeLadderBoard25D: React.FC<SnakeLadderBoard25DProps> = ({
               visualPositionsRef.current[move.playerId] = move.toTile;
               activeLadderIdRef.current = null;
               angrySnakeIdRef.current = null;
-              activeAnimRef.current = null;
-              if (moveQueueRef.current.length === 0) {
-                onAnimationBusyChange?.(false);
+
+              if (move.toTile >= 100) {
+                anim.phase = 'victory_hold';
+                anim.startTime = nowMs;
+                anim.victorySoundPlayed = true;
+                soundManager.playVictory();
+                spawnBurst(endPt.x, endPt.y, ['#facc15', '#22c55e', '#38bdf8', '#f43f5e'], 36, 'star', 2.2);
+                spawnBanner(endPt.x + 30, endPt.y + 38, '🏆 JUARA 100!', '#ffffff', '#d97706');
+              } else {
+                activeAnimRef.current = null;
+                onMoveCompletedRef.current?.(move.seq);
+                if (moveQueueRef.current.length === 0) {
+                  onAnimationBusyChangeRef.current?.(false);
+                }
               }
+            }
+          }
+        }
+
+        if (activeAnimRef.current && activeAnimRef.current.phase === 'victory_hold') {
+          const holdAnim = activeAnimRef.current;
+          const holdElapsed = nowMs - holdAnim.startTime;
+          const winPt = getTileCenter(100);
+          visualPositionsRef.current[move.playerId] = 100;
+
+          if (!holdAnim.victorySoundPlayed) {
+            holdAnim.victorySoundPlayed = true;
+            soundManager.playVictory();
+            spawnBurst(winPt.x, winPt.y, ['#facc15', '#22c55e', '#38bdf8', '#f43f5e'], 36, 'star', 2.2);
+            spawnBanner(winPt.x + 30, winPt.y + 38, '🏆 JUARA 100!', '#ffffff', '#d97706');
+          }
+
+          if (Math.random() < 0.28) {
+            particlesRef.current.push({
+              x: winPt.x + (Math.random() - 0.5) * 44,
+              y: winPt.y - 10,
+              vx: (Math.random() - 0.5) * 2.4,
+              vy: -1.8 - Math.random() * 2.0,
+              size: 5 + Math.random() * 4,
+              color: ['#facc15', '#34d399', '#38bdf8', '#fb7185'][Math.floor(Math.random() * 4)],
+              alpha: 1,
+              life: 0,
+              maxLife: 28,
+              kind: 'star',
+            });
+          }
+
+          const jumpBounce = Math.abs(Math.sin((holdElapsed / 320) * Math.PI)) * 18;
+          overridePawnPos[move.playerId] = {
+            x: winPt.x,
+            y: winPt.y,
+            z: jumpBounce,
+            spin: 0,
+            scale: 1.15,
+            facing: 1,
+            walkCycle: 0,
+            isWalking: false,
+            isClimbing: false,
+            isCelebrating: true,
+          };
+
+          if (holdElapsed >= holdAnim.victoryHoldDuration) {
+            activeAnimRef.current = null;
+            onMoveCompletedRef.current?.(move.seq);
+            if (moveQueueRef.current.length === 0) {
+              onAnimationBusyChangeRef.current?.(false);
             }
           }
         }
@@ -534,13 +689,12 @@ export const SnakeLadderBoard25D: React.FC<SnakeLadderBoard25DProps> = ({
       // ------------------------------------------------------------------
       // 3. DRAW 2.5D LIVING ANIMATED SNAKES (SLITHERING + SHADED + TONGUE)
       // ------------------------------------------------------------------
-      const activePlayerPos =
+      const curTurnVPos =
         state.currentTurnPlayerId && state.players[state.currentTurnPlayerId]
-          ? getTileCenter(
-              visualPositionsRef.current[state.currentTurnPlayerId] ??
-                state.players[state.currentTurnPlayerId].position
-            )
-          : { x: 500, y: 500 };
+          ? visualPositionsRef.current[state.currentTurnPlayerId] ??
+            state.players[state.currentTurnPlayerId].position
+          : 0;
+      const activePlayerPos = curTurnVPos > 0 ? getTileCenter(curTurnVPos) : { x: 500, y: 500 };
 
       SNAKE_LADDER_SNAKES.forEach((snake, idx) => {
         draw25DSnake(
@@ -554,17 +708,57 @@ export const SnakeLadderBoard25D: React.FC<SnakeLadderBoard25DProps> = ({
       });
 
       // ------------------------------------------------------------------
-      // 4. DRAW 2.5D PAWNS (2 TO 6 PLAYERS, WITH SMART TILE CLUSTERING)
+      // 3B. DRAW STEP-COUNT TRAIL ON BOARD TILES (FOLLOWS DICE NUMBER)
+      // ------------------------------------------------------------------
+      if (stepTrailRef.current.length > 0) {
+        const activeSteps: StepTrailFX[] = [];
+        for (const st of stepTrailRef.current) {
+          if (nowMs >= st.expiresAt) continue;
+          activeSteps.push(st);
+          const remainingRatio = Math.min(1, (st.expiresAt - nowMs) / 450);
+          const pt = getTileCenter(st.tile);
+
+          ctx.save();
+          ctx.globalAlpha = Math.max(0, remainingRatio) * 0.92;
+          // Glowing footprint highlight ring
+          ctx.strokeStyle = '#facc15';
+          ctx.lineWidth = 3.5;
+          ctx.beginPath();
+          ctx.ellipse(pt.x, pt.y + 4, 24, 15, 0, 0, Math.PI * 2);
+          ctx.stroke();
+
+          // Small step badge pill (1, 2, 3...) at bottom-left of tile
+          ctx.fillStyle = st.color;
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(pt.x - 24, pt.y + 24, 11.5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = '#ffffff';
+          ctx.font = '900 13px system-ui, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(String(st.stepNum), pt.x - 24, pt.y + 24.5);
+          ctx.restore();
+        }
+        stepTrailRef.current = activeSteps;
+      }
+
+      // ------------------------------------------------------------------
+      // 4. DRAW 3D CHARACTER PAWNS (HIDDEN BEFORE FIRST ROLL)
       // ------------------------------------------------------------------
       const playerList = state.playerOrder
         .map((id) => state.players[id])
         .filter(Boolean);
 
-      // Group stationary pawns by tile so they sit cleanly side-by-side
+      // Group stationary entered pawns by tile so they sit cleanly side-by-side
       const tileGroups: Record<number, string[]> = {};
       playerList.forEach((p) => {
         if (overridePawnPos[p.playerId]) return;
         const vPos = visualPositionsRef.current[p.playerId] ?? p.position;
+        if (vPos <= 0) return; // Not yet in arena
         if (!tileGroups[vPos]) tileGroups[vPos] = [];
         tileGroups[vPos].push(p.playerId);
       });
@@ -576,6 +770,12 @@ export const SnakeLadderBoard25D: React.FC<SnakeLadderBoard25DProps> = ({
         z: number;
         spin: number;
         scale: number;
+        facing: 1 | -1;
+        walkCycle: number;
+        isWalking: boolean;
+        isClimbing: boolean;
+        isCelebrating: boolean;
+        stepBadge?: string;
         isTurn: boolean;
         isMe: boolean;
         color: SnakeLadderColor;
@@ -597,6 +797,12 @@ export const SnakeLadderBoard25D: React.FC<SnakeLadderBoard25DProps> = ({
             z: animOverride.z,
             spin: animOverride.spin,
             scale: animOverride.scale,
+            facing: animOverride.facing,
+            walkCycle: animOverride.walkCycle,
+            isWalking: animOverride.isWalking,
+            isClimbing: animOverride.isClimbing,
+            isCelebrating: animOverride.isCelebrating,
+            stepBadge: animOverride.stepBadge,
             isTurn,
             isMe,
             color: p.color,
@@ -605,23 +811,24 @@ export const SnakeLadderBoard25D: React.FC<SnakeLadderBoard25DProps> = ({
           });
         } else {
           const vPos = visualPositionsRef.current[p.playerId] ?? p.position;
+          // Rule 1: Character stays off-arena until their first dice roll enters them into the board
+          if (vPos <= 0) return;
+
           const basePt = getTileCenter(vPos);
           const group = tileGroups[vPos] || [p.playerId];
           const idxInGroup = group.indexOf(p.playerId);
           let offX = 0;
           let offY = 0;
 
-          if (vPos === 0) {
-            offX = (idxInGroup % 3) * 26;
-            offY = -Math.floor(idxInGroup / 3) * 24;
-          } else if (group.length > 1) {
+          if (group.length > 1) {
             const angle = (Math.PI * 2 * idxInGroup) / group.length - Math.PI / 2;
-            const spread = group.length <= 2 ? 17 : 22;
+            const spread = group.length <= 2 ? 19 : 23;
             offX = Math.cos(angle) * spread;
-            offY = Math.sin(angle) * spread;
+            offY = Math.sin(angle) * spread * 0.78;
           }
 
-          const idleBob = isTurn ? Math.abs(Math.sin(timeSec * 3.8)) * 8 : 0;
+          const rowDir: 1 | -1 = Math.floor((vPos - 1) / 10) % 2 === 0 ? 1 : -1;
+          const idleBob = isTurn ? Math.abs(Math.sin(timeSec * 3.8)) * 6 : 0;
 
           drawQueue.push({
             playerId: p.playerId,
@@ -629,7 +836,12 @@ export const SnakeLadderBoard25D: React.FC<SnakeLadderBoard25DProps> = ({
             y: basePt.y + offY,
             z: idleBob,
             spin: 0,
-            scale: isTurn ? 1.08 : 0.96,
+            scale: isTurn ? 1.07 : 0.98,
+            facing: rowDir,
+            walkCycle: 0,
+            isWalking: false,
+            isClimbing: false,
+            isCelebrating: state.winnerId === p.playerId && vPos >= 100,
             isTurn,
             isMe,
             color: p.color,
@@ -642,7 +854,17 @@ export const SnakeLadderBoard25D: React.FC<SnakeLadderBoard25DProps> = ({
       // Depth-sort by y so lower pawns naturally overlap higher pawns in 2.5D
       drawQueue.sort((a, b) => a.y - b.y);
       drawQueue.forEach((pawn) => {
-        draw25DPawn(ctx, pawn, avatarImagesRef.current[pawn.avatarId], timeSec);
+        draw3DCharacterPawn(ctx, pawn, avatarImagesRef.current[pawn.avatarId], timeSec);
+      });
+
+      // Dedicated overlay pass for local player's "YOU" Arrow & active step counter
+      drawQueue.forEach((pawn) => {
+        if (pawn.stepBadge) {
+          drawActiveStepPill(ctx, pawn);
+        }
+        if (pawn.isMe) {
+          drawYouArrow(ctx, pawn, timeSec);
+        }
       });
 
       // ------------------------------------------------------------------
@@ -732,7 +954,7 @@ export const SnakeLadderBoard25D: React.FC<SnakeLadderBoard25DProps> = ({
 
     rafId = requestAnimationFrame(renderFrame);
     return () => cancelAnimationFrame(rafId);
-  }, [myPlayerId, onAnimationBusyChange]);
+  }, [myPlayerId]);
 
   // Build the 100 board tiles in visual top-to-bottom, left-to-right grid order
   const gridTiles = useMemo(() => {
@@ -1225,36 +1447,173 @@ function draw25DSnake(
   ctx.restore();
 }
 
-function draw25DPawn(
-  ctx: CanvasRenderingContext2D,
-  pawn: {
-    x: number;
-    y: number;
-    z: number;
-    spin: number;
-    scale: number;
-    isTurn: boolean;
-    isMe: boolean;
-    color: SnakeLadderColor;
-    nickname: string;
+interface Character3DProfile {
+  torsoLight: string;
+  torsoDark: string;
+  pantsColor: string;
+  shoeColor: string;
+  skinColor: string;
+  accentColor: string;
+  handColor?: string;
+  capeColor?: string;
+  scarfColor?: string;
+  headgear?: 'headband' | 'caping' | 'tophat' | 'crown' | 'visor' | 'stars';
+}
+
+const CHARACTER_3D_PROFILES: Record<string, Character3DProfile> = {
+  budi: {
+    torsoLight: '#ffffff',
+    torsoDark: '#cbd5e1',
+    pantsColor: '#1d4ed8',
+    shoeColor: '#dc2626',
+    skinColor: '#e09f70',
+    accentColor: '#ef4444',
+    headgear: 'headband',
   },
+  ujang: {
+    torsoLight: '#ef4444',
+    torsoDark: '#991b1b',
+    pantsColor: '#1e293b',
+    shoeColor: '#b91c1c',
+    skinColor: '#d99163',
+    accentColor: '#ffffff',
+    handColor: '#dc2626', // Boxing gloves!
+  },
+  rara: {
+    torsoLight: '#22d3ee',
+    torsoDark: '#0e7490',
+    pantsColor: '#0f172a',
+    shoeColor: '#06b6d4',
+    skinColor: '#f1b58d',
+    accentColor: '#a5f3fc',
+    headgear: 'visor',
+  },
+  koko: {
+    torsoLight: '#34d399',
+    torsoDark: '#047857',
+    pantsColor: '#14532d',
+    shoeColor: '#f97316',
+    skinColor: '#e6a87c',
+    accentColor: '#fb923c',
+    headgear: 'visor',
+  },
+  jaya: {
+    torsoLight: '#fb923c',
+    torsoDark: '#c2410c',
+    pantsColor: '#334155',
+    shoeColor: '#ea580c',
+    skinColor: '#e09f70',
+    accentColor: '#fef08a',
+  },
+  bayu: {
+    torsoLight: '#f97316',
+    torsoDark: '#9a3412',
+    pantsColor: '#1e1b4b',
+    shoeColor: '#facc15',
+    skinColor: '#dfa072',
+    accentColor: '#fde047',
+    scarfColor: '#ef4444',
+  },
+  siti: {
+    torsoLight: '#a78bfa',
+    torsoDark: '#5b21b6',
+    pantsColor: '#312e81',
+    shoeColor: '#ec4899',
+    skinColor: '#f0b690',
+    accentColor: '#22d3ee',
+    headgear: 'caping',
+  },
+  jago: {
+    torsoLight: '#dc2626',
+    torsoDark: '#7f1d1d',
+    pantsColor: '#0f172a',
+    shoeColor: '#f59e0b',
+    skinColor: '#e2a375',
+    accentColor: '#facc15',
+    capeColor: '#ef4444',
+    headgear: 'crown',
+  },
+  luna: {
+    torsoLight: '#9333ea',
+    torsoDark: '#4c1d95',
+    pantsColor: '#1e1b4b',
+    shoeColor: '#c084fc',
+    skinColor: '#f4bfa0',
+    accentColor: '#e879f9',
+    capeColor: '#6b21a8',
+    headgear: 'tophat',
+  },
+  bima: {
+    torsoLight: '#10b981',
+    torsoDark: '#064e3b',
+    pantsColor: '#0f172a',
+    shoeColor: '#34d399',
+    skinColor: '#e2a478',
+    accentColor: '#facc15',
+    headgear: 'visor',
+  },
+  nala: {
+    torsoLight: '#f472b6',
+    torsoDark: '#be185d',
+    pantsColor: '#3b0764',
+    shoeColor: '#fbbf24',
+    skinColor: '#ecb18c',
+    accentColor: '#fde047',
+    headgear: 'stars',
+  },
+  rama: {
+    torsoLight: '#3b82f6',
+    torsoDark: '#1e3a8a',
+    pantsColor: '#0f172a',
+    shoeColor: '#ef4444',
+    skinColor: '#e4a77b',
+    accentColor: '#fbbf24',
+    scarfColor: '#ef4444',
+    headgear: 'crown',
+  },
+};
+
+interface DrawnPawnData {
+  playerId: string;
+  x: number;
+  y: number;
+  z: number;
+  spin: number;
+  scale: number;
+  facing: 1 | -1;
+  walkCycle: number;
+  isWalking: boolean;
+  isClimbing: boolean;
+  isCelebrating: boolean;
+  stepBadge?: string;
+  isTurn: boolean;
+  isMe: boolean;
+  color: SnakeLadderColor;
+  avatarId: string;
+  nickname: string;
+}
+
+function draw3DCharacterPawn(
+  ctx: CanvasRenderingContext2D,
+  pawn: DrawnPawnData,
   avatarImg: HTMLImageElement | undefined,
   timeSec: number
 ) {
   const palette = PAWN_COLORS[pawn.color] || PAWN_COLORS.red;
+  const char3D = CHARACTER_3D_PROFILES[pawn.avatarId] || CHARACTER_3D_PROFILES.budi;
   const px = pawn.x;
   const py = pawn.y - pawn.z;
 
-  // 1. Ground shadow (shrinks slightly when jumping high)
+  // 1. Cast ground shadow & 3D Base Pedestal
   const shadowScale = Math.max(0.45, 1 - pawn.z / 75);
   ctx.save();
-  ctx.fillStyle = 'rgba(15, 23, 42, 0.36)';
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.38)';
   ctx.beginPath();
   ctx.ellipse(
-    px + 4 + pawn.z * 0.25,
-    pawn.y + 10 + pawn.z * 0.2,
-    18 * shadowScale * pawn.scale,
-    10 * shadowScale * pawn.scale,
+    px + 5 + pawn.z * 0.25,
+    pawn.y + 11 + pawn.z * 0.2,
+    21 * shadowScale * pawn.scale,
+    11 * shadowScale * pawn.scale,
     0,
     0,
     Math.PI * 2
@@ -1262,19 +1621,29 @@ function draw25DPawn(
   ctx.fill();
   ctx.restore();
 
-  // Active turn pulsing ring on the floor
+  // "YOU" floor aura or active turn pulsing ring
+  if (pawn.isMe) {
+    const pulse = 0.65 + 0.35 * Math.sin(timeSec * 4.5);
+    ctx.save();
+    ctx.strokeStyle = `rgba(52, 211, 153, ${0.85 * pulse})`;
+    ctx.lineWidth = 3.5;
+    ctx.beginPath();
+    ctx.ellipse(px, pawn.y + 7, 25 + pulse * 3, 14 + pulse * 2, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
   if (pawn.isTurn) {
     const pulse = 0.6 + 0.4 * Math.sin(timeSec * 5.5);
     ctx.save();
-    ctx.strokeStyle = `rgba(250, 204, 21, ${0.85 * pulse})`;
-    ctx.lineWidth = 3.5;
+    ctx.strokeStyle = `rgba(250, 204, 21, ${0.9 * pulse})`;
+    ctx.lineWidth = 3.2;
     ctx.beginPath();
-    ctx.ellipse(px, pawn.y + 6, 24 + pulse * 5, 15 + pulse * 3, 0, 0, Math.PI * 2);
+    ctx.ellipse(px, pawn.y + 7, 28 + pulse * 5, 16 + pulse * 3, 0, 0, Math.PI * 2);
     ctx.stroke();
     ctx.restore();
   }
 
-  // 2. 2.5D Extruded Pedestal & Glossy Token Cap
+  // 2. Transform into Pawn Figurine Space
   ctx.save();
   ctx.translate(px, py);
   ctx.scale(pawn.scale, pawn.scale);
@@ -1282,49 +1651,370 @@ function draw25DPawn(
     ctx.rotate(pawn.spin);
   }
 
-  // Extruded cylinder body
+  // 3D Metallic/Glossy Pedestal Disc under the character's feet
   ctx.fillStyle = palette.dark;
   ctx.strokeStyle = '#0f172a';
-  ctx.lineWidth = 2.5;
+  ctx.lineWidth = 2.2;
   ctx.beginPath();
-  ctx.ellipse(0, 6, 17, 11, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, 7, 19, 10.5, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
 
-  ctx.fillStyle = palette.main;
-  ctx.fillRect(-17, -4, 34, 10);
-
-  // Top medallion cap
-  ctx.fillStyle = palette.main;
+  const plinthGrad = ctx.createLinearGradient(-18, -2, 18, 9);
+  plinthGrad.addColorStop(0, palette.light);
+  plinthGrad.addColorStop(0.5, palette.main);
+  plinthGrad.addColorStop(1, palette.dark);
+  ctx.fillStyle = plinthGrad;
   ctx.beginPath();
-  ctx.arc(0, -6, 17, 0, Math.PI * 2);
+  ctx.ellipse(0, 3.5, 19, 9.5, 0, 0, Math.PI * 2);
   ctx.fill();
-  ctx.strokeStyle = pawn.isMe ? '#fef08a' : '#ffffff';
-  ctx.lineWidth = pawn.isMe ? 3 : 2.2;
+  ctx.strokeStyle = pawn.isMe ? '#6ee7b7' : '#ffffff';
+  ctx.lineWidth = pawn.isMe ? 2.6 : 1.8;
   ctx.stroke();
 
-  // Clip avatar portrait inside medallion
+  // Compute limb walk/climb/celebration kinematics
+  const phase = pawn.isWalking
+    ? pawn.walkCycle * Math.PI * 2
+    : pawn.isClimbing
+    ? timeSec * 16
+    : 0;
+  const strideX = pawn.isWalking ? Math.sin(phase) * 7.5 : 0;
+  const legLiftL = pawn.isWalking
+    ? Math.max(0, Math.cos(phase)) * 4.5
+    : pawn.isClimbing
+    ? Math.max(0, Math.sin(phase)) * 5
+    : 0;
+  const legLiftR = pawn.isWalking
+    ? Math.max(0, -Math.cos(phase)) * 4.5
+    : pawn.isClimbing
+    ? Math.max(0, -Math.sin(phase)) * 5
+    : 0;
+  const bodyBob = pawn.isWalking
+    ? Math.abs(Math.sin(phase)) * 2.5
+    : pawn.isCelebrating
+    ? Math.abs(Math.sin(timeSec * 8)) * 3
+    : Math.sin(timeSec * 3.2) * 1.1;
+
+  // Orient 3D body left/right along travel direction
+  ctx.save();
+  ctx.scale(pawn.facing, 1);
+  if (pawn.isWalking) {
+    ctx.rotate(0.08); // Subtle forward sprint lean
+  }
+
+  // Flowing 3D Cape or Scarf (Jago, Luna, Bayu, Rama)
+  if (char3D.capeColor || char3D.scarfColor) {
+    const flutter = Math.sin(timeSec * 9 + (pawn.isWalking ? 4 : 0)) * 3;
+    ctx.fillStyle = char3D.capeColor || char3D.scarfColor!;
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    if (char3D.capeColor) {
+      ctx.moveTo(-4, -18 - bodyBob);
+      ctx.quadraticCurveTo(-18, -10 - bodyBob + flutter, -16, 2 - bodyBob + flutter * 0.6);
+      ctx.lineTo(-4, 0 - bodyBob);
+    } else {
+      ctx.moveTo(-3, -18 - bodyBob);
+      ctx.quadraticCurveTo(-17, -20 - bodyBob + flutter, -19, -12 - bodyBob + flutter);
+      ctx.quadraticCurveTo(-11, -13 - bodyBob, -3, -14 - bodyBob);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  }
+
+  // 3. Back Arm (shaded darker for 3D depth)
+  const backArmAngle = pawn.isCelebrating
+    ? -2.35
+    : pawn.isClimbing
+    ? -1.8 + Math.sin(phase) * 0.5
+    : pawn.isWalking
+    ? -Math.sin(phase) * 0.7
+    : 0.25;
+  draw3DLimb(
+    ctx,
+    -7,
+    -16 - bodyBob,
+    backArmAngle,
+    11,
+    4.6,
+    char3D.torsoDark,
+    char3D.handColor || char3D.skinColor
+  );
+
+  // 4. Back & Front 3D Legs + Sneakers
+  const drawLeg = (hipX: number, liftY: number, swingX: number, isBack: boolean) => {
+    const footX = hipX + swingX;
+    const footY = 2 - liftY;
+    ctx.save();
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 7.4;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(hipX, -6 - bodyBob);
+    ctx.lineTo(footX, footY);
+    ctx.stroke();
+
+    ctx.strokeStyle = isBack ? '#0f172a' : char3D.pantsColor;
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.moveTo(hipX, -6 - bodyBob);
+    ctx.lineTo(footX, footY);
+    ctx.stroke();
+
+    // 3D Sneaker with white sole highlight
+    ctx.fillStyle = char3D.shoeColor;
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.ellipse(footX + 2.2, footY + 1.5, 5.2, 3.2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.ellipse(footX + 2.5, footY + 3.1, 4.4, 1.1, 0, 0, Math.PI);
+    ctx.fill();
+    ctx.restore();
+  };
+
+  drawLeg(-4.5, legLiftL, -strideX, true);
+  drawLeg(4.5, legLiftR, strideX, false);
+
+  // 5. 3D Sculpted Torso / Outfit
+  ctx.save();
+  const torsoGrad = ctx.createLinearGradient(-10, -21 - bodyBob, 11, -4 - bodyBob);
+  torsoGrad.addColorStop(0, char3D.torsoLight);
+  torsoGrad.addColorStop(0.65, char3D.torsoLight);
+  torsoGrad.addColorStop(1, char3D.torsoDark);
+  ctx.fillStyle = torsoGrad;
+  ctx.strokeStyle = '#0f172a';
+  ctx.lineWidth = 2.2;
+  roundRect(ctx, -9.5, -21 - bodyBob, 19, 17, 7);
+  ctx.fill();
+  ctx.stroke();
+
+  // Outfit accent stripe / belt / chest emblem
+  ctx.fillStyle = char3D.accentColor;
+  if (pawn.avatarId === 'ujang') {
+    // Classic red-white Madura stripes
+    ctx.fillRect(-8, -16 - bodyBob, 16, 3);
+    ctx.fillRect(-8, -10 - bodyBob, 16, 3);
+  } else if (pawn.avatarId === 'bima' || pawn.avatarId === 'jago') {
+    // Belt / Cyber trim
+    ctx.fillRect(-8.5, -8.5 - bodyBob, 17, 3.5);
+  } else {
+    // Center emblem / zipper highlight
+    ctx.beginPath();
+    ctx.arc(2, -13.5 - bodyBob, 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+
+  // 6. Front 3D Arm
+  const frontArmAngle = pawn.isCelebrating
+    ? -2.45
+    : pawn.isClimbing
+    ? -1.8 - Math.sin(phase) * 0.5
+    : pawn.isWalking
+    ? Math.sin(phase) * 0.75
+    : -0.22;
+  draw3DLimb(
+    ctx,
+    7.5,
+    -16 - bodyBob,
+    frontArmAngle,
+    11,
+    4.8,
+    char3D.torsoLight,
+    char3D.handColor || char3D.skinColor
+  );
+
+  ctx.restore(); // End facing flip
+
+  // 7. 3D Glossy Pixar-Style Head Bust
+  const headY = -36 - bodyBob;
+  const headR = 17.5;
+  ctx.save();
+  ctx.translate(pawn.facing * (pawn.isWalking ? 1.5 : 0), headY);
+
+  // Subtle neck & chin shadow
+  ctx.fillStyle = char3D.skinColor;
+  ctx.strokeStyle = '#0f172a';
+  ctx.lineWidth = 1.8;
+  ctx.fillRect(-4, headR - 4, 8, 6);
+
+  // 3D Outer Sphere & Team Ring
+  ctx.fillStyle = palette.main;
+  ctx.beginPath();
+  ctx.arc(0, 0, headR + 2.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#0f172a';
+  ctx.lineWidth = 2.6;
+  ctx.stroke();
+
   if (avatarImg && avatarImg.complete && avatarImg.naturalWidth > 0) {
     ctx.save();
     ctx.beginPath();
-    ctx.arc(0, -6, 13.8, 0, Math.PI * 2);
+    ctx.arc(0, 0, headR, 0, Math.PI * 2);
     ctx.clip();
-    ctx.drawImage(avatarImg, -14, -20, 28, 28);
+    ctx.drawImage(avatarImg, -headR, -headR, headR * 2, headR * 2);
     ctx.restore();
   } else {
+    ctx.fillStyle = char3D.torsoLight;
+    ctx.beginPath();
+    ctx.arc(0, 0, headR, 0, Math.PI * 2);
+    ctx.fill();
     ctx.fillStyle = '#ffffff';
     ctx.font = '900 13px system-ui, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(pawn.nickname.slice(0, 2).toUpperCase(), 0, -5);
+    ctx.fillText(pawn.nickname.slice(0, 2).toUpperCase(), 0, 1);
   }
 
-  // Specular shine arc
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.28)';
+  // 3D Rim Light + Top Specular Dome Highlight
+  ctx.strokeStyle = pawn.isMe ? '#6ee7b7' : '#ffffff';
+  ctx.lineWidth = pawn.isMe ? 2.6 : 1.8;
   ctx.beginPath();
-  ctx.ellipse(-4, -13, 8, 3.5, -0.35, 0, Math.PI * 2);
+  ctx.arc(0, 0, headR, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.32)';
+  ctx.beginPath();
+  ctx.ellipse(-4.5, -headR * 0.52, 7.5, 3.2, -0.35, 0, Math.PI * 2);
   ctx.fill();
 
+  // Golden Crown when celebrating victory at tile 100!
+  if (pawn.isCelebrating) {
+    ctx.fillStyle = '#facc15';
+    ctx.strokeStyle = '#78350f';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-10, -headR + 1);
+    ctx.lineTo(-12, -headR - 11);
+    ctx.lineTo(-4, -headR - 5);
+    ctx.lineTo(0, -headR - 13);
+    ctx.lineTo(4, -headR - 5);
+    ctx.lineTo(12, -headR - 11);
+    ctx.lineTo(10, -headR + 1);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  }
+
+  ctx.restore(); // End head
+  ctx.restore(); // End pawn transform
+}
+
+function draw3DLimb(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  angle: number,
+  length: number,
+  thickness: number,
+  sleeveColor: string,
+  handColor: string
+) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+  ctx.lineCap = 'round';
+
+  // Dark silhouette outline
+  ctx.strokeStyle = '#0f172a';
+  ctx.lineWidth = thickness + 3.2;
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(0, length);
+  ctx.stroke();
+
+  // Colored 3D arm
+  ctx.strokeStyle = sleeveColor;
+  ctx.lineWidth = thickness;
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(0, length);
+  ctx.stroke();
+
+  // Hand / Glove sphere
+  ctx.fillStyle = handColor;
+  ctx.strokeStyle = '#0f172a';
+  ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  ctx.arc(0, length + 1.5, thickness * 0.68, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawActiveStepPill(ctx: CanvasRenderingContext2D, pawn: DrawnPawnData) {
+  if (!pawn.stepBadge) return;
+  const x = Math.max(40, Math.min(960, pawn.x));
+  const y = Math.max(24, pawn.y - pawn.z - 68);
+
+  ctx.save();
+  ctx.font = '900 14px system-ui, sans-serif';
+  const text = `👣 ${pawn.stepBadge}`;
+  const w = ctx.measureText(text).width + 16;
+  const h = 24;
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+  ctx.strokeStyle = '#facc15';
+  ctx.lineWidth = 2;
+  roundRect(ctx, x - w / 2, y - h / 2, w, h, 12);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = '#fef08a';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, x, y + 0.5);
+  ctx.restore();
+}
+
+function drawYouArrow(ctx: CanvasRenderingContext2D, pawn: DrawnPawnData, timeSec: number) {
+  const bob = Math.sin(timeSec * 4.5) * 4.5;
+  const baseX = Math.max(36, Math.min(964, pawn.x));
+  const tipOffset = pawn.isCelebrating ? 76 : pawn.stepBadge ? 84 : 62;
+  const tipY = Math.max(42, pawn.y - pawn.z - tipOffset + bob);
+
+  ctx.save();
+  ctx.shadowColor = 'rgba(16, 185, 129, 0.85)';
+  ctx.shadowBlur = 10;
+
+  // Crisp "YOU" Pill above arrow
+  const pillW = 46;
+  const pillH = 21;
+  const pillY = tipY - 26;
+  const pillGrad = ctx.createLinearGradient(baseX, pillY, baseX, pillY + pillH);
+  pillGrad.addColorStop(0, '#34d399');
+  pillGrad.addColorStop(1, '#059669');
+  ctx.fillStyle = pillGrad;
+  ctx.strokeStyle = '#fef08a';
+  ctx.lineWidth = 2.2;
+  roundRect(ctx, baseX - pillW / 2, pillY, pillW, pillH, 10.5);
+  ctx.fill();
+  ctx.stroke();
+
+  // Downward Triangle Pointer Arrow aimed directly at player's character
+  ctx.fillStyle = '#10b981';
+  ctx.strokeStyle = '#fef08a';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(baseX - 8, pillY + pillH - 1);
+  ctx.lineTo(baseX + 8, pillY + pillH - 1);
+  ctx.lineTo(baseX, tipY);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // "YOU" Label Text
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = '#022c22';
+  ctx.font = '900 12.5px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('YOU', baseX, pillY + pillH / 2 + 0.5);
   ctx.restore();
 }
 
