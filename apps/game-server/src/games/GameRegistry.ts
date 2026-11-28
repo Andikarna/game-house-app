@@ -5,6 +5,7 @@ import { LudoGame } from './ludo/LudoGame';
 import { SnakeLadderGame } from './snake-ladder/SnakeLadderGame';
 import { ImpostorDesaGame } from './impostor-desa/ImpostorDesaGame';
 import { HiddenTeamGame } from './hidden-team/HiddenTeamGame';
+import { UnoGame } from './uno/UnoGame';
 
 export class GameRegistry {
   private static games: Map<GameId, () => GameModule> = new Map();
@@ -28,5 +29,6 @@ export class GameRegistry {
 GameRegistry.register('panjat-pinang', () => new PanjatPinangGame());
 GameRegistry.register('ludo', () => new LudoGame());
 GameRegistry.register('snake-ladder', () => new SnakeLadderGame());
+GameRegistry.register('uno', () => new UnoGame());
 GameRegistry.register('impostor-desa', () => new ImpostorDesaGame());
 GameRegistry.register('hidden-team', () => new HiddenTeamGame());

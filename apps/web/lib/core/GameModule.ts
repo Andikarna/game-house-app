@@ -28,6 +28,8 @@ export interface GameModule {
   handlePlayerReconnect(player: Player): void;
   isFinished(): boolean;
   getState(): any;
+  getStateForPlayer?(playerId: string): any;
+  shouldBroadcastTick?(): boolean;
   getResults(): GameResultData;
   cleanup(): void;
 }

@@ -102,8 +102,8 @@ export const AvatarSelector: React.FC<AvatarSelectorProps> = ({
 
   return (
     <div className="flex flex-col gap-3.5">
-      {/* Crisp 4x2 Character Grid */}
-      <div className="grid grid-cols-4 gap-2 sm:gap-2.5">
+      {/* Crisp 4x3 / 6x2 Character Grid (12 Eye-Candy Characters) */}
+      <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 max-h-56 sm:max-h-none overflow-y-auto pr-0.5 pt-1">
         {primaryOptions.map((item) => {
           const isSelected = normSelected === item.id;
           return (
@@ -111,13 +111,13 @@ export const AvatarSelector: React.FC<AvatarSelectorProps> = ({
               key={item.id}
               type="button"
               onClick={() => onSelect(item.id)}
-              className={`group relative flex flex-col items-center p-2 rounded-2xl border transition-all duration-200 cursor-pointer ${
+              className={`group relative flex flex-col items-center p-1.5 sm:p-2 rounded-2xl border transition-all duration-200 cursor-pointer ${
                 isSelected
                   ? 'bg-indigo-600/30 border-indigo-400 scale-[1.03] shadow-glow-primary ring-2 ring-indigo-400/40'
                   : 'bg-surface-elevated/80 border-slate-700/70 hover:border-slate-500 hover:bg-surface-elevated'
               }`}
             >
-              <ClimberAvatarIcon avatar={item.id} size={54} />
+              <ClimberAvatarIcon avatar={item.id} size={46} />
 
               <span className={`mt-1.5 text-xs font-black truncate w-full text-center ${
                 isSelected ? 'text-white' : 'text-slate-200 group-hover:text-white'

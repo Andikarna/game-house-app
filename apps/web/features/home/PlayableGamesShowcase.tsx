@@ -39,7 +39,7 @@ interface PlayableGamesProps {
 }
 
 export const PlayableGamesShowcase: React.FC<PlayableGamesProps> = ({ onSelectGame }) => {
-  const [activeTab, setActiveTab] = useState<'all' | 'panjat-pinang' | 'ludo' | 'snake-ladder' | 'impostor-desa' | 'hidden-team'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'uno' | 'panjat-pinang' | 'ludo' | 'snake-ladder' | 'impostor-desa' | 'hidden-team'>('all');
   const [isHiddenTeamRulesOpen, setIsHiddenTeamRulesOpen] = useState(false);
   const [hiddenTeamRulesTab, setHiddenTeamRulesTab] = useState<HiddenTeamRulesTab>('flow');
   const [showInlineRoles, setShowInlineRoles] = useState(false);
@@ -66,7 +66,7 @@ export const PlayableGamesShowcase: React.FC<PlayableGamesProps> = ({ onSelectGa
             Pilihan Mini-Game <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 via-pink-400 to-indigo-400">GameHouse</span>
           </h2>
           <p className="text-xs sm:text-sm text-slate-300 max-w-xl mt-1">
-            Mainkan <strong className="text-indigo-300">Ludo Party</strong> dan <strong className="text-emerald-300">Ular Tangga 2.5D</strong> langsung di browser! Game lainnya berstatus Maintenance & Coming Soon.
+            Mainkan <strong className="text-rose-300">UNO Party (4–10 Pemain)</strong>, <strong className="text-indigo-300">Ludo Party</strong>, dan <strong className="text-emerald-300">Ular Tangga 2.5D</strong> langsung di browser!
           </p>
         </div>
 
@@ -80,7 +80,17 @@ export const PlayableGamesShowcase: React.FC<PlayableGamesProps> = ({ onSelectGa
                 : 'text-slate-400 hover:text-white'
             }`}
           >
-            Semua (5)
+            Semua (6)
+          </button>
+          <button
+            onClick={() => setActiveTab('uno')}
+            className={`px-3 sm:px-4 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+              activeTab === 'uno'
+                ? 'bg-rose-600 text-white shadow-glow-orange'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <span>🃏</span> UNO Party
           </button>
           <button
             onClick={() => setActiveTab('panjat-pinang')}
@@ -151,6 +161,111 @@ export const PlayableGamesShowcase: React.FC<PlayableGamesProps> = ({ onSelectGa
           : 'grid-cols-1 max-w-2xl mx-auto'
       }`}>
         
+        {/* ========================================================= */}
+        {/* GAME 0: UNO PARTY (4 - 10 PLAYERS, SUPABASE REALTIME) */}
+        {/* ========================================================= */}
+        {(activeTab === 'all' || activeTab === 'uno') && (
+          <div className="group relative bg-surface border border-rose-500/45 rounded-3xl overflow-hidden shadow-2xl hover:border-rose-400 transition-all duration-300 flex flex-col justify-between">
+            <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-rose-500 via-amber-400 to-cyan-400 z-20" />
+
+            <div className="flex flex-col flex-1">
+              <div className="relative w-full aspect-[16/9] sm:h-64 bg-slate-950 overflow-hidden">
+                <img
+                  src="/assets/gameplay/uno_party_banner.jpg"
+                  alt="UNO Party 4-10 Pemain"
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out opacity-95"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-surface via-surface/35 to-transparent z-10" />
+                <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent z-10 pointer-events-none" />
+
+                <div className="absolute top-3 left-3 sm:top-4 sm:left-4 flex flex-wrap gap-1.5 sm:gap-2 z-20">
+                  <span className="px-3 py-1 rounded-full bg-emerald-500/90 text-white text-[11px] font-black uppercase tracking-wider backdrop-blur-md shadow-md flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                    Siap Dimainkan
+                  </span>
+                  <span className="px-2.5 py-1 rounded-full bg-rose-600/90 text-white text-[11px] font-black tracking-wider backdrop-blur-md border border-white/20">
+                    ⚡ Supabase Low-Latency
+                  </span>
+                </div>
+
+                <div className="absolute top-3 right-3 sm:top-4 sm:right-4 z-20">
+                  <span className="px-3 py-1 rounded-full bg-surface-elevated/90 text-amber-300 text-xs font-black backdrop-blur-md border border-amber-500/40 shadow-lg flex items-center gap-1">
+                    <Users className="w-3.5 h-3.5" /> 4 - 10 Pemain
+                  </span>
+                </div>
+
+                <div className="absolute bottom-3 left-4 sm:bottom-4 sm:left-6 z-20">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-2xl sm:text-3xl">🃏</span>
+                    <h3 className="text-xl sm:text-2xl lg:text-3xl font-black text-white tracking-tight drop-shadow-md">
+                      UNO Party Arena
+                    </h3>
+                  </div>
+                  <p className="text-xs sm:text-sm font-semibold text-rose-300 drop-shadow">
+                    Kartu Holografik, Efek VFX Partikel &amp; 12 Karakter Memukau!
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-5 sm:p-7 space-y-4 sm:space-y-5 flex-1 flex flex-col justify-between">
+                <p className="text-xs sm:text-sm text-slate-300 leading-relaxed min-h-[48px]">
+                  Pertarungan kartu UNO hingga 10 pemain! Nikmati kartu foil 3D berkilau, ledakan efek <span className="text-rose-400 font-bold">Wild +4</span> &amp; <span className="text-cyan-400 font-bold">Reverse</span>, tombol teriak &amp; tangkap UNO, serta leaderboard global Supabase berlatensi rendah!
+                </p>
+
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  <div className="p-2.5 rounded-2xl bg-surface-elevated border border-slate-700/80 flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-rose-400 shrink-0" />
+                    <div>
+                      <div className="font-bold text-white text-[11px] sm:text-xs">Efek VFX</div>
+                      <div className="text-[10px] text-slate-400">Partikel &amp; Foil</div>
+                    </div>
+                  </div>
+                  <div className="p-2.5 rounded-2xl bg-surface-elevated border border-slate-700/80 flex items-center gap-2">
+                    <Zap className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <div>
+                      <div className="font-bold text-white text-[11px] sm:text-xs">Ultra Cepat</div>
+                      <div className="text-[10px] text-slate-400">Supabase Realtime</div>
+                    </div>
+                  </div>
+                  <div className="p-2.5 rounded-2xl bg-surface-elevated border border-slate-700/80 flex items-center gap-2">
+                    <Users className="w-4 h-4 text-amber-400 shrink-0" />
+                    <div>
+                      <div className="font-bold text-white text-[11px] sm:text-xs">4 - 10 Pemain</div>
+                      <div className="text-[10px] text-slate-400">12 Karakter &amp; Bot</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                  <span className="text-[11px] font-bold text-slate-400 mr-1">Mode:</span>
+                  <span className="px-2.5 py-0.5 rounded-lg bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 text-[11px] font-bold">
+                    Classic
+                  </span>
+                  <span className="px-2.5 py-0.5 rounded-lg bg-rose-500/15 border border-rose-500/30 text-rose-300 text-[11px] font-bold">
+                    Turbo Stack (+2/+4)
+                  </span>
+                  <span className="px-2.5 py-0.5 rounded-lg bg-purple-500/15 border border-purple-500/30 text-purple-300 text-[11px] font-bold">
+                    Chaos 7-0
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-5 sm:p-7 pt-0 border-t border-slate-800/80 flex flex-col sm:flex-row items-center gap-3 mt-4">
+              <Button
+                variant="orange"
+                size="lg"
+                glow
+                onClick={() => onSelectGame('uno')}
+                icon={<Play className="w-4 h-4 fill-white" />}
+                className="w-full font-black text-sm sm:text-base py-3"
+              >
+                Buat Room UNO Party (4-10 Pemain)
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* ========================================================= */}
         {/* GAME 1: PANJAT PINANG BATTLE (MAINTENANCE) */}
         {/* ========================================================= */}

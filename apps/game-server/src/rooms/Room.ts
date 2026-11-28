@@ -11,6 +11,7 @@ import {
 import { Server as SocketIOServer } from 'socket.io';
 import { GameModule } from '../core/GameModule';
 import { GameRegistry } from '../games/GameRegistry';
+import { recordUnoMatchToSupabase } from '../lib/supabase';
 
 export class Room {
   public readonly id: string;
@@ -97,7 +98,11 @@ export class Room {
     }
 
     const isSixPlayerGame = this.settings.gameId === 'impostor-desa' || this.settings.gameId === 'hidden-team';
-    const maxCapacity = isSixPlayerGame ? 6 : this.settings.maxPlayers;
+    const maxCapacity = isSixPlayerGame
+      ? 6
+      : this.settings.gameId === 'uno'
+      ? Math.min(10, Math.max(4, this.settings.maxPlayers || 10))
+      : this.settings.maxPlayers;
     if (this.players.size >= maxCapacity) {
       // Check if there is an automated bot that can be replaced by the incoming human player
       const botPlayer = Array.from(this.players.values()).find(p => p.isBot);
@@ -223,12 +228,20 @@ export class Room {
     }
 
     const isSixPlayerGame = this.settings.gameId === 'impostor-desa' || this.settings.gameId === 'hidden-team';
-    const maxAllowed = isSixPlayerGame ? 6 : this.settings.maxPlayers;
+    const maxAllowed = isSixPlayerGame
+      ? 6
+      : this.settings.gameId === 'uno'
+      ? Math.min(10, Math.max(4, this.settings.maxPlayers || 10))
+      : this.settings.maxPlayers;
     if (this.players.size >= maxAllowed) {
       return { success: false, error: `Room sudah penuh (maksimal ${maxAllowed} pemain).` };
     }
 
     const BOT_PRESETS: Array<{ nickname: string; avatar: any }> = [
+      { nickname: 'Bot Luna', avatar: 'luna' },
+      { nickname: 'Bot Bima', avatar: 'bima' },
+      { nickname: 'Bot Nala', avatar: 'nala' },
+      { nickname: 'Bot Rama', avatar: 'rama' },
       { nickname: 'Bot Rara', avatar: 'rara' },
       { nickname: 'Bot Siti', avatar: 'siti' },
       { nickname: 'Bot Koko', avatar: 'koko' },
@@ -297,9 +310,19 @@ export class Room {
 
   public fillBots(targetCount?: number): { added: number } {
     if (this.status !== 'lobby') return { added: 0 };
-    const minTarget = this.settings.gameId === 'hidden-team' ? 6 : (this.settings.gameId === 'impostor-desa' ? 4 : 2);
-    const maxTarget = (this.settings.gameId === 'impostor-desa' || this.settings.gameId === 'hidden-team') ? 6 : this.settings.maxPlayers;
-    const desired = Math.min(Math.max(targetCount || minTarget, minTarget), maxTarget);
+    const minTarget =
+      this.settings.gameId === 'hidden-team'
+        ? 6
+        : this.settings.gameId === 'impostor-desa' || this.settings.gameId === 'uno'
+        ? 4
+        : 2;
+    const maxTarget =
+      this.settings.gameId === 'impostor-desa' || this.settings.gameId === 'hidden-team'
+        ? 6
+        : this.settings.gameId === 'uno'
+        ? Math.min(10, Math.max(4, this.settings.maxPlayers || 6))
+        : this.settings.maxPlayers;
+    const desired = Math.min(Math.max(targetCount || maxTarget, minTarget), maxTarget);
 
     let addedCount = 0;
     while (this.players.size < desired) {
@@ -344,6 +367,13 @@ export class Room {
       }
       if (this.players.size > 6) {
         return { canStart: false, reason: 'Impostor Desa mendukung maksimal 6 pemain.' };
+      }
+    } else if (this.settings.gameId === 'uno') {
+      if (this.players.size < 4) {
+        return { canStart: false, reason: 'UNO Party membutuhkan minimal 4 pemain (4–10 pemain) untuk memulai.' };
+      }
+      if (this.players.size > 10) {
+        return { canStart: false, reason: 'UNO Party mendukung maksimal 10 pemain.' };
       }
     } else if (this.players.size < 2) {
       return { canStart: false, reason: 'At least 2 players are required to start.' };
@@ -403,15 +433,34 @@ export class Room {
 
     this.gameInstance.update(deltaTime);
 
+    const shouldBroadcast =
+      typeof this.gameInstance.shouldBroadcastTick === 'function'
+        ? this.gameInstance.shouldBroadcastTick()
+        : true;
+
     const currentState = this.gameInstance.getState();
-    // Broadcast state to room
-    this.io.to(this.id).emit('game:state', currentState);
+    if (shouldBroadcast) {
+      // Broadcast state to room (for real-time 20Hz games)
+      this.io.to(this.id).emit('game:state', currentState);
+    }
 
     if (this.gameInstance.isFinished()) {
       this.status = 'finished';
       if (this.gameLoopTimer) {
         clearInterval(this.gameLoopTimer);
         this.gameLoopTimer = null;
+      }
+
+      if (this.settings.gameId === 'uno') {
+        const results = this.gameInstance.getResults();
+        const unoState = currentState as any;
+        recordUnoMatchToSupabase({
+          roomCode: this.code,
+          gameMode: this.settings.gameMode,
+          rankings: results.rankings || [],
+          totalTurns: unoState?.turnCount || 0,
+          durationMs: Math.max(0, Date.now() - (unoState?.startedAt || Date.now())),
+        }).catch(() => {});
       }
 
       // Sync cumulative player scores from game instance to room players
@@ -625,10 +674,14 @@ export class Room {
     });
 
     if (passed) {
-      // Remove token and state from game engine if game is Ludo
+      // Remove player state from game engine
       if (this.gameInstance && typeof (this.gameInstance as any).removePlayer === 'function') {
         (this.gameInstance as any).removePlayer(targetId);
-        this.io.to(this.id).emit('game:ludo_state', this.gameInstance.getState());
+        if (this.settings.gameId === 'ludo') {
+          this.io.to(this.id).emit('game:ludo_state', this.gameInstance.getState());
+        } else if (this.settings.gameId === 'snake-ladder') {
+          this.io.to(this.id).emit('game:snake_state', this.gameInstance.getState());
+        }
       }
       this.removePlayer(targetId);
       this.io.to(this.id).emit('room:updated', this.getInfo());

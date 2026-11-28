@@ -29,9 +29,13 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
   const { socket, setRoom, setPlayerId, playerId, addToast } = useGameStore();
 
   const [selectedGame, setSelectedGame] = useState<GameId>(
-    initialGameId === 'snake-ladder' ? 'snake-ladder' : 'ludo'
+    initialGameId === 'uno'
+      ? 'uno'
+      : initialGameId === 'snake-ladder'
+      ? 'snake-ladder'
+      : 'ludo'
   );
-  const [roomName, setRoomName] = useState(`${nickname}'s Ludo Table`);
+  const [roomName, setRoomName] = useState(`${nickname}'s Party`);
   const [gameMode, setGameMode] = useState<GameMode>('classic');
   const [maxPlayers, setMaxPlayers] = useState<number>(4);
   const [autoFillBots, setAutoFillBots] = useState<boolean>(initialAutoFillBots);
@@ -43,12 +47,25 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
       if (initialAutoFillBots) {
         setAutoFillBots(true);
       }
-      const nextGame: GameId = initialGameId === 'snake-ladder' ? 'snake-ladder' : 'ludo';
+      const nextGame: GameId =
+        initialGameId === 'uno'
+          ? 'uno'
+          : initialGameId === 'snake-ladder'
+          ? 'snake-ladder'
+          : 'ludo';
       setSelectedGame(nextGame);
-      setMaxPlayers(4);
-      setGameMode(nextGame === 'snake-ladder' ? 'snake-classic' : 'classic');
+      setMaxPlayers(nextGame === 'uno' ? 6 : 4);
+      setGameMode(
+        nextGame === 'uno'
+          ? 'uno-classic'
+          : nextGame === 'snake-ladder'
+          ? 'snake-classic'
+          : 'classic'
+      );
       setRoomName(
-        nextGame === 'snake-ladder'
+        nextGame === 'uno'
+          ? `${nickname || 'Player'}'s UNO Party`
+          : nextGame === 'snake-ladder'
           ? `${nickname || 'Player'}'s Ular Tangga`
           : `${nickname || 'Player'}'s Ludo Table`
       );
@@ -65,10 +82,18 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
       return;
     }
     setSelectedGame(gameId);
-    setMaxPlayers(4);
-    setGameMode(gameId === 'snake-ladder' ? 'snake-classic' : 'classic');
+    setMaxPlayers(gameId === 'uno' ? 6 : 4);
+    setGameMode(
+      gameId === 'uno'
+        ? 'uno-classic'
+        : gameId === 'snake-ladder'
+        ? 'snake-classic'
+        : 'classic'
+    );
     setRoomName(
-      gameId === 'snake-ladder'
+      gameId === 'uno'
+        ? `${nickname || 'Player'}'s UNO Party`
+        : gameId === 'snake-ladder'
         ? `${nickname || 'Player'}'s Ular Tangga`
         : `${nickname || 'Player'}'s Ludo Table`
     );
@@ -77,8 +102,8 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (selectedGame !== 'ludo' && selectedGame !== 'snake-ladder') {
-      addToast('Saat ini hanya Ludo Party & Ular Tangga yang dapat dimainkan. Game lain berstatus Maintenance / Coming Soon.', 'error');
+    if (selectedGame !== 'ludo' && selectedGame !== 'snake-ladder' && selectedGame !== 'uno') {
+      addToast('Saat ini hanya UNO Party, Ludo Party & Ular Tangga yang dapat dimainkan. Game lain berstatus Maintenance / Coming Soon.', 'error');
       return;
     }
 
@@ -162,51 +187,74 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
             Pilih Permainan
           </label>
 
-          {/* Row 1: Playable Games (2 balanced columns) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          {/* Row 1: Playable Games (3 balanced columns) */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <button
+              type="button"
+              onClick={() => handleSelectGame('uno')}
+              className={`p-2.5 rounded-2xl border text-left transition-all flex items-center gap-2.5 min-w-0 ${
+                selectedGame === 'uno'
+                  ? 'bg-rose-600/25 border-rose-500 shadow-glow-orange text-white ring-1 ring-rose-400/50'
+                  : 'bg-surface-elevated/80 border-slate-700/80 text-slate-300 hover:border-slate-600 hover:text-white'
+              }`}
+            >
+              <div className="w-9 h-9 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-xl shrink-0">
+                🃏
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-1">
+                  <h4 className="text-xs sm:text-sm font-black leading-tight truncate">UNO Party</h4>
+                  <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase shrink-0">
+                    Baru
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-0.5 truncate">4–10 Pemain</p>
+              </div>
+            </button>
+
             <button
               type="button"
               onClick={() => handleSelectGame('ludo')}
-              className={`p-3 rounded-2xl border text-left transition-all flex items-center gap-3 min-w-0 ${
+              className={`p-2.5 rounded-2xl border text-left transition-all flex items-center gap-2.5 min-w-0 ${
                 selectedGame === 'ludo'
                   ? 'bg-indigo-600/25 border-indigo-500 shadow-glow-primary text-white ring-1 ring-indigo-400/50'
                   : 'bg-surface-elevated/80 border-slate-700/80 text-slate-300 hover:border-slate-600 hover:text-white'
               }`}
             >
-              <div className="w-10 h-10 rounded-xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-2xl shrink-0">
+              <div className="w-9 h-9 rounded-xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-xl shrink-0">
                 🎲
               </div>
               <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between gap-1.5">
-                  <h4 className="text-sm font-black leading-tight truncate">Ludo Party</h4>
-                  <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase shrink-0">
+                <div className="flex items-center justify-between gap-1">
+                  <h4 className="text-xs sm:text-sm font-black leading-tight truncate">Ludo Party</h4>
+                  <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase shrink-0">
                     Siap
                   </span>
                 </div>
-                <p className="text-[11px] text-slate-400 mt-0.5 truncate">2–6 Pemain • Klasik & Cepat</p>
+                <p className="text-[10px] text-slate-400 mt-0.5 truncate">2–6 Pemain</p>
               </div>
             </button>
 
             <button
               type="button"
               onClick={() => handleSelectGame('snake-ladder')}
-              className={`p-3 rounded-2xl border text-left transition-all flex items-center gap-3 min-w-0 ${
+              className={`p-2.5 rounded-2xl border text-left transition-all flex items-center gap-2.5 min-w-0 ${
                 selectedGame === 'snake-ladder'
                   ? 'bg-emerald-600/25 border-emerald-500 shadow-glow-primary text-white ring-1 ring-emerald-400/50'
                   : 'bg-surface-elevated/80 border-slate-700/80 text-slate-300 hover:border-slate-600 hover:text-white'
               }`}
             >
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-2xl shrink-0">
+              <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-xl shrink-0">
                 🐍
               </div>
               <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between gap-1.5">
-                  <h4 className="text-sm font-black leading-tight truncate">Ular Tangga 2.5D</h4>
-                  <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase shrink-0">
+                <div className="flex items-center justify-between gap-1">
+                  <h4 className="text-xs sm:text-sm font-black leading-tight truncate">Ular Tangga</h4>
+                  <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase shrink-0">
                     Siap
                   </span>
                 </div>
-                <p className="text-[11px] text-slate-400 mt-0.5 truncate">2–6 Pemain • Ular Hidup</p>
+                <p className="text-[10px] text-slate-400 mt-0.5 truncate">2–6 Pemain</p>
               </div>
             </button>
           </div>
@@ -333,6 +381,25 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
                   {m.title}
                 </button>
               ))
+            ) : selectedGame === 'uno' ? (
+              [
+                { id: 'uno-classic', title: 'Klasik (Resmi)' },
+                { id: 'uno-stack', title: 'Turbo Stack (+2/+4)' },
+                { id: 'uno-chaos', title: 'Chaos 7-0' },
+              ].map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => setGameMode(m.id as GameMode)}
+                  className={`py-2 px-2.5 rounded-xl border text-xs font-bold transition-all ${
+                    gameMode === m.id
+                      ? 'bg-rose-600/30 text-rose-200 border-rose-400 shadow-glow-orange'
+                      : 'bg-surface-elevated text-slate-400 border-slate-800 hover:text-white'
+                  }`}
+                >
+                  {m.title}
+                </button>
+              ))
             ) : selectedGame === 'snake-ladder' ? (
               [
                 { id: 'snake-classic', title: 'Klasik (Pantul 100)' },
@@ -382,6 +449,8 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
             <span className="text-xs text-slate-500">
               {selectedGame === 'hidden-team'
                 ? 'Tepat 6 Pemain Dewan'
+                : selectedGame === 'uno'
+                ? '4 - 10 Pemain'
                 : selectedGame === 'impostor-desa'
                 ? '4 - 6 Pemain'
                 : selectedGame === 'ludo' || selectedGame === 'snake-ladder'
@@ -397,8 +466,14 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
           ) : (
             <input
               type="range"
-              min={selectedGame === 'impostor-desa' ? 4 : 2}
-              max={selectedGame === 'impostor-desa' || selectedGame === 'ludo' || selectedGame === 'snake-ladder' ? 6 : 8}
+              min={selectedGame === 'impostor-desa' || selectedGame === 'uno' ? 4 : 2}
+              max={
+                selectedGame === 'uno'
+                  ? 10
+                  : selectedGame === 'impostor-desa' || selectedGame === 'ludo' || selectedGame === 'snake-ladder'
+                  ? 6
+                  : 8
+              }
               value={maxPlayers}
               onChange={(e) => setMaxPlayers(parseInt(e.target.value, 10))}
               className="w-full accent-indigo-500 cursor-pointer"

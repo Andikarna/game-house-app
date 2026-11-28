@@ -4,6 +4,7 @@ import { useGameStore } from '../stores/useGameStore';
 import { useEmoteStore } from '../stores/useEmoteStore';
 import { soundManager } from '../components/audio/SoundManager';
 import { globalPollingSocket } from '../lib/polling-socket';
+import { unoRealtime } from '../lib/uno-realtime';
 
 let globalSocket: any = null;
 const registeredSockets = new WeakSet<any>();
@@ -20,6 +21,7 @@ export function useSocket() {
     setSocket,
     setIsConnected,
     setPing,
+    setTransportMode,
     setRoom,
     setGameState,
     setImpostorRole,
@@ -118,6 +120,10 @@ export function useSocket() {
       });
 
       targetSocket.on('game:snake_state', (state: any) => {
+        setGameState(state);
+      });
+
+      targetSocket.on('game:uno_state', (state: any) => {
         setGameState(state);
       });
 
@@ -244,6 +250,7 @@ export function useSocket() {
       attachSocketListeners(globalPollingSocket);
       setSocket(globalPollingSocket as any);
       setIsConnected(true);
+      setTransportMode(unoRealtime.connected ? 'supabase-realtime' : 'polling');
       if (room?.code && playerId && globalPollingSocket.setContext) {
         globalPollingSocket.setContext(room.code, playerId);
       }
@@ -315,9 +322,42 @@ export function useSocket() {
     }
 
     if (room?.code && playerId && globalPollingSocket.setContext) {
-      globalPollingSocket.setContext(room.code, playerId);
+      if (globalSocket === globalPollingSocket) {
+        globalPollingSocket.setContext(room.code, playerId);
+      }
     }
-  }, [room?.code, playerId]);
+
+    if (active === globalPollingSocket) {
+      setTransportMode(room?.settings.gameId === 'uno' && unoRealtime.connected ? 'supabase-realtime' : 'polling');
+    } else {
+      setTransportMode('websocket');
+    }
+
+    // Periodic RTT latency probe + Supabase Realtime latency feed
+    const unsubLat = unoRealtime.onLatency((ms) => {
+      if (globalSocket === globalPollingSocket) {
+        setPing(ms);
+        setTransportMode('supabase-realtime');
+      }
+    });
+
+    const pingInterval = setInterval(() => {
+      if (globalSocket && globalSocket !== globalPollingSocket && globalSocket.connected) {
+        const t0 = performance.now();
+        globalSocket.emit('ping:check', Date.now(), () => {
+          setPing(Math.max(1, Math.round(performance.now() - t0)));
+          setTransportMode('websocket');
+        });
+      } else if (room?.settings.gameId === 'uno') {
+        setTransportMode(unoRealtime.connected ? 'supabase-realtime' : 'polling');
+      }
+    }, 3000);
+
+    return () => {
+      unsubLat();
+      clearInterval(pingInterval);
+    };
+  }, [room?.code, room?.settings.gameId, playerId]);
 
   return (globalSocket || globalPollingSocket) as any;
 }

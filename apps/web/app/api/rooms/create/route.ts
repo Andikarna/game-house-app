@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { ensureTables, withConnection } from '../../../../lib/db';
-import { generateRoomCode, saveMemoryRoom } from '../../../../lib/room-service';
+import { generateRoomCode, saveMemoryRoom, RoomEntry } from '../../../../lib/room-service';
+import { upsertUnoRoomToSupabase } from '../../../../lib/uno-supabase';
 import { RoomSettings, RoomInfo, Player, AvatarId, GameId, GameMode, GAME_AVAILABILITY } from '../../../../shared';
 
 export const dynamic = 'force-dynamic';
@@ -17,15 +18,23 @@ export async function POST(req: Request) {
     const isImpostor = gameId === 'impostor-desa';
     const isLudo = gameId === 'ludo';
     const isSnakeLadder = gameId === 'snake-ladder';
+    const isUno = gameId === 'uno';
     const maxPlayers = isHiddenTeam
       ? 6
       : isImpostor
       ? Math.min(6, Math.max(4, Number(body.maxPlayers || 6)))
+      : isUno
+      ? Math.min(10, Math.max(4, Number(body.maxPlayers || body.settings?.maxPlayers || 6)))
       : (isLudo || isSnakeLadder)
       ? Math.min(6, Math.max(2, Number(body.maxPlayers || body.settings?.maxPlayers || 4)))
       : Number(body.maxPlayers || body.settings?.maxPlayers || 4);
-    const roomName = body.roomName || body.settings?.name || (isHiddenTeam ? `${nickname}'s Council` : `${nickname}'s Arena`);
-    const durationSeconds = Number(body.durationSeconds || body.settings?.durationSeconds || (isHiddenTeam ? 600 : 180));
+    const roomName =
+      body.roomName ||
+      body.settings?.name ||
+      (isHiddenTeam ? `${nickname}'s Council` : isUno ? `${nickname}'s UNO Party` : `${nickname}'s Arena`);
+    const durationSeconds = Number(
+      body.durationSeconds || body.settings?.durationSeconds || (isHiddenTeam ? 600 : isUno ? 480 : 180)
+    );
 
     if (!nickname || nickname.length < 2) {
       return NextResponse.json({ success: false, error: 'Nickname must be at least 2 characters.' }, { status: 400 });
@@ -75,7 +84,26 @@ export async function POST(req: Request) {
     // 1. Save to in-memory store
     saveMemoryRoom(room, null, null, null, [], now);
 
-    // 2. Persist player and room using one connection & standard single SQL statements
+    // 2. For UNO, persist directly to Supabase (ultra-fast single-row upsert, skipping MySQL)
+    if (isUno) {
+      const unoEntry: RoomEntry = {
+        room,
+        gameState: null,
+        gameResults: null,
+        activeVoteKick: null,
+        chatMessages: [],
+        emotes: [],
+        dbUpdatedAt: now,
+      };
+      await upsertUnoRoomToSupabase(unoEntry);
+      return NextResponse.json({
+        success: true,
+        room,
+        playerId,
+      });
+    }
+
+    // 3. Persist non-UNO player and room to MySQL using one connection & standard single SQL statements
     try {
       await ensureTables();
       await withConnection(async (conn) => {

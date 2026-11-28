@@ -31,6 +31,10 @@ export const GAME_AVAILABILITY: Record<GameId, { status: GameAvailabilityStatus;
     status: 'playable',
     label: 'Siap Dimainkan',
   },
+  'uno': {
+    status: 'playable',
+    label: 'Siap Dimainkan',
+  },
   'impostor-desa': {
     status: 'coming-soon',
     label: 'Coming Soon',
@@ -69,6 +73,9 @@ export const DEFAULT_GAME_DURATION: Record<string, number> = {
   'quick': 300, // 5 minutes
   'snake-classic': 600, // 10 minutes
   'snake-quick': 300, // 5 minutes
+  'uno-classic': 480, // 8 minutes
+  'uno-stack': 420, // 7 minutes
+  'uno-chaos': 420, // 7 minutes
   'impostor-classic': 240, // 4 minutes
   'hidden-team-standard': 600, // 10 minutes
   'hidden-team-4r': 480, // 8 minutes
@@ -95,6 +102,10 @@ export const PRIMARY_AVATARS: AvatarId[] = [
   'bayu',
   'siti',
   'jago',
+  'luna',
+  'bima',
+  'nala',
+  'rama',
 ];
 
 export function normalizeAvatarId(avatar?: string | null): AvatarId {
@@ -185,6 +196,42 @@ export const AVATAR_OPTIONS: AvatarOption[] = [
     badge: '👑',
     tagline: 'Jubah merah, kacamata hitam & sabuk emas juara',
     spriteBase: '/assets/characters/jago',
+  },
+  {
+    id: 'luna',
+    name: 'Luna',
+    subtitle: 'Neon Card Mystic',
+    color: '#A855F7',
+    badge: '🔮',
+    tagline: 'Pesulap kartu neon dengan topi bintang & aura magis ungu',
+    spriteBase: '/assets/characters/luna',
+  },
+  {
+    id: 'bima',
+    name: 'Bima',
+    subtitle: 'Cyber Batik Ace',
+    color: '#10B981',
+    badge: '🃏',
+    tagline: 'Jaket batik futuristik zamrud & visor neon super tajam',
+    spriteBase: '/assets/characters/bima',
+  },
+  {
+    id: 'nala',
+    name: 'Nala',
+    subtitle: 'Star Pop DJ',
+    color: '#EC4899',
+    badge: '🌟',
+    tagline: 'Kacamata bintang rose-gold & hoodie pop penuh irama pesta',
+    spriteBase: '/assets/characters/nala',
+  },
+  {
+    id: 'rama',
+    name: 'Rama',
+    subtitle: 'Royal Card King',
+    color: '#3B82F6',
+    badge: '♠️',
+    tagline: 'Pangeran meja kartu berjaket safir dengan syal merah menyala',
+    spriteBase: '/assets/characters/rama',
   },
   // Backward compatibility aliases for existing games/data
   {
@@ -877,5 +924,54 @@ export const SNAKE_LADDER_SNAKES: SnakeLink[] = [
     pattern: 'diamonds',
   },
 ];
+
+// =========================================================================
+// UNO PARTY (4 - 10 PLAYERS) CONSTANTS
+// =========================================================================
+
+export const UNO_PLAYER_LIMITS = {
+  minPlayers: 4,
+  maxPlayers: 10,
+  defaultPlayers: 6,
+  turnDurationSeconds: 20,
+  startingCards: 7,
+};
+
+export const UNO_COLOR_META: Record<'red' | 'blue' | 'green' | 'yellow', {
+  label: string;
+  hex: string;
+  glow: string;
+  gradient: string;
+  ring: string;
+}> = {
+  red: {
+    label: 'Merah',
+    hex: '#EF4444',
+    glow: 'rgba(239, 68, 68, 0.55)',
+    gradient: 'from-rose-500 via-red-600 to-red-800',
+    ring: 'ring-red-400',
+  },
+  blue: {
+    label: 'Biru',
+    hex: '#3B82F6',
+    glow: 'rgba(59, 130, 246, 0.55)',
+    gradient: 'from-sky-400 via-blue-600 to-indigo-800',
+    ring: 'ring-sky-400',
+  },
+  green: {
+    label: 'Hijau',
+    hex: '#10B981',
+    glow: 'rgba(16, 185, 129, 0.55)',
+    gradient: 'from-emerald-400 via-green-600 to-emerald-800',
+    ring: 'ring-emerald-400',
+  },
+  yellow: {
+    label: 'Kuning',
+    hex: '#F59E0B',
+    glow: 'rgba(245, 158, 11, 0.55)',
+    gradient: 'from-amber-300 via-yellow-500 to-amber-700',
+    ring: 'ring-amber-300',
+  },
+};
 
 

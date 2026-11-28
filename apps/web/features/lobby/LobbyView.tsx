@@ -65,13 +65,14 @@ export const LobbyView: React.FC = () => {
   const isImpostorDesa = room.settings.gameId === 'impostor-desa';
   const isHiddenTeam = room.settings.gameId === 'hidden-team';
   const isPanjatPinang = room.settings.gameId === 'panjat-pinang';
+  const isUno = room.settings.gameId === 'uno';
   if (isImpostorDesa) {
     return <ImpostorLobbyScreen />;
   }
   const isGameDisabled = isPanjatPinang || isImpostorDesa || isHiddenTeam;
   const isSixPlayerBoard = room.settings.gameId === 'ludo' || room.settings.gameId === 'snake-ladder';
-  const minPlayersRequired = isHiddenTeam ? 6 : (isImpostorDesa ? 4 : (isSixPlayerBoard ? 2 : 1));
-  const maxPlayersAllowed = (isHiddenTeam || isImpostorDesa || isSixPlayerBoard) ? 6 : 8;
+  const minPlayersRequired = isHiddenTeam ? 6 : (isImpostorDesa || isUno) ? 4 : (isSixPlayerBoard ? 2 : 1);
+  const maxPlayersAllowed = isUno ? 10 : (isHiddenTeam || isImpostorDesa || isSixPlayerBoard) ? 6 : 8;
 
   const nonHostPlayers = room.players.filter(p => !p.isHost && p.id !== room.hostId && !p.isBot);
   const allReady = nonHostPlayers.length === 0 ? true : nonHostPlayers.every(p => p.isReady);
@@ -153,7 +154,7 @@ export const LobbyView: React.FC = () => {
     }
   };
 
-  const handleSwitchGame = (gameId: 'panjat-pinang' | 'ludo' | 'snake-ladder' | 'impostor-desa' | 'hidden-team') => {
+  const handleSwitchGame = (gameId: 'panjat-pinang' | 'ludo' | 'snake-ladder' | 'uno' | 'impostor-desa' | 'hidden-team') => {
     if (gameId === 'panjat-pinang') {
       addToast('Game Panjat Pinang sedang dalam pemeliharaan (maintenance).', 'error');
       return;
@@ -165,8 +166,16 @@ export const LobbyView: React.FC = () => {
     if (activeSocket && isHost) {
       activeSocket.emit('room:update-settings', {
         gameId,
-        gameMode: gameId === 'snake-ladder' ? 'snake-classic' : 'classic',
-        maxPlayers: Math.min(room.settings.maxPlayers, 6),
+        gameMode:
+          gameId === 'uno'
+            ? 'uno-classic'
+            : gameId === 'snake-ladder'
+            ? 'snake-classic'
+            : 'classic',
+        maxPlayers:
+          gameId === 'uno'
+            ? Math.min(10, Math.max(4, room.settings.maxPlayers || 6))
+            : Math.min(room.settings.maxPlayers, 6),
       });
     }
   };
@@ -222,6 +231,27 @@ export const LobbyView: React.FC = () => {
     },
   ];
 
+  const unoModes: { id: GameMode; title: string; desc: string; icon: string }[] = [
+    {
+      id: 'uno-classic',
+      title: 'UNO Klasik (Standar)',
+      desc: 'Aturan resmi UNO 4–10 pemain! Habiskan 7 kartu & teriak UNO!',
+      icon: '🃏',
+    },
+    {
+      id: 'uno-stack',
+      title: 'Turbo Stack (+2 / +4)',
+      desc: 'Kartu +2 dan Wild +4 bisa ditumpuk ke pemain berikutnya!',
+      icon: '⚡',
+    },
+    {
+      id: 'uno-chaos',
+      title: 'Chaos 7-0 + Stack',
+      desc: 'Mainkan angka 7 untuk tukar tangan & 0 untuk putar semua kartu!',
+      icon: '🌀',
+    },
+  ];
+
   const impostorModes: { id: GameMode; title: string; desc: string; icon: string }[] = [
     {
       id: 'impostor-classic',
@@ -256,6 +286,8 @@ export const LobbyView: React.FC = () => {
     ? hiddenTeamModes
     : room.settings.gameId === 'impostor-desa'
     ? impostorModes
+    : room.settings.gameId === 'uno'
+    ? unoModes
     : room.settings.gameId === 'snake-ladder'
     ? snakeLadderModes
     : room.settings.gameId === 'ludo'
@@ -443,6 +475,23 @@ export const LobbyView: React.FC = () => {
 
                 <button
                   type="button"
+                  disabled={!isHost}
+                  onClick={() => handleSwitchGame('uno')}
+                  className={`p-2.5 rounded-2xl border text-left transition-all flex items-center gap-2.5 ${
+                    room.settings.gameId === 'uno'
+                      ? 'bg-rose-600/25 border-rose-500 shadow-glow-orange text-white'
+                      : 'bg-surface-elevated/60 border-slate-800 text-slate-400 hover:text-white'
+                  } ${!isHost ? 'cursor-default' : 'cursor-pointer'}`}
+                >
+                  <span className="text-xl sm:text-2xl">🃏</span>
+                  <div>
+                    <h5 className="font-extrabold text-xs text-white">UNO Party</h5>
+                    <p className="text-[10px] text-slate-400">4-10 Pemain</p>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
                   disabled
                   onClick={() => handleSwitchGame('impostor-desa')}
                   className="p-2.5 rounded-2xl border text-left flex items-center gap-2.5 opacity-50 cursor-not-allowed bg-surface-elevated/40 border-slate-800 text-slate-500 relative"
@@ -556,7 +605,13 @@ export const LobbyView: React.FC = () => {
               </div>
 
               <span className="text-[10px] sm:text-xs text-slate-400 font-semibold">
-                {isHiddenTeam ? 'Tepat 6 pemain (bisa diisi Bot)' : isImpostorDesa ? 'Min. 4 pemain (maks. 6)' : 'Min. 2 players to start'}
+                {isHiddenTeam
+                  ? 'Tepat 6 pemain (bisa diisi Bot)'
+                  : isUno
+                  ? 'Min. 4 pemain (4–10 pemain)'
+                  : isImpostorDesa
+                  ? 'Min. 4 pemain (maks. 6)'
+                  : 'Min. 2 players to start'}
               </span>
             </div>
 
@@ -715,6 +770,22 @@ export const LobbyView: React.FC = () => {
                       </button>
                     )}
                   </div>
+                ) : isUno && room.players.length < 4 ? (
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <span className="text-rose-300 font-semibold">
+                      UNO Party butuh minimal 4 pemain (saat ini: {room.players.length}/{room.settings.maxPlayers}).
+                    </span>
+                    {isHost && (
+                      <button
+                        type="button"
+                        onClick={handleFillBots}
+                        className="px-2.5 py-1 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-black text-xs shadow-md shadow-rose-500/25 cursor-pointer transition-all flex items-center gap-1"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>Isi Bot AI Sekarang</span>
+                      </button>
+                    )}
+                  </div>
                 ) : isImpostorDesa && room.players.length < 4 ? (
                   <span className="text-amber-300 font-semibold">
                     Butuh minimal 4 pemain untuk memulai I'amPostor (saat ini: {room.players.length}/6)...
@@ -789,6 +860,8 @@ export const LobbyView: React.FC = () => {
           <span className="text-[11px] font-bold text-slate-400 block truncate">
             {isHiddenTeam && room.players.length !== 6
               ? `Butuh 6 pemain (${room.players.length}/6)`
+              : isUno && room.players.length < 4
+              ? `UNO butuh 4–10 pemain (${room.players.length}/${room.settings.maxPlayers})`
               : room.players.length === 1
               ? 'Solo/Party Ready • Tap START!'
               : !allReady

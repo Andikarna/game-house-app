@@ -35,11 +35,14 @@ export function setupSocketHandlers(
         const validAvatar: AvatarId = avatar || 'budi';
         const isImpostorGame = (gameId as GameId) === 'impostor-desa';
         const isHiddenTeamGame = (gameId as GameId) === 'hidden-team';
+        const isUnoGame = (gameId as GameId) === 'uno';
         const isSixMaxBoardGame = (gameId as GameId) === 'ludo' || (gameId as GameId) === 'snake-ladder';
         const targetMaxPlayers = isHiddenTeamGame
           ? 6
           : isImpostorGame
           ? Math.min(6, Math.max(4, maxPlayers || 6))
+          : isUnoGame
+          ? Math.min(10, Math.max(4, maxPlayers || 6))
           : isSixMaxBoardGame
           ? Math.min(6, Math.max(2, maxPlayers || 4))
           : Math.min(8, Math.max(2, maxPlayers || 8));
@@ -48,6 +51,8 @@ export function setupSocketHandlers(
           ? `${cleanNickname}'s Secret Council`
           : isImpostorGame
           ? `${cleanNickname}'s Desa`
+          : isUnoGame
+          ? `${cleanNickname}'s UNO Party`
           : (gameId as GameId) === 'snake-ladder'
           ? `${cleanNickname}'s Ular Tangga`
           : `${cleanNickname}'s Party`;
@@ -56,11 +61,13 @@ export function setupSocketHandlers(
           ? 'hidden-team-standard'
           : isImpostorGame
           ? 'impostor-classic'
+          : isUnoGame
+          ? 'uno-classic'
           : (gameId as GameId) === 'snake-ladder'
           ? 'snake-classic'
           : 'classic-race';
 
-        const defaultDuration = isHiddenTeamGame ? 600 : isImpostorGame ? 240 : 180;
+        const defaultDuration = isHiddenTeamGame ? 600 : isImpostorGame ? 240 : isUnoGame ? 480 : 180;
 
         const settings: RoomSettings = {
           name: (roomName || defaultRoomName).trim().substring(0, 30),
@@ -111,6 +118,10 @@ export function setupSocketHandlers(
 
         const roomInfo = room.getInfo();
         callback({ success: true, room: roomInfo });
+
+        if (room.status === 'in-game') {
+          room.getGameInstance()?.handlePlayerReconnect(joinResult.player);
+        }
 
         // Notify other room members
         socket.to(room.id).emit('room:player-joined', joinResult.player);
@@ -287,15 +298,30 @@ export function setupSocketHandlers(
             socket.emit('error:message', 'Failed to start game module.');
           } else {
             io.to(room.id).emit('room:updated', room.getInfo());
-            const initialState = room.getGameInstance()?.getState();
+            const gameInstance = room.getGameInstance();
+            const initialState = gameInstance?.getState();
             io.to(room.id).emit('game:countdown', 0);
-            io.to(room.id).emit('game:start', initialState);
-            io.to(room.id).emit('game:started', initialState);
-            io.to(room.id).emit('game:state', initialState);
-            if (room.settings.gameId === 'ludo') {
-              io.to(room.id).emit('game:ludo_state', initialState);
-            } else if (room.settings.gameId === 'snake-ladder') {
-              io.to(room.id).emit('game:snake_state', initialState);
+
+            if (gameInstance && typeof gameInstance.getStateForPlayer === 'function') {
+              room.players.forEach((p) => {
+                if (p.isBot) return;
+                const personalState = gameInstance.getStateForPlayer!(p.id);
+                io.to(p.socketId).emit('game:start', personalState);
+                io.to(p.socketId).emit('game:started', personalState);
+                io.to(p.socketId).emit('game:state', personalState);
+                if (room.settings.gameId === 'uno') {
+                  io.to(p.socketId).emit('game:uno_state', personalState);
+                }
+              });
+            } else {
+              io.to(room.id).emit('game:start', initialState);
+              io.to(room.id).emit('game:started', initialState);
+              io.to(room.id).emit('game:state', initialState);
+              if (room.settings.gameId === 'ludo') {
+                io.to(room.id).emit('game:ludo_state', initialState);
+              } else if (room.settings.gameId === 'snake-ladder') {
+                io.to(room.id).emit('game:snake_state', initialState);
+              }
             }
           }
         }

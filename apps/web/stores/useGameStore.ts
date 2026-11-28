@@ -25,6 +25,7 @@ interface GameStoreState {
   socket: Socket<ServerToClientEvents, ClientToServerEvents> | null;
   isConnected: boolean;
   ping: number;
+  transportMode: 'websocket' | 'supabase-realtime' | 'polling';
   playerId: string;
   room: RoomInfo | null;
   gameState: any | null;
@@ -40,6 +41,7 @@ interface GameStoreState {
   setSocket: (socket: Socket<ServerToClientEvents, ClientToServerEvents> | null) => void;
   setIsConnected: (connected: boolean) => void;
   setPing: (ping: number) => void;
+  setTransportMode: (mode: 'websocket' | 'supabase-realtime' | 'polling') => void;
   setPlayerId: (id: string) => void;
   setRoom: (room: RoomInfo | null) => void;
   setGameState: (state: any) => void;
@@ -74,6 +76,7 @@ export const useGameStore = create<GameStoreState>((set, get) => {
     socket: null,
     isConnected: false,
     ping: 0,
+    transportMode: 'websocket',
     playerId: storedPlayerId,
     room: null,
     gameState: null,
@@ -88,6 +91,7 @@ export const useGameStore = create<GameStoreState>((set, get) => {
     setSocket: (socket) => set({ socket }),
     setIsConnected: (isConnected) => set({ isConnected }),
     setPing: (ping) => set({ ping }),
+    setTransportMode: (transportMode) => set({ transportMode }),
     setPlayerId: (playerId) => {
       if (typeof window !== 'undefined') {
         try {

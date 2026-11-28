@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.SNAKE_LADDER_SNAKES = exports.SNAKE_LADDER_LADDERS = exports.MAIN_CARDS_DECK = exports.HIDDEN_TEAM_PHASE_TIMERS = exports.HIDDEN_TEAM_ROLES_INFO = exports.HIDDEN_TEAM_CONFIG = exports.IMPOSTOR_PLAYER_LIMITS = exports.IMPOSTOR_PHASE_TIMERS = exports.IMPOSTOR_CAMOUFLAGE_THEMES = exports.IMPOSTOR_CATEGORIES = exports.EMOTE_LIST = exports.EMOTE_CATEGORIES = exports.PHYSICS_CONFIG = exports.SKILL_DEFINITIONS = exports.AVATAR_OPTIONS = exports.PRIMARY_AVATARS = exports.DEFAULT_GAME_DURATION = exports.CLIENT_INPUT_RATE = exports.SERVER_TICK_RATE = exports.GAME_AVAILABILITY = void 0;
+exports.UNO_COLOR_META = exports.UNO_PLAYER_LIMITS = exports.SNAKE_LADDER_SNAKES = exports.SNAKE_LADDER_LADDERS = exports.MAIN_CARDS_DECK = exports.HIDDEN_TEAM_PHASE_TIMERS = exports.HIDDEN_TEAM_ROLES_INFO = exports.HIDDEN_TEAM_CONFIG = exports.IMPOSTOR_PLAYER_LIMITS = exports.IMPOSTOR_PHASE_TIMERS = exports.IMPOSTOR_CAMOUFLAGE_THEMES = exports.IMPOSTOR_CATEGORIES = exports.EMOTE_LIST = exports.EMOTE_CATEGORIES = exports.PHYSICS_CONFIG = exports.SKILL_DEFINITIONS = exports.AVATAR_OPTIONS = exports.PRIMARY_AVATARS = exports.DEFAULT_GAME_DURATION = exports.CLIENT_INPUT_RATE = exports.SERVER_TICK_RATE = exports.GAME_AVAILABILITY = void 0;
 exports.normalizeAvatarId = normalizeAvatarId;
 exports.GAME_AVAILABILITY = {
     'panjat-pinang': {
@@ -13,6 +13,10 @@ exports.GAME_AVAILABILITY = {
         label: 'Siap Dimainkan',
     },
     'snake-ladder': {
+        status: 'playable',
+        label: 'Siap Dimainkan',
+    },
+    'uno': {
         status: 'playable',
         label: 'Siap Dimainkan',
     },
@@ -52,6 +56,9 @@ exports.DEFAULT_GAME_DURATION = {
     'quick': 300, // 5 minutes
     'snake-classic': 600, // 10 minutes
     'snake-quick': 300, // 5 minutes
+    'uno-classic': 480, // 8 minutes
+    'uno-stack': 420, // 7 minutes
+    'uno-chaos': 420, // 7 minutes
     'impostor-classic': 240, // 4 minutes
     'hidden-team-standard': 600, // 10 minutes
     'hidden-team-4r': 480, // 8 minutes
@@ -67,6 +74,10 @@ exports.PRIMARY_AVATARS = [
     'bayu',
     'siti',
     'jago',
+    'luna',
+    'bima',
+    'nala',
+    'rama',
 ];
 function normalizeAvatarId(avatar) {
     if (!avatar)
@@ -163,6 +174,42 @@ exports.AVATAR_OPTIONS = [
         badge: '👑',
         tagline: 'Jubah merah, kacamata hitam & sabuk emas juara',
         spriteBase: '/assets/characters/jago',
+    },
+    {
+        id: 'luna',
+        name: 'Luna',
+        subtitle: 'Neon Card Mystic',
+        color: '#A855F7',
+        badge: '🔮',
+        tagline: 'Pesulap kartu neon dengan topi bintang & aura magis ungu',
+        spriteBase: '/assets/characters/luna',
+    },
+    {
+        id: 'bima',
+        name: 'Bima',
+        subtitle: 'Cyber Batik Ace',
+        color: '#10B981',
+        badge: '🃏',
+        tagline: 'Jaket batik futuristik zamrud & visor neon super tajam',
+        spriteBase: '/assets/characters/bima',
+    },
+    {
+        id: 'nala',
+        name: 'Nala',
+        subtitle: 'Star Pop DJ',
+        color: '#EC4899',
+        badge: '🌟',
+        tagline: 'Kacamata bintang rose-gold & hoodie pop penuh irama pesta',
+        spriteBase: '/assets/characters/nala',
+    },
+    {
+        id: 'rama',
+        name: 'Rama',
+        subtitle: 'Royal Card King',
+        color: '#3B82F6',
+        badge: '♠️',
+        tagline: 'Pangeran meja kartu berjaket safir dengan syal merah menyala',
+        spriteBase: '/assets/characters/rama',
     },
     // Backward compatibility aliases for existing games/data
     {
@@ -809,3 +856,43 @@ exports.SNAKE_LADDER_SNAKES = [
         pattern: 'diamonds',
     },
 ];
+// =========================================================================
+// UNO PARTY (4 - 10 PLAYERS) CONSTANTS
+// =========================================================================
+exports.UNO_PLAYER_LIMITS = {
+    minPlayers: 4,
+    maxPlayers: 10,
+    defaultPlayers: 6,
+    turnDurationSeconds: 20,
+    startingCards: 7,
+};
+exports.UNO_COLOR_META = {
+    red: {
+        label: 'Merah',
+        hex: '#EF4444',
+        glow: 'rgba(239, 68, 68, 0.55)',
+        gradient: 'from-rose-500 via-red-600 to-red-800',
+        ring: 'ring-red-400',
+    },
+    blue: {
+        label: 'Biru',
+        hex: '#3B82F6',
+        glow: 'rgba(59, 130, 246, 0.55)',
+        gradient: 'from-sky-400 via-blue-600 to-indigo-800',
+        ring: 'ring-sky-400',
+    },
+    green: {
+        label: 'Hijau',
+        hex: '#10B981',
+        glow: 'rgba(16, 185, 129, 0.55)',
+        gradient: 'from-emerald-400 via-green-600 to-emerald-800',
+        ring: 'ring-emerald-400',
+    },
+    yellow: {
+        label: 'Kuning',
+        hex: '#F59E0B',
+        glow: 'rgba(245, 158, 11, 0.55)',
+        gradient: 'from-amber-300 via-yellow-500 to-amber-700',
+        ring: 'ring-amber-300',
+    },
+};

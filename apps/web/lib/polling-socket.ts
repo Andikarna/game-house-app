@@ -1,4 +1,5 @@
 import { RoomInfo, PanjatPinangGameState, LudoGameState, GameResultData, Player } from '../shared';
+import { unoRealtime, UnoSyncPayload } from './uno-realtime';
 
 type EventHandler = (...args: any[]) => void;
 
@@ -19,6 +20,10 @@ class PollingSocket {
   private lastChatTs: number = 0;
   private lastEmoteTs: number = 0;
   private isMyTurnActive: boolean = false;
+  private isBotTurnActive: boolean = false;
+  private isUnoRoom: boolean = false;
+  private cachedUnoHand: any[] = [];
+  private unoSyncUnsub: (() => void) | null = null;
   private lastRoomStateStr: string = '';
   private lastVoteKickStr: string = '';
   private inFlightActionCount: number = 0;
@@ -91,9 +96,14 @@ class PollingSocket {
         });
         const data = await res.json();
         if (data.success && data.room) {
+          this.isUnoRoom = data.room.settings?.gameId === 'uno';
           this.currentRoomCode = data.room.code;
           this.currentPlayerId = data.playerId;
           this.startPolling(data.room.code, data.playerId);
+          if (this.isUnoRoom) {
+            this.attachUnoRealtime(data.room.code);
+            unoRealtime.broadcast({ type: 'room', room: data.room, senderId: data.playerId });
+          }
           callback?.({ success: true, room: data.room, playerId: data.playerId });
         } else {
           callback?.({ success: false, error: data.error || 'Failed to create room' });
@@ -110,9 +120,14 @@ class PollingSocket {
         });
         const data = await res.json();
         if (data.success && data.room) {
+          this.isUnoRoom = data.room.settings?.gameId === 'uno';
           this.currentRoomCode = data.room.code;
           this.currentPlayerId = data.playerId;
           this.startPolling(data.room.code, data.playerId);
+          if (this.isUnoRoom) {
+            this.attachUnoRealtime(data.room.code);
+            unoRealtime.broadcast({ type: 'room', room: data.room, senderId: data.playerId });
+          }
           callback?.({ success: true, room: data.room, playerId: data.playerId });
         } else {
           callback?.({ success: false, error: data.error || 'Failed to join room' });
@@ -144,8 +159,10 @@ class PollingSocket {
         });
         const data = await res.json();
         if (data.success && data.room) {
+          this.isUnoRoom = data.room.settings?.gameId === 'uno';
           this.lastRoomStateStr = JSON.stringify(data.room);
           this.emitInternal('room:updated', data.room);
+          if (this.isUnoRoom) unoRealtime.broadcast({ type: 'room', room: data.room, senderId: playerId });
         }
         return;
       }
@@ -160,8 +177,10 @@ class PollingSocket {
         });
         const data = await res.json();
         if (data.success && data.room) {
+          this.isUnoRoom = data.room.settings?.gameId === 'uno';
           this.lastRoomStateStr = JSON.stringify(data.room);
           this.emitInternal('room:updated', data.room);
+          if (this.isUnoRoom) unoRealtime.broadcast({ type: 'room', room: data.room, senderId: playerId });
         }
         return;
       }
@@ -175,8 +194,10 @@ class PollingSocket {
         });
         const data = await res.json();
         if (data.success && data.room) {
+          this.isUnoRoom = data.room.settings?.gameId === 'uno';
           this.lastRoomStateStr = JSON.stringify(data.room);
           this.emitInternal('room:updated', data.room);
+          if (this.isUnoRoom) unoRealtime.broadcast({ type: 'room', room: data.room, senderId: playerId });
         }
         return;
       }
@@ -191,8 +212,10 @@ class PollingSocket {
         });
         const data = await res.json();
         if (data.success && data.room) {
+          this.isUnoRoom = data.room.settings?.gameId === 'uno';
           this.lastRoomStateStr = JSON.stringify(data.room);
           this.emitInternal('room:updated', data.room);
+          if (this.isUnoRoom) unoRealtime.broadcast({ type: 'room', room: data.room, senderId: playerId });
         }
         return;
       }
@@ -206,8 +229,10 @@ class PollingSocket {
         });
         const data = await res.json();
         if (data.success && data.room) {
+          this.isUnoRoom = data.room.settings?.gameId === 'uno';
           this.lastRoomStateStr = JSON.stringify(data.room);
           this.emitInternal('room:updated', data.room);
+          if (this.isUnoRoom) unoRealtime.broadcast({ type: 'room', room: data.room, senderId: playerId });
         }
         return;
       }
@@ -220,8 +245,10 @@ class PollingSocket {
         });
         const data = await res.json();
         if (data.success && data.room) {
+          this.isUnoRoom = data.room.settings?.gameId === 'uno';
           this.lastRoomStateStr = JSON.stringify(data.room);
           this.emitInternal('room:updated', data.room);
+          if (this.isUnoRoom) unoRealtime.broadcast({ type: 'room', room: data.room, senderId: playerId });
         }
         return;
       }
@@ -235,8 +262,10 @@ class PollingSocket {
         });
         const data = await res.json();
         if (data.success && data.room) {
+          this.isUnoRoom = data.room.settings?.gameId === 'uno';
           this.lastRoomStateStr = JSON.stringify(data.room);
           this.emitInternal('room:updated', data.room);
+          if (this.isUnoRoom) unoRealtime.broadcast({ type: 'room', room: data.room, senderId: playerId });
         }
         return;
       }
@@ -249,8 +278,10 @@ class PollingSocket {
         });
         const data = await res.json();
         if (data.success && data.room) {
+          this.isUnoRoom = data.room.settings?.gameId === 'uno';
           this.lastRoomStateStr = JSON.stringify(data.room);
           this.emitInternal('room:updated', data.room);
+          if (this.isUnoRoom) unoRealtime.broadcast({ type: 'room', room: data.room, senderId: playerId });
         }
         return;
       }
@@ -266,7 +297,11 @@ class PollingSocket {
         if (data.success && data.gameState) {
           this.lastGameStateVersion = data.gameState.stateVersion || 1;
           this.lastGameStateStr = JSON.stringify(data.gameState);
+          if (Array.isArray(data.gameState.myHand)) {
+            this.cachedUnoHand = data.gameState.myHand;
+          }
           if (data.room) {
+            this.isUnoRoom = data.room.settings?.gameId === 'uno';
             this.emitInternal('room:updated', data.room);
           }
           this.emitInternal('game:countdown', 0);
@@ -276,6 +311,17 @@ class PollingSocket {
           this.emitInternal('game:ludo_state', data.gameState);
           if (data.gameState.gameId === 'snake-ladder') {
             this.emitInternal('game:snake_state', data.gameState);
+          } else if (data.gameState.gameId === 'uno') {
+            this.emitInternal('game:uno_state', data.gameState);
+            this.attachUnoRealtime(roomCode);
+            const { myHand, playableCardIds, ...sanitizedPublic } = data.gameState;
+            unoRealtime.broadcast({
+              type: 'state',
+              room: data.room,
+              publicState: sanitizedPublic,
+              stateVersion: data.gameState.stateVersion,
+              senderId: playerId,
+            });
           }
           await this.pollOnce(true);
         }
@@ -307,10 +353,16 @@ class PollingSocket {
         return;
       }
 
-      // 6. GAME INPUT (Ludo / Snake-Ladder / Panjat Pinang)
+      // 6. GAME INPUT (Ludo / Snake-Ladder / UNO / Panjat Pinang)
       if (event === 'game:input') {
         const isLudoAction = payload?.action === 'roll-dice' || payload?.action === 'move-token' || payload?.action === 'pass-turn';
-        const isTurnGame = isLudoAction;
+        const isUnoAction =
+          payload?.action === 'play-card' ||
+          payload?.action === 'draw-card' ||
+          payload?.action === 'call-uno' ||
+          payload?.action === 'catch-uno' ||
+          payload?.action === 'pass-turn';
+        const isTurnGame = isLudoAction || isUnoAction;
         const actionName = 'input';
         this.inFlightActionCount++;
         if (isTurnGame && this.lastGameStateVersion > 0) {
@@ -348,12 +400,27 @@ class PollingSocket {
               this.lastDbUpdatedAt = Number(data.u);
             }
             this.isMyTurnActive = data.gameState.currentTurnPlayerId === this.currentPlayerId;
+            this.isBotTurnActive = Boolean(data.gameState.players?.[data.gameState.currentTurnPlayerId]?.isBot);
             this.lastGameStateStr = JSON.stringify(data.gameState);
+            if (Array.isArray(data.gameState.myHand)) {
+              this.cachedUnoHand = data.gameState.myHand;
+            }
             if (data.gameState.gameId === 'ludo') {
               this.emitInternal('game:ludo_state', data.gameState);
             } else if (data.gameState.gameId === 'snake-ladder') {
               this.emitInternal('game:snake_state', data.gameState);
               this.emitInternal('game:state', data.gameState);
+            } else if (data.gameState.gameId === 'uno') {
+              this.emitInternal('game:uno_state', data.gameState);
+              this.emitInternal('game:state', data.gameState);
+              const { myHand, playableCardIds, ...sanitizedPublic } = data.gameState;
+              unoRealtime.broadcast({
+                type: 'state',
+                publicState: sanitizedPublic,
+                results: data.results || null,
+                stateVersion: data.gameState.stateVersion,
+                senderId: playerId,
+              });
             } else {
               this.emitInternal('game:state', data.gameState);
             }
@@ -389,6 +456,19 @@ class PollingSocket {
       // 8. EMOTE
       if (event === 'emote:send' || event === 'game:emote') {
         const emoteId = payload?.emoteId || payload;
+        if (this.isUnoRoom) {
+          unoRealtime.broadcast({
+            type: 'emote',
+            emote: {
+              id: `emote_rt_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+              playerId,
+              nickname: 'Player',
+              emoteId,
+              timestamp: Date.now(),
+            },
+            senderId: playerId,
+          });
+        }
         await fetch(`/api/rooms/${roomCode}/action`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -409,6 +489,9 @@ class PollingSocket {
         if (data.success && data.chatMessage) {
           this.processedChatIds.add(data.chatMessage.id);
           this.emitInternal('game:chat-message', data.chatMessage);
+          if (this.isUnoRoom) {
+            unoRealtime.broadcast({ type: 'chat', chatMessage: data.chatMessage, senderId: playerId });
+          }
         }
         return;
       }
@@ -465,11 +548,16 @@ class PollingSocket {
         this.lastDbUpdatedAt = 0;
         this.lastChatTs = 0;
         this.isMyTurnActive = false;
+        this.isBotTurnActive = false;
+        this.cachedUnoHand = [];
         await fetch(`/api/rooms/${roomCode}/action`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'restart', playerId }),
         });
+        if (this.isUnoRoom) {
+          unoRealtime.broadcast({ type: 'restart', senderId: playerId });
+        }
         await this.pollOnce(true);
         return;
       }
@@ -495,6 +583,117 @@ class PollingSocket {
     this.startPolling(roomCode, playerId);
   }
 
+  private computeLocalUnoPlayables(pubState: any): string[] {
+    if (!pubState || pubState.status === 'finished') return [];
+    if (pubState.currentTurnPlayerId !== this.currentPlayerId) return [];
+    const hand = this.cachedUnoHand || [];
+    if (pubState.drawnPlayableCardId) {
+      return hand.some((c: any) => c.id === pubState.drawnPlayableCardId)
+        ? [pubState.drawnPlayableCardId]
+        : [];
+    }
+    if ((pubState.pendingDrawCount || 0) > 0) {
+      return hand
+        .filter((c: any) =>
+          pubState.pendingDrawType === 'draw2'
+            ? c.value === 'draw2' || c.value === 'wild_draw4'
+            : c.value === 'wild_draw4'
+        )
+        .map((c: any) => c.id);
+    }
+    const topVal = pubState.topCard?.value;
+    return hand
+      .filter(
+        (c: any) =>
+          c.color === 'wild' || c.color === pubState.activeColor || c.value === topVal
+      )
+      .map((c: any) => c.id);
+  }
+
+  private attachUnoRealtime(roomCode: string) {
+    unoRealtime.connect(roomCode);
+    if (this.unoSyncUnsub) return;
+
+    this.unoSyncUnsub = unoRealtime.onSync((sync: UnoSyncPayload) => {
+      if (sync.senderId && sync.senderId === this.currentPlayerId) return;
+
+      if (sync.type === 'room' && sync.room) {
+        this.lastPlayerCount = sync.room.players?.length || this.lastPlayerCount;
+        this.lastRoomStateStr = JSON.stringify(sync.room);
+        this.emitInternal('room:updated', sync.room);
+      }
+
+      if (sync.type === 'chat' && sync.chatMessage) {
+        if (!this.processedChatIds.has(sync.chatMessage.id)) {
+          this.processedChatIds.add(sync.chatMessage.id);
+          this.emitInternal('game:chat-message', sync.chatMessage);
+        }
+        return;
+      }
+
+      if (sync.type === 'emote' && sync.emote) {
+        if (!this.processedEmoteIds.has(sync.emote.id)) {
+          this.processedEmoteIds.add(sync.emote.id);
+          this.emitInternal('emote:received', sync.emote);
+        }
+        return;
+      }
+
+      if (sync.type === 'restart') {
+        this.lastGameStateVersion = 0;
+        this.lastGameStateStr = '';
+        this.cachedUnoHand = [];
+        this.pollOnce(true);
+        return;
+      }
+
+      if (sync.type === 'pg_change') {
+        if ((sync.stateVersion || 0) > this.lastGameStateVersion) {
+          this.pollOnce(true);
+        }
+        return;
+      }
+
+      if (sync.type === 'state' && sync.publicState) {
+        const incomingVersion = sync.publicState.stateVersion || 0;
+        if (incomingVersion <= this.lastGameStateVersion) return;
+
+        const myId = this.currentPlayerId || '';
+        const myPub = sync.publicState.players?.[myId];
+        const fxType = sync.publicState.lastFx?.type;
+        const needsPrivateHandFetch =
+          !myPub ||
+          this.cachedUnoHand.length !== myPub.cardCount ||
+          fxType === 'start' ||
+          fxType === 'swap' ||
+          fxType === 'rotate';
+
+        this.lastGameStateVersion = incomingVersion;
+        this.isMyTurnActive = sync.publicState.currentTurnPlayerId === myId;
+        this.isBotTurnActive = Boolean(
+          sync.publicState.players?.[sync.publicState.currentTurnPlayerId]?.isBot
+        );
+
+        const mergedState = {
+          ...sync.publicState,
+          myHand: this.cachedUnoHand,
+          playableCardIds: this.computeLocalUnoPlayables(sync.publicState),
+        };
+        this.lastGameStateStr = JSON.stringify(mergedState);
+        this.emitInternal('game:uno_state', mergedState);
+        this.emitInternal('game:state', mergedState);
+
+        if (sync.results) {
+          this.emitInternal('game:finished', sync.results);
+        }
+
+        if (needsPrivateHandFetch) {
+          this.pollOnce(true);
+        }
+      }
+    });
+  }
+
   public startPolling(roomCode: string, playerId: string) {
     if (this.currentRoomCode !== roomCode) {
       this.lastDbUpdatedAt = 0;
@@ -505,6 +704,8 @@ class PollingSocket {
       this.lastChatTs = 0;
       this.lastEmoteTs = 0;
       this.isMyTurnActive = false;
+      this.isBotTurnActive = false;
+      this.cachedUnoHand = [];
     }
     this.currentRoomCode = roomCode;
     this.currentPlayerId = playerId;
@@ -530,6 +731,13 @@ class PollingSocket {
       this.isPollingActive = false;
       this.currentRoomCode = null;
       this.currentPlayerId = null;
+      this.isUnoRoom = false;
+      this.cachedUnoHand = [];
+      if (this.unoSyncUnsub) {
+        this.unoSyncUnsub();
+        this.unoSyncUnsub = null;
+      }
+      unoRealtime.disconnect();
     }
   }
 
@@ -580,6 +788,10 @@ class PollingSocket {
       if (!Array.isArray(room.players) || room.players.length === 0) {
         return;
       }
+      this.isUnoRoom = room.settings?.gameId === 'uno';
+      if (this.isUnoRoom) {
+        this.attachUnoRealtime(room.code);
+      }
       this.lastPlayerCount = room.players.length;
       const roomStr = JSON.stringify(room);
       if (roomStr !== this.lastRoomStateStr) {
@@ -589,6 +801,8 @@ class PollingSocket {
           this.minExpectedVersion = 0;
           this.lastGameStateStr = '';
           this.isMyTurnActive = false;
+          this.isBotTurnActive = false;
+          this.cachedUnoHand = [];
         }
         this.emitInternal('room:updated', room);
       }
@@ -606,6 +820,10 @@ class PollingSocket {
             }
           }
           this.isMyTurnActive = data.gameState.currentTurnPlayerId === this.currentPlayerId;
+          this.isBotTurnActive = Boolean(data.gameState.players?.[data.gameState.currentTurnPlayerId]?.isBot);
+          if (Array.isArray(data.gameState.myHand)) {
+            this.cachedUnoHand = data.gameState.myHand;
+          }
           const gameStr = JSON.stringify(data.gameState);
           if (gameStr !== this.lastGameStateStr) {
             this.lastGameStateStr = gameStr;
@@ -613,6 +831,9 @@ class PollingSocket {
               this.emitInternal('game:ludo_state', data.gameState);
             } else if (room.settings.gameId === 'snake-ladder') {
               this.emitInternal('game:snake_state', data.gameState);
+              this.emitInternal('game:state', data.gameState);
+            } else if (room.settings.gameId === 'uno') {
+              this.emitInternal('game:uno_state', data.gameState);
               this.emitInternal('game:state', data.gameState);
             } else {
               this.emitInternal('game:state', data.gameState);
@@ -686,11 +907,14 @@ class PollingSocket {
       }
     } finally {
       this.isCurrentlyFetching = false;
-      // Adaptive polling: 300ms when waiting for opponent/bot, 600ms on own turn, 1100ms in lobby
+      // Adaptive polling: if UNO Supabase Realtime WebSocket is live, relax human-turn safety polls; keep fast bot cadence
       if (this.isPollingActive && this.currentRoomCode) {
         if (this.pollTimer) clearTimeout(this.pollTimer);
         const isGameActive = this.lastRoomStateStr.includes('"in-game"') || this.lastRoomStateStr.includes('"countdown"');
-        const delay = !isGameActive ? 1100 : this.isMyTurnActive ? 600 : 300;
+        let delay = !isGameActive ? 1100 : this.isMyTurnActive ? 600 : 300;
+        if (this.isUnoRoom && unoRealtime.connected) {
+          delay = !isGameActive ? 1800 : this.isBotTurnActive ? 550 : 2000;
+        }
         this.pollTimer = setTimeout(() => {
           this.pollOnce();
         }, delay);

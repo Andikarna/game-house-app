@@ -30,14 +30,14 @@ export const CharacterShowcase: React.FC = () => {
           Pilih Jagoanmu & Ekspresikan Gayamu!
         </h2>
         <p className="text-xs sm:text-sm text-slate-300 mt-2">
-          Setiap pemain dapat memilih dari 8 karakter khas Indonesia dan mengirimkan 24 emote reaksi animasi seru saat bertanding.
+          Setiap pemain dapat memilih dari 12 karakter memukau (termasuk Luna, Bima, Nala & Rama!) dan mengirimkan 24 emote reaksi animasi seru saat bertanding.
         </p>
       </div>
 
       {/* Character Grid + Spotlight Card */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-        {/* Left: 8 Character Select Grid (8 cols) */}
-        <div className="lg:col-span-7 grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {/* Left: 12 Character Select Grid */}
+        <div className="lg:col-span-7 grid grid-cols-3 sm:grid-cols-4 gap-2.5 sm:gap-3">
           {characters.map((char) => {
             const isSelected = selectedChar.id === char.id;
             return (
