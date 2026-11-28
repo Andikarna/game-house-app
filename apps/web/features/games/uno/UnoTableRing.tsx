@@ -45,17 +45,9 @@ export const UnoTableRing: React.FC<UnoTableRingProps> = ({
   return (
     <div className="w-full max-w-5xl mx-auto px-2 z-20">
       <div
-        className={`grid gap-1.5 sm:gap-2.5 ${
-          count <= 3
-            ? 'grid-cols-3'
-            : count <= 5
-            ? 'grid-cols-3 sm:grid-cols-5'
-            : count <= 7
-            ? 'grid-cols-4 sm:grid-cols-7'
-            : 'grid-cols-5 sm:grid-cols-9'
-        }`}
+        className={`flex flex-wrap items-start justify-center gap-2 sm:gap-3.5`}
       >
-        {opponentsOrdered.map((opp) => {
+        {opponentsOrdered.map((opp, idx) => {
           const isTurn = opp.playerId === currentTurnPlayerId;
           const isVulnerableUno = opp.cardCount === 1 && !opp.calledUno;
           const isSafeUno = opp.cardCount === 1 && opp.calledUno;
@@ -66,35 +58,48 @@ export const UnoTableRing: React.FC<UnoTableRingProps> = ({
 
           const charId = normalizeAvatarId(opp.avatar);
           const charMeta = AVATAR_OPTIONS.find((a) => a.id === charId) || AVATAR_OPTIONS[0];
+          const mid = (count - 1) / 2;
+          const arcDrop = count <= 5 ? Math.pow(Math.abs(idx - mid), 1.5) * 4 : 0;
+          const miniCardsCount = Math.min(5, Math.max(1, opp.cardCount));
 
           return (
             <motion.div
               key={opp.playerId}
               layout
               animate={{
-                scale: isTurn ? 1.06 : isTargeted ? [1, 1.07, 0.97, 1] : 1,
-                y: isTurn ? -4 : 0,
+                scale: isTurn ? 1.07 : isTargeted ? [1, 1.08, 0.96, 1] : 1,
+                y: isTurn ? arcDrop - 5 : arcDrop,
               }}
               transition={{ type: 'spring', stiffness: 380, damping: 24 }}
-              className="relative flex flex-col items-center py-2 px-1.5 rounded-2xl border backdrop-blur-xl transition-colors duration-500"
+              className="relative flex flex-col items-center py-2.5 px-3 min-w-[96px] sm:min-w-[126px] max-w-[152px] rounded-3xl border backdrop-blur-xl transition-colors duration-500"
               style={{
                 background: isTurn
-                  ? `linear-gradient(135deg, ${colorMeta.hex}22, rgba(3,8,16,0.9))`
+                  ? `linear-gradient(145deg, ${colorMeta.hex}2A, rgba(5,12,24,0.92))`
                   : isVulnerableUno
-                  ? 'rgba(64,10,20,0.85)'
-                  : 'rgba(3,10,18,0.8)',
+                  ? 'linear-gradient(145deg, rgba(127,29,29,0.55), rgba(30,8,14,0.9))'
+                  : 'linear-gradient(145deg, rgba(15,28,46,0.78), rgba(6,13,24,0.88))',
                 borderColor: isTurn
-                  ? `${colorMeta.hex}88`
+                  ? `${colorMeta.hex}AA`
                   : isVulnerableUno
-                  ? 'rgba(251,113,133,0.6)'
-                  : 'rgba(255,255,255,0.08)',
+                  ? 'rgba(251,113,133,0.75)'
+                  : 'rgba(255,255,255,0.12)',
                 boxShadow: isTurn
-                  ? `0 0 24px -4px ${colorMeta.glow}, inset 0 1px 0 rgba(255,255,255,0.08)`
+                  ? `0 10px 30px -6px ${colorMeta.glow}, inset 0 1px 0 rgba(255,255,255,0.18)`
                   : isVulnerableUno
-                  ? '0 0 20px -6px rgba(244,63,94,0.6)'
-                  : 'none',
+                  ? '0 0 24px -4px rgba(244,63,94,0.7)'
+                  : '0 8px 20px -8px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.08)',
               }}
             >
+              {isTurn && (
+                <motion.div
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className="absolute -top-2.5 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider text-slate-950 shadow-md"
+                  style={{ backgroundColor: colorMeta.hex }}
+                >
+                  GILIRAN
+                </motion.div>
+              )}
               {/* Avatar with timer ring */}
               <div className="relative flex items-center justify-center mb-1">
                 {/* Character glow halo */}
@@ -167,19 +172,27 @@ export const UnoTableRing: React.FC<UnoTableRingProps> = ({
                 {opp.nickname}
               </div>
 
-              {/* Card count chip */}
-              <div className="flex items-center justify-center gap-1 mt-0.5">
-                <div className="relative flex items-center justify-center">
-                  <div className="w-3 h-4 rounded-[2px] bg-gradient-to-br from-[#EF233C] to-[#9B061E] border border-white/70 shadow -rotate-6" />
-                  <div className="w-3 h-4 rounded-[2px] bg-gradient-to-br from-[#EF233C] to-[#9B061E] border border-white/70 shadow rotate-6 -ml-1.5" />
+              {/* Card count chip with dynamic mini fan */}
+              <div className="flex items-center justify-center gap-1.5 mt-1">
+                <div className="relative flex items-center justify-center h-4">
+                  {Array.from({ length: miniCardsCount }).map((_, cIdx) => {
+                    const spread = (cIdx - (miniCardsCount - 1) / 2) * 8;
+                    return (
+                      <div
+                        key={cIdx}
+                        className="w-2.5 h-3.5 rounded-[2px] bg-gradient-to-br from-[#EF233C] to-[#9B061E] border border-white/80 shadow-sm -ml-1.5 first:ml-0"
+                        style={{ transform: `rotate(${spread}deg)` }}
+                      />
+                    );
+                  })}
                 </div>
                 <span
-                  className={`text-[11px] font-black px-1 rounded-md ${
+                  className={`text-[11px] font-black px-1.5 py-0.2 rounded-md ${
                     opp.cardCount <= 2
-                      ? 'bg-rose-500/25 text-rose-200 border border-rose-400/50'
+                      ? 'bg-rose-500/30 text-rose-200 border border-rose-400/60 shadow-[0_0_8px_rgba(244,63,94,0.4)]'
                       : opp.cardCount <= 4
-                      ? 'bg-amber-500/15 text-amber-300'
-                      : 'text-slate-400'
+                      ? 'bg-amber-500/20 text-amber-300 border border-amber-400/30'
+                      : 'bg-white/5 text-slate-300'
                   }`}
                 >
                   {opp.cardCount}

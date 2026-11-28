@@ -82,30 +82,45 @@ export const UnoCenterPile: React.FC<UnoCenterPileProps> = ({
       </div>
 
       {/* Main center arena */}
-      <div className="relative flex items-center justify-center">
+      <div className="relative flex items-center justify-center my-1">
         {/* Swirling conic orbit ring */}
         <motion.div
-          className={`absolute -inset-12 sm:-inset-16 rounded-full pointer-events-none opacity-50 blur-[16px] ${
-            direction === 1 ? 'uno-orbit-cw' : 'uno-orbit-ccw'
-          }`}
+          animate={{ rotate: direction === 1 ? 360 : -360 }}
+          transition={{ repeat: Infinity, duration: 9, ease: 'linear' }}
+          className="absolute -inset-12 sm:-inset-16 rounded-full pointer-events-none opacity-55 blur-[18px]"
           style={{
-            background: `conic-gradient(from 0deg, transparent 0deg, ${colorMeta.hex} 90deg, transparent 180deg, ${colorMeta.hex} 270deg, transparent 360deg)`,
+            background: `conic-gradient(from 0deg, transparent 0deg, ${colorMeta.hex} 80deg, transparent 180deg, ${colorMeta.hex} 260deg, transparent 360deg)`,
           }}
         />
 
-        {/* Glow ring border */}
-        <div
-          className="absolute -inset-7 sm:-inset-10 rounded-full border border-white/10 pointer-events-none transition-all duration-700"
-          style={{ boxShadow: `0 0 60px -8px ${colorMeta.glow}, inset 0 0 50px -12px ${colorMeta.glow}` }}
-        />
-
-        {/* Glass table pad */}
-        <div
-          className="relative flex items-center justify-center px-5 py-4 sm:px-9 sm:py-5 rounded-[32px] backdrop-blur-2xl border border-white/10 shadow-[0_24px_60px_rgba(0,0,0,0.75)]"
-          style={{ background: 'rgba(2,10,20,0.78)' }}
+        {/* Rotating SVG dashed orbit arrows */}
+        <motion.svg
+          animate={{ rotate: direction === 1 ? 360 : -360 }}
+          transition={{ repeat: Infinity, duration: 14, ease: 'linear' }}
+          viewBox="0 0 320 220"
+          className="absolute -inset-8 sm:-inset-12 w-[calc(100%+4rem)] sm:w-[calc(100%+6rem)] h-[calc(100%+4rem)] sm:h-[calc(100%+6rem)] pointer-events-none opacity-65"
         >
-          {/* Inner glass highlight */}
-          <div className="absolute inset-0 rounded-[32px] bg-gradient-to-b from-white/5 to-transparent pointer-events-none" />
+          <ellipse
+            cx="160"
+            cy="110"
+            rx="150"
+            ry="96"
+            fill="none"
+            stroke={colorMeta.hex}
+            strokeWidth="1.75"
+            strokeDasharray="10 10"
+          />
+        </motion.svg>
+
+        {/* Glass oval table pad */}
+        <div
+          className="relative flex items-center justify-center px-6 py-4 sm:px-11 sm:py-6 rounded-[44px] backdrop-blur-2xl border border-white/15 shadow-[0_24px_65px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.12)]"
+          style={{
+            background: `radial-gradient(ellipse at 50% 35%, ${colorMeta.hex}22, rgba(3,12,22,0.86) 72%)`,
+          }}
+        >
+          {/* Inner ambient highlight */}
+          <div className="absolute inset-0 rounded-[44px] bg-gradient-to-b from-white/8 to-transparent pointer-events-none" />
 
           <div className="relative flex items-center gap-4 sm:gap-8 z-10">
             {/* Draw pile */}

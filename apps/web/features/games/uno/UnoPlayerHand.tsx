@@ -152,31 +152,37 @@ export const UnoPlayerHand: React.FC<UnoPlayerHandProps> = ({
       </div>
 
       {/* Hand strip */}
-      <div className="w-full overflow-x-auto pb-2 pt-6 px-4 flex justify-start sm:justify-center scrollbar-none">
+      <div className="w-full overflow-x-auto pb-3 pt-8 px-4 flex justify-start sm:justify-center scrollbar-none">
         <div className={`flex items-end ${overlapClass} mx-auto`}>
           <AnimatePresence initial={false}>
             {sortedHand.map((card, idx) => {
               const isPlayable = isMyTurn && playableSet.has(card.id);
               const isDimmed = isMyTurn && !isPlayable && !drawnPlayableCardId;
               const centerOffset = idx - (sortedHand.length - 1) / 2;
-              const tiltDeg = sortedHand.length <= 12
-                ? centerOffset * 1.6
-                : centerOffset * 0.8;
-              const arcLift = Math.abs(centerOffset) * (sortedHand.length <= 10 ? 1.4 : 0.6);
+              const tiltDeg = sortedHand.length <= 10
+                ? centerOffset * 3.0
+                : centerOffset * 1.2;
+              const arcLift = Math.pow(Math.abs(centerOffset), 1.35) * (sortedHand.length <= 10 ? 2.4 : 1.0);
 
               return (
                 <motion.div
                   key={card.id}
                   layout
-                  initial={{ y: 44, opacity: 0, scale: 0.75 }}
+                  initial={{ y: 48, opacity: 0, scale: 0.75 }}
                   animate={{
-                    y: isPlayable ? arcLift - 12 : arcLift,
+                    y: isPlayable ? arcLift - 16 : arcLift,
                     rotate: tiltDeg,
                     opacity: 1,
-                    scale: 1,
+                    scale: isPlayable ? 1.04 : 1,
                   }}
-                  exit={{ y: -80, opacity: 0, scale: 0.65 }}
-                  transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+                  whileHover={
+                    isPlayable
+                      ? { y: arcLift - 30, rotate: 0, scale: 1.13, zIndex: 80 }
+                      : { y: arcLift - 8, scale: 1.04, zIndex: 40 }
+                  }
+                  whileTap={isPlayable ? { scale: 0.95 } : undefined}
+                  exit={{ y: -90, opacity: 0, scale: 0.65 }}
+                  transition={{ type: 'spring', stiffness: 420, damping: 26 }}
                   style={{ zIndex: isPlayable ? 25 + idx : idx + 1 }}
                   className="shrink-0"
                 >

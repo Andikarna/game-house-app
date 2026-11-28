@@ -269,32 +269,42 @@ export const UnoView: React.FC = () => {
       className="min-h-screen w-full text-white flex flex-col justify-between p-2 sm:p-3 pb-4 overflow-x-hidden relative select-none"
       style={{ background: '#030810' }}
     >
-      {/* ── Deep space background with radial casino felt ── */}
+      {/* ── Deep casino stage + radial emerald felt tabletop ── */}
       <div
         className="fixed inset-0 pointer-events-none"
         style={{
           background:
-            'radial-gradient(ellipse 85% 70% at 50% 46%, #0A3D2B 0%, #061E16 55%, #020A07 100%)',
+            'radial-gradient(ellipse 90% 80% at 50% 48%, #0E4F38 0%, #07291D 52%, #020B08 100%)',
         }}
+      />
+
+      {/* Oval Casino Table Rim & Inner Golden/Neon Trim */}
+      <div className="fixed inset-4 sm:inset-8 md:inset-x-16 md:inset-y-10 rounded-[80px] sm:rounded-[140px] border-[6px] sm:border-[10px] border-[#0B141D]/90 shadow-[inset_0_0_90px_rgba(0,0,0,0.75),0_0_60px_rgba(0,0,0,0.85)] pointer-events-none" />
+      <div
+        className="fixed inset-7 sm:inset-12 md:inset-x-20 md:inset-y-14 rounded-[68px] sm:rounded-[124px] border border-amber-300/15 pointer-events-none transition-colors duration-700"
+        style={{ boxShadow: `inset 0 0 60px ${colorMeta.hex}18` }}
+      />
+
+      {/* Overhead Stage Spotlight */}
+      <motion.div
+        animate={{ backgroundColor: colorMeta.hex }}
+        transition={{ duration: 0.8 }}
+        className="fixed -top-24 left-1/2 -translate-x-1/2 w-[560px] h-[340px] rounded-full blur-[130px] opacity-25 pointer-events-none"
       />
 
       {/* Subtle noise grain overlay */}
       <div
-        className="fixed inset-0 pointer-events-none opacity-[0.03]"
+        className="fixed inset-0 pointer-events-none opacity-[0.035]"
         style={{
           backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
         }}
       />
 
-      {/* Left & right vignette rails */}
-      <div className="fixed inset-y-0 left-0 w-4 sm:w-10 bg-gradient-to-r from-black/60 to-transparent pointer-events-none" />
-      <div className="fixed inset-y-0 right-0 w-4 sm:w-10 bg-gradient-to-l from-black/60 to-transparent pointer-events-none" />
-
-      {/* Dynamic color aura */}
+      {/* Dynamic center color aura */}
       <motion.div
-        animate={{ backgroundColor: colorMeta.hex }}
-        transition={{ duration: 0.8 }}
-        className="fixed top-1/3 left-1/2 -translate-x-1/2 w-[600px] h-[400px] rounded-full blur-[150px] opacity-20 pointer-events-none"
+        animate={{ backgroundColor: colorMeta.hex, scale: [1, 1.06, 1] }}
+        transition={{ backgroundColor: { duration: 0.8 }, scale: { repeat: Infinity, duration: 5, ease: 'easeInOut' } }}
+        className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[520px] h-[360px] rounded-full blur-[140px] opacity-25 pointer-events-none"
       />
 
       {/* ── TOP HEADER ── */}
