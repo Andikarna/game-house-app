@@ -283,6 +283,43 @@ export async function POST(
       return NextResponse.json({ success: true, room, u: nextUpdatedAt });
     }
 
+    // 1b-2. UPDATE NICKNAME (Lobby, before Ready)
+    if (action === 'update_nickname') {
+      if (room.status !== 'lobby') {
+        return NextResponse.json({ success: false, error: 'Nama hanya bisa diubah saat di lobby.' }, { status: 400 });
+      }
+      const player = room.players.find((p) => p.id === playerId);
+      if (!player) {
+        return NextResponse.json({ success: false, error: 'Pemain tidak ditemukan.' }, { status: 404 });
+      }
+      if (!player.isHost && player.isReady) {
+        return NextResponse.json({ success: false, error: 'Batalkan Ready terlebih dahulu untuk mengubah nama.' }, { status: 400 });
+      }
+      const cleanNickname = String(body.nickname || '').trim().substring(0, 18);
+      if (cleanNickname.length < 2) {
+        return NextResponse.json({ success: false, error: 'Nama minimal 2 karakter.' }, { status: 400 });
+      }
+      const duplicate = room.players.some(
+        (p) => p.id !== playerId && p.nickname.toLowerCase() === cleanNickname.toLowerCase()
+      );
+      if (duplicate) {
+        return NextResponse.json({ success: false, error: 'Nama sudah dipakai pemain lain di room ini.' }, { status: 400 });
+      }
+
+      const nextUpdatedAt = Math.max(now, (roomData.dbUpdatedAt || 0) + 1);
+      player.nickname = cleanNickname;
+      saveMemoryRoom(room, gameState, roomData.gameResults, roomData.activeVoteKick, roomData.chatMessages, nextUpdatedAt);
+
+      await Promise.all([
+        safeDbQuery(
+          'UPDATE gh_players SET nickname = ?, last_seen_at = ? WHERE id = ? AND room_code = ?',
+          [cleanNickname, now, playerId, code]
+        ),
+        safeDbQuery('UPDATE gh_rooms SET updated_at = ? WHERE code = ?', [nextUpdatedAt, code]),
+      ]);
+      return NextResponse.json({ success: true, room, u: nextUpdatedAt });
+    }
+
     // 1c. UPDATE SETTINGS
     if (action === 'update_settings') {
       if (body.gameId) {

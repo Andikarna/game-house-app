@@ -195,6 +195,31 @@ class PollingSocket {
         return;
       }
 
+      // 3c. UPDATE NICKNAME
+      if (event === 'room:update-nickname' || event === 'player:update-nickname') {
+        const nickname = typeof payload === 'string' ? payload : (payload?.nickname || '');
+        const res = await fetch(`/api/rooms/${roomCode}/action`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'update_nickname', playerId, nickname }),
+        });
+        const data = await res.json();
+        if (data.success && data.room) {
+          this.isUnoRoom = data.room.settings?.gameId === 'uno';
+          this.lastRoomStateStr = JSON.stringify(data.room);
+          this.emitInternal('room:updated', data.room);
+          if (this.isUnoRoom) unoRealtime.broadcast({ type: 'room', room: data.room, senderId: playerId });
+          if (typeof callback === 'function') callback({ success: true });
+        } else {
+          if (typeof callback === 'function') {
+            callback({ success: false, error: data.error || 'Gagal mengubah nama.' });
+          } else if (data.error) {
+            this.emitInternal('error:message', data.error);
+          }
+        }
+        return;
+      }
+
       // 3c. UPDATE SETTINGS
       if (event === 'room:update-settings') {
         const res = await fetch(`/api/rooms/${roomCode}/action`, {

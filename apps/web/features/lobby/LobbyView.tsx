@@ -19,7 +19,8 @@ import {
   Settings,
   Bot,
   Plus,
-  RefreshCw
+  RefreshCw,
+  Pencil
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { ClimberAvatarIcon, AvatarSelector } from '../../components/ui/AvatarSelector';
@@ -32,11 +33,14 @@ import { getGlobalSocket } from '../../hooks/useSocket';
 
 export const LobbyView: React.FC = () => {
   const { socket, room, playerId, setPlayerId, ping, addToast } = useGameStore();
-  const { avatar, setAvatar } = useSettingsStore();
+  const { avatar, setAvatar, setNickname } = useSettingsStore();
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [mobileTab, setMobileTab] = useState<'players' | 'settings'>('players');
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
+  const [isNicknameModalOpen, setIsNicknameModalOpen] = useState(false);
+  const [nicknameInput, setNicknameInput] = useState('');
+  const [isSavingNickname, setIsSavingNickname] = useState(false);
 
   if (!room) return null;
 
@@ -99,6 +103,37 @@ export const LobbyView: React.FC = () => {
     if (activeSocket && !isHost) {
       activeSocket.emit('room:ready', !myPlayer?.isReady);
     }
+  };
+
+  const openNicknameModal = () => {
+    if (!myPlayer) return;
+    if (!isHost && myPlayer.isReady) {
+      addToast('Batalkan Ready terlebih dahulu untuk mengubah nama.', 'warning');
+      return;
+    }
+    setNicknameInput(myPlayer.nickname || '');
+    setIsNicknameModalOpen(true);
+  };
+
+  const handleSaveNickname = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const clean = nicknameInput.trim().substring(0, 18);
+    if (clean.length < 2) {
+      addToast('Nama minimal 2 karakter.', 'error');
+      return;
+    }
+    if (!activeSocket) return;
+    setIsSavingNickname(true);
+    activeSocket.emit('player:update-nickname' as any, { nickname: clean }, (res: any) => {
+      setIsSavingNickname(false);
+      if (res?.success) {
+        setNickname(clean);
+        setIsNicknameModalOpen(false);
+        addToast('Nama berhasil diubah!', 'success');
+      } else {
+        addToast(res?.error || 'Gagal mengubah nama.', 'error');
+      }
+    });
   };
 
   const handleUpdateMode = (gameMode: GameMode) => {
@@ -650,6 +685,16 @@ export const LobbyView: React.FC = () => {
                               YOU
                             </span>
                           )}
+                          {isThisPlayerMe && room.status === 'lobby' && (isPlayerHost || !p.isReady) && (
+                            <button
+                              type="button"
+                              onClick={openNicknameModal}
+                              title="Ubah Nama"
+                              className="shrink-0 p-1 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                            >
+                              <Pencil className="w-3 h-3" />
+                            </button>
+                          )}
                         </div>
 
                         {/* Character Subtitle & Status */}
@@ -918,6 +963,49 @@ export const LobbyView: React.FC = () => {
             }}
           />
         </div>
+      </Modal>
+
+      {/* Modal Ubah Nama Pemain */}
+      <Modal
+        isOpen={isNicknameModalOpen}
+        onClose={() => !isSavingNickname && setIsNicknameModalOpen(false)}
+        title="Ubah Nama Pemain"
+      >
+        <form onSubmit={handleSaveNickname} className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-bold text-slate-300">
+              Nama Baru (2–18 karakter)
+            </label>
+            <input
+              type="text"
+              maxLength={18}
+              value={nicknameInput}
+              onChange={(e) => setNicknameInput(e.target.value)}
+              placeholder="Masukkan nama..."
+              autoFocus
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 focus:border-indigo-400 focus:outline-none text-sm font-bold text-white"
+            />
+          </div>
+          <div className="flex items-center justify-end gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              size="md"
+              disabled={isSavingNickname}
+              onClick={() => setIsNicknameModalOpen(false)}
+            >
+              Batal
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              size="md"
+              disabled={isSavingNickname || nicknameInput.trim().length < 2}
+            >
+              {isSavingNickname ? 'Menyimpan...' : 'Simpan Nama'}
+            </Button>
+          </div>
+        </form>
       </Modal>
     </div>
   );

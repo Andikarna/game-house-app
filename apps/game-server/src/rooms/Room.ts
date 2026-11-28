@@ -285,6 +285,31 @@ export class Room {
     return true;
   }
 
+  public updatePlayerNickname(playerId: string, nickname: string): { success: boolean; error?: string } {
+    if (this.status !== 'lobby') {
+      return { success: false, error: 'Nama hanya bisa diubah saat di lobby.' };
+    }
+    const player = this.players.get(playerId);
+    if (!player) {
+      return { success: false, error: 'Pemain tidak ditemukan.' };
+    }
+    if (!player.isHost && player.isReady) {
+      return { success: false, error: 'Batalkan Ready terlebih dahulu untuk mengubah nama.' };
+    }
+    const clean = (nickname || '').trim().substring(0, 18);
+    if (clean.length < 2) {
+      return { success: false, error: 'Nama minimal 2 karakter.' };
+    }
+    const duplicate = Array.from(this.players.values()).some(
+      (p) => p.id !== playerId && p.nickname.toLowerCase() === clean.toLowerCase()
+    );
+    if (duplicate) {
+      return { success: false, error: 'Nama sudah dipakai pemain lain di room ini.' };
+    }
+    player.nickname = clean;
+    return { success: true };
+  }
+
   public removeBot(botId?: string): { success: boolean; error?: string } {
     if (this.status !== 'lobby') {
       return { success: false, error: 'Cannot remove bot while game is in progress.' };

@@ -260,6 +260,27 @@ export function setupSocketHandlers(
       }
     });
 
+    // 6d. Player Nickname Update inside Lobby (before Ready)
+    socket.on('player:update-nickname' as any, (payload: { nickname: string } | string, callback?: (res: any) => void) => {
+      const mapping = roomManager.getPlayerMapping(socket.id);
+      if (!mapping) return callback?.({ success: false, error: 'Not in a room.' });
+      const room = roomManager.getRoomById(mapping.roomId);
+      if (!room) return callback?.({ success: false, error: 'Room not found.' });
+
+      const nextNickname = typeof payload === 'string' ? payload : payload?.nickname;
+      const result = room.updatePlayerNickname(mapping.playerId, nextNickname || '');
+      if (result.success) {
+        io.to(room.id).emit('room:updated', room.getInfo());
+        callback?.({ success: true });
+      } else {
+        if (callback) {
+          callback({ success: false, error: result.error });
+        } else if (result.error) {
+          socket.emit('error:message', result.error);
+        }
+      }
+    });
+
     // 7. Start Game (Host only)
     socket.on('game:start', () => {
       const mapping = roomManager.getPlayerMapping(socket.id);
