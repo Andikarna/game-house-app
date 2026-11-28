@@ -397,7 +397,7 @@ class PollingSocket {
             data = await sendInput();
           } catch {
             // Transient network / DB contention retry once
-            await new Promise((r) => setTimeout(r, 50));
+            await new Promise((r) => setTimeout(r, 180));
             data = await sendInput();
           }
 
@@ -440,11 +440,6 @@ class PollingSocket {
             }
             if (data.results) {
               this.emitInternal('game:finished', data.results);
-            }
-            // If the turn just passed to a bot, immediately schedule a fast
-            // poll so the bot's server-side move lands with minimal perceived delay.
-            if (this.isBotTurnActive && !data.results) {
-              setTimeout(() => { this.pollOnce(true); }, 150);
             }
             return; // Skip the finally decrement since we already did it
           }
@@ -793,7 +788,7 @@ class PollingSocket {
         try {
           this.abortController?.abort();
         } catch {}
-      }, 3000);
+      }, 5000);
 
       const params = new URLSearchParams();
       if (this.currentPlayerId) params.set('playerId', this.currentPlayerId);
@@ -977,12 +972,8 @@ class PollingSocket {
         if (this.pollTimer) clearTimeout(this.pollTimer);
         const isGameActive = this.lastRoomStateStr.includes('"in-game"') || this.lastRoomStateStr.includes('"countdown"');
         let delay = !isGameActive ? 1100 : this.isMyTurnActive ? 600 : 300;
-        if (this.isUnoRoom) {
-          // unoRealtime is now an in-process bus (connected = this.polling),
-          // so it is always "connected" during a game. Never relax human-turn
-          // polling — keep it at 650ms max. Bot turns poll at 350ms so server-
-          // side bot moves land quickly without hammering the DB unnecessarily.
-          delay = !isGameActive ? 1500 : this.isBotTurnActive ? 350 : 650;
+        if (this.isUnoRoom && unoRealtime.connected) {
+          delay = !isGameActive ? 1800 : this.isBotTurnActive ? 550 : 2000;
         }
         this.pollTimer = setTimeout(() => {
           this.pollOnce();
