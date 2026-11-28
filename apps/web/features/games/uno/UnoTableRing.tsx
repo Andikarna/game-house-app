@@ -125,11 +125,11 @@ export const UnoTableRing: React.FC<UnoTableRingProps> = ({
         className="hidden sm:block absolute inset-x-10 inset-y-8 rounded-[999px] border border-white/[0.04] pointer-events-none"
       />
 
-      {/* Directional rotation arrows between players */}
+      {/* Directional rotation arrows between players (UNO-themed) */}
       {turnArrows.map((arrow) => {
         const rad = (arrow.midAngle * Math.PI) / 180;
-        const arrowRx = rx * 0.96;
-        const arrowRy = ry * 0.96;
+        const arrowRx = rx * 0.95;
+        const arrowRy = ry * 0.95;
         const leftPct = 50 + Math.cos(rad) * arrowRx;
         const topPct = 50 + Math.sin(rad) * arrowRy;
         const tangentDeg = arrow.midAngle + (direction === 1 ? 90 : -90);
@@ -144,39 +144,80 @@ export const UnoTableRing: React.FC<UnoTableRingProps> = ({
             }}
             title={direction === 1 ? 'Arah putaran searah jarum jam' : 'Arah putaran berlawanan jarum jam'}
           >
+            {/* Outer UNO 4-color / active-color rim */}
             <div
-              className={`flex items-center justify-center rounded-full border transition-all duration-300 ${
+              className={`relative rounded-full p-[2px] transition-all duration-300 ${
                 arrow.isActiveFlow
-                  ? 'w-6 h-6 sm:w-8 sm:h-8 scale-110'
-                  : 'w-5 h-5 sm:w-6 sm:h-6 opacity-65'
+                  ? 'w-10 h-10 sm:w-14 sm:h-14 scale-110'
+                  : 'w-8 h-8 sm:w-11 sm:h-11 opacity-75'
               }`}
               style={{
-                transform: `rotate(${tangentDeg}deg)`,
                 background: arrow.isActiveFlow
-                  ? `${colorMeta.hex}33`
-                  : 'rgba(8, 17, 30, 0.72)',
-                borderColor: arrow.isActiveFlow
-                  ? colorMeta.hex
-                  : 'rgba(255, 255, 255, 0.16)',
+                  ? `conic-gradient(from 0deg, #EF233C, #FACC15, #22C55E, #2589FF, #EF233C)`
+                  : `linear-gradient(135deg, ${colorMeta.hex}99, rgba(255,255,255,0.22))`,
                 boxShadow: arrow.isActiveFlow
-                  ? `0 0 14px ${colorMeta.glow}`
-                  : 'none',
+                  ? `0 0 22px ${colorMeta.glow}, 0 6px 14px rgba(0,0,0,0.7)`
+                  : '0 4px 12px rgba(0,0,0,0.55)',
               }}
             >
-              {/* Double chevron pointing right (0 deg), rotated along circle tangent */}
-              <svg
-                viewBox="0 0 24 24"
-                className={arrow.isActiveFlow ? 'w-3.5 h-3.5 sm:w-4 sm:h-4' : 'w-3 h-3 sm:w-3.5 sm:h-3.5'}
-                fill="none"
+              {/* Inner UNO card-inspired badge rotated along circle tangent */}
+              <div
+                className="w-full h-full rounded-full flex items-center justify-center relative overflow-hidden"
+                style={{
+                  transform: `rotate(${tangentDeg}deg)`,
+                  background: arrow.isActiveFlow
+                    ? `radial-gradient(circle at 35% 30%, ${colorMeta.hex}55, #070E1A 78%)`
+                    : 'radial-gradient(circle at 35% 30%, rgba(20,34,56,0.96), #060C16 80%)',
+                }}
               >
-                <path
-                  d="M6 7l5 5-5 5M13 7l5 5-5 5"
-                  stroke={arrow.isActiveFlow ? '#FFFFFF' : colorMeta.hex}
-                  strokeWidth="2.6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
+                {/* Iconic tilted UNO oval ring */}
+                <div
+                  className="absolute inset-1 rounded-full border pointer-events-none"
+                  style={{
+                    borderColor: arrow.isActiveFlow ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.16)',
+                    transform: 'rotate(-18deg) scaleY(0.76)',
+                  }}
                 />
-              </svg>
+
+                {/* Bold UNO Arcade Directional Arrow SVG (pointing right 0 deg, rotated by tangentDeg) */}
+                <svg
+                  viewBox="0 0 36 36"
+                  className={arrow.isActiveFlow ? 'w-6 h-6 sm:w-8 sm:h-8 relative z-10' : 'w-5 h-5 sm:w-6 sm:h-6 relative z-10'}
+                  fill="none"
+                >
+                  {/* Trailing speed chevron */}
+                  <path
+                    d="M7 12l5 6-5 6"
+                    stroke={arrow.isActiveFlow ? '#FACC15' : colorMeta.hex}
+                    strokeWidth="3.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    opacity={arrow.isActiveFlow ? 0.95 : 0.7}
+                  />
+                  {/* Main bold UNO arrowhead */}
+                  <path
+                    d="M15 9l10 9-10 9"
+                    stroke="#050912"
+                    strokeWidth="6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M15 9l10 9-10 9"
+                    stroke={arrow.isActiveFlow ? '#FFFFFF' : '#E2E8F0'}
+                    strokeWidth="3.4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  {/* Accent dot at tail */}
+                  <circle
+                    cx="26.5"
+                    cy="18"
+                    r={arrow.isActiveFlow ? '2' : '1.4'}
+                    fill={arrow.isActiveFlow ? colorMeta.hex : '#FACC15'}
+                  />
+                </svg>
+              </div>
             </div>
           </div>
         );
