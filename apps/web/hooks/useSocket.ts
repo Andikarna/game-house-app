@@ -281,26 +281,26 @@ export function useSocket() {
       try {
         globalSocket = ioClient(serverUrl, {
           transports: ['websocket', 'polling'],
-          reconnectionAttempts: 3,
-          reconnectionDelay: 1000,
-          timeout: 3500,
+          reconnectionAttempts: 5,
+          reconnectionDelay: 800,
+          timeout: 10000,
           autoConnect: true,
         });
 
-        // Timeout fallback if standalone server is not reachable
+        // Timeout fallback only if standalone server is genuinely unreachable after 10s
         const connectTimeout = setTimeout(() => {
           if (globalSocket && !globalSocket.connected && globalSocket !== globalPollingSocket) {
             console.warn('[useSocket] Standalone socket timed out, falling back to polling socket');
             switchToPolling();
           }
-        }, 3500);
+        }, 10000);
 
         globalSocket.on('connect', () => {
           clearTimeout(connectTimeout);
           setIsConnected(true);
         });
 
-        globalSocket.on('connect_error', () => {
+        globalSocket.on('reconnect_failed', () => {
           clearTimeout(connectTimeout);
           switchToPolling();
         });

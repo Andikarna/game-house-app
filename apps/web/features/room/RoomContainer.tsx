@@ -44,10 +44,30 @@ export const RoomContainer: React.FC<RoomContainerProps> = ({ roomCode }) => {
 
   // Check if player can auto-reconnect upon page refresh
   useEffect(() => {
-    if (isInThisRoom || !cleanCode) return;
+    if (isInThisRoom || !cleanCode || !playerId) return;
 
     let isMounted = true;
     const attemptAutoReconnect = async () => {
+      // If Socket.IO is connected to the standalone VPS server, try rejoining via Socket.IO first
+      if (socket && socket.connected && socket !== (globalPollingSocket as any)) {
+        socket.emit(
+          'room:join',
+          {
+            roomCode: cleanCode,
+            nickname: (nickname || 'Player').trim(),
+            avatar,
+            playerId,
+          },
+          (res: any) => {
+            if (isMounted && res?.success && res.room) {
+              setRoom(res.room);
+              if (res.playerId) setPlayerId(res.playerId);
+            }
+          }
+        );
+        return;
+      }
+
       try {
         const res = await fetch(`/api/rooms/${cleanCode}?playerId=${playerId}`);
         if (!res.ok) return;
@@ -73,7 +93,7 @@ export const RoomContainer: React.FC<RoomContainerProps> = ({ roomCode }) => {
     return () => {
       isMounted = false;
     };
-  }, [cleanCode, isInThisRoom, playerId, setRoom]);
+  }, [cleanCode, isInThisRoom, playerId, setRoom, setPlayerId, socket, socket?.connected, nickname, avatar]);
 
   const handleJoinDirectly = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
