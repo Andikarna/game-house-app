@@ -18,6 +18,12 @@ import { AvatarId, ChatMessage, VoteKickState, GAME_AVAILABILITY, GameId } from 
 export const dynamic = 'force-dynamic';
 export const preferredRegion = 'sin1';
 
+// In-memory rate limiters to prevent chat/emote spam flooding UI and MySQL
+const lastEmoteAtMap = new Map<string, number>();
+const lastChatAtMap = new Map<string, number>();
+const EMOTE_COOLDOWN_MS = 3000;
+const CHAT_COOLDOWN_MS = 2500;
+
 const BOT_PRESETS: Array<{ nickname: string; avatar: AvatarId }> = [
   { nickname: 'Luna (Bot)', avatar: 'luna' },
   { nickname: 'Bima (Bot)', avatar: 'bima' },
@@ -587,6 +593,16 @@ export async function POST(
 
     // 5. EMOTE ACTION
     if (action === 'emote') {
+      const rateKey = `${code}:${playerId}`;
+      const lastEmoteAt = lastEmoteAtMap.get(rateKey) || 0;
+      if (now - lastEmoteAt < EMOTE_COOLDOWN_MS) {
+        return NextResponse.json(
+          { success: false, error: 'Tunggu sebentar sebelum mengirim emot lagi.' },
+          { status: 429 }
+        );
+      }
+      lastEmoteAtMap.set(rateKey, now);
+
       const emoteId = body.emoteId;
       const player = room.players.find((p) => p.id === playerId);
       const id = `emote_${now}_${Math.random().toString(36).substring(2, 6)}`;
@@ -608,6 +624,16 @@ export async function POST(
 
     // 5b. CHAT ACTION
     if (action === 'chat') {
+      const rateKey = `${code}:${playerId}`;
+      const lastChatAt = lastChatAtMap.get(rateKey) || 0;
+      if (now - lastChatAt < CHAT_COOLDOWN_MS) {
+        return NextResponse.json(
+          { success: false, error: 'Jangan spam chat! Tunggu 2.5 detik.' },
+          { status: 429 }
+        );
+      }
+      lastChatAtMap.set(rateKey, now);
+
       const player = room.players.find((p) => p.id === playerId);
       if (!player) {
         return NextResponse.json({ success: false, error: 'Player not found.' }, { status: 404 });

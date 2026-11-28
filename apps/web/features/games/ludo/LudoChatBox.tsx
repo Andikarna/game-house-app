@@ -23,6 +23,8 @@ export const LudoChatBox: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [inputText, setInputText] = useState('');
   const [unreadCount, setUnreadCount] = useState(0);
+  const [cooldownSec, setCooldownSec] = useState(0);
+  const lastSentAtRef = useRef<number>(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const prevMessagesLength = useRef(chatMessages?.length || 0);
 
@@ -51,9 +53,24 @@ export const LudoChatBox: React.FC = () => {
     setUnreadCount(0);
   };
 
+  useEffect(() => {
+    if (cooldownSec <= 0) return;
+    const t = setInterval(() => {
+      const rem = Math.ceil((lastSentAtRef.current + 2500 - Date.now()) / 1000);
+      setCooldownSec(rem > 0 ? rem : 0);
+    }, 250);
+    return () => clearInterval(t);
+  }, [cooldownSec]);
+
   const handleSendMessage = (textToSend?: string) => {
+    const now = Date.now();
+    if (now - lastSentAtRef.current < 2500) return;
+
     const msg = (textToSend || inputText).trim();
     if (!msg || msg.length > 60) return;
+
+    lastSentAtRef.current = now;
+    setCooldownSec(3);
 
     if (activeSocket) {
       activeSocket.emit('game:chat', { message: msg });
@@ -150,13 +167,18 @@ export const LudoChatBox: React.FC = () => {
             </div>
 
             {/* Quick Phrase Chips */}
-            <div className="px-3 py-2 bg-slate-900/50 border-t border-slate-800/60 flex items-center gap-1.5 overflow-x-auto scrollbar-none">
+            <div className="px-2.5 py-1.5 bg-slate-900/50 border-t border-slate-800/60 flex items-center gap-1.5 overflow-x-auto scrollbar-none">
               {QUICK_CHATS.map((phrase, i) => (
                 <button
                   key={i}
                   type="button"
+                  disabled={cooldownSec > 0}
                   onClick={() => handleSendMessage(phrase)}
-                  className="px-2.5 py-1 rounded-full bg-slate-800/80 hover:bg-indigo-600 text-[10px] font-bold text-slate-300 hover:text-white whitespace-nowrap border border-slate-700/60 hover:border-indigo-400 transition-all shrink-0 active:scale-95 cursor-pointer"
+                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap border transition-all shrink-0 ${
+                    cooldownSec > 0
+                      ? 'bg-slate-900 text-slate-500 border-slate-800 cursor-not-allowed opacity-60'
+                      : 'bg-slate-800/80 hover:bg-indigo-600 text-slate-300 hover:text-white border-slate-700/60 hover:border-indigo-400 active:scale-95 cursor-pointer'
+                  }`}
                 >
                   {phrase}
                 </button>
@@ -164,7 +186,7 @@ export const LudoChatBox: React.FC = () => {
             </div>
 
             {/* Free Text Input Form */}
-            <div className="p-2.5 bg-slate-900/90 border-t border-slate-800 flex items-center gap-2">
+            <div className="p-2 bg-slate-900/90 border-t border-slate-800 flex items-center gap-1.5">
               <div className="relative flex-1">
                 <input
                   type="text"
@@ -172,26 +194,30 @@ export const LudoChatBox: React.FC = () => {
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="Ketik chat bebas... (max 60)"
-                  className="w-full px-3 py-1.5 text-xs rounded-xl bg-slate-950 border border-slate-700 focus:border-indigo-400 focus:outline-none text-white placeholder-slate-500 font-medium pr-10"
+                  placeholder={cooldownSec > 0 ? `Tunggu ${cooldownSec}d...` : 'Ketik chat... (max 60)'}
+                  className="w-full px-2.5 py-1.5 text-xs rounded-xl bg-slate-950 border border-slate-700 focus:border-indigo-400 focus:outline-none text-white placeholder-slate-500 font-medium pr-10"
                 />
-                <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[9px] font-mono text-slate-500">
+                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-mono text-slate-500">
                   {inputText.length}/60
                 </span>
               </div>
 
               <button
                 type="button"
-                disabled={!inputText.trim()}
+                disabled={!inputText.trim() || cooldownSec > 0}
                 onClick={() => handleSendMessage()}
-                className={`p-2 rounded-xl flex items-center justify-center transition-all ${
-                  inputText.trim()
+                className={`p-2 rounded-xl flex items-center justify-center transition-all min-w-[34px] ${
+                  inputText.trim() && cooldownSec === 0
                     ? 'bg-indigo-600 text-white hover:bg-indigo-500 shadow-md active:scale-95 cursor-pointer'
                     : 'bg-slate-800 text-slate-500 cursor-not-allowed'
                 }`}
-                title="Kirim Pesan"
+                title={cooldownSec > 0 ? `Tunggu ${cooldownSec} detik` : 'Kirim Pesan'}
               >
-                <Send className="w-3.5 h-3.5" />
+                {cooldownSec > 0 ? (
+                  <span className="text-[10px] font-mono font-bold">{cooldownSec}s</span>
+                ) : (
+                  <Send className="w-3.5 h-3.5" />
+                )}
               </button>
             </div>
           </motion.div>

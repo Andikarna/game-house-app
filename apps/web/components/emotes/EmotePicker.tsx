@@ -51,7 +51,7 @@ export const EmotePicker: React.FC<EmotePickerProps> = ({
         setCooldownPercent(0);
         clearInterval(interval);
       } else {
-        setCooldownPercent(Math.min(100, Math.round((remaining / 1200) * 100)));
+        setCooldownPercent(Math.min(100, Math.round((remaining / 3000) * 100)));
       }
     }, 50);
 
@@ -63,7 +63,7 @@ export const EmotePicker: React.FC<EmotePickerProps> = ({
     if (!socket || !room) return;
 
     socket.emit('game:emote', { emoteId });
-    startCooldown(1200);
+    startCooldown(3000);
     setPickerOpen(false);
   };
 

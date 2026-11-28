@@ -449,10 +449,10 @@ export function setupSocketHandlers(
       const player = room.players.get(mapping.playerId);
       if (!player) return;
 
-      // Rate limit per socket: max 1 emote every 800ms
+      // Rate limit per socket: max 1 emote every 3000ms
       const now = Date.now();
       const lastEmote = (socket as any)._lastEmoteTime || 0;
-      if (now - lastEmote < 800) return;
+      if (now - lastEmote < 3000) return;
       (socket as any)._lastEmoteTime = now;
 
       // Broadcast emote to all players in the room
@@ -472,6 +472,13 @@ export function setupSocketHandlers(
       if (!mapping) return;
       const room = roomManager.getRoomById(mapping.roomId);
       if (!room) return;
+
+      // Rate limit per socket: max 1 chat every 2500ms
+      const now = Date.now();
+      const lastChat = (socket as any)._lastChatTime || 0;
+      if (now - lastChat < 2500) return;
+      (socket as any)._lastChatTime = now;
+
       room.handleChat(mapping.playerId, message);
     });
 

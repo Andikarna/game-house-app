@@ -21,17 +21,17 @@ export const useEmoteStore = create<EmoteStoreState>((set, get) => ({
   triggerEmote: (emote) => {
     soundManager.playEmote?.(emote.emoteId);
     set((state) => {
-      // Keep at most 6 recent floating emotes to prevent visual clutter
+      // Keep at most 3 recent floating emotes to prevent visual clutter
       const filtered = state.activeEmotes.filter(e => e.id !== emote.id);
       return {
-        activeEmotes: [...filtered.slice(-5), emote],
+        activeEmotes: [...filtered.slice(-2), emote],
       };
     });
 
-    // Auto dismiss after 3.2 seconds
+    // Auto dismiss after 2.6 seconds
     setTimeout(() => {
       get().removeEmote(emote.id);
-    }, 3200);
+    }, 2600);
   },
 
   removeEmote: (id) => {
@@ -48,7 +48,7 @@ export const useEmoteStore = create<EmoteStoreState>((set, get) => ({
     set({ isPickerOpen });
   },
 
-  startCooldown: (durationMs = 1200) => {
+  startCooldown: (durationMs = 3000) => {
     set({ cooldownUntil: Date.now() + durationMs });
   },
 }));
