@@ -75,7 +75,7 @@ export const UnoTableRing: React.FC<UnoTableRingProps> = ({
                 y: isTurn ? arcDrop - 5 : arcDrop,
               }}
               transition={{ type: 'spring', stiffness: 380, damping: 24 }}
-              className="relative flex flex-col items-center py-2.5 px-3 min-w-[96px] sm:min-w-[126px] max-w-[152px] rounded-3xl border backdrop-blur-xl transition-colors duration-500"
+              className="relative flex flex-col items-center py-2 px-2.5 sm:py-2.5 sm:px-3 min-w-[84px] sm:min-w-[126px] max-w-[132px] sm:max-w-[152px] rounded-2xl sm:rounded-3xl border md:backdrop-blur-xl transition-colors duration-300"
               style={{
                 background: isTurn
                   ? `linear-gradient(145deg, ${colorMeta.hex}2A, rgba(5,12,24,0.92))`

@@ -442,56 +442,64 @@ export const UnoView: React.FC = () => {
       />
 
       {/* Oval Casino Table Rim & Inner Golden/Neon Trim */}
-      <div className="fixed inset-2 sm:inset-4 md:inset-x-8 md:inset-y-4 rounded-[50px] sm:rounded-[90px] border-[4px] sm:border-[8px] border-[#0A1826]/90 shadow-[inset_0_0_80px_rgba(0,0,0,0.8),0_0_50px_rgba(0,0,0,0.9)] pointer-events-none" />
+      <div className="fixed inset-1.5 sm:inset-4 md:inset-x-8 md:inset-y-4 rounded-[34px] sm:rounded-[90px] border-[3px] sm:border-[8px] border-[#0A1826]/90 md:shadow-[inset_0_0_80px_rgba(0,0,0,0.8),0_0_50px_rgba(0,0,0,0.9)] pointer-events-none" />
       <div
-        className="fixed inset-4 sm:inset-7 md:inset-x-12 md:inset-y-7 rounded-[42px] sm:rounded-[78px] border border-amber-300/20 pointer-events-none transition-colors duration-700"
-        style={{ boxShadow: `inset 0 0 50px ${colorMeta.hex}22` }}
+        className="fixed inset-3 sm:inset-7 md:inset-x-12 md:inset-y-7 rounded-[28px] sm:rounded-[78px] border border-amber-300/20 pointer-events-none transition-colors duration-700"
+        style={{ boxShadow: `inset 0 0 36px ${colorMeta.hex}20` }}
       />
       <div
-        className="fixed inset-6 sm:inset-10 md:inset-x-16 md:inset-y-10 rounded-[36px] sm:rounded-[68px] border border-dashed border-white/10 pointer-events-none"
+        className="hidden sm:block fixed inset-6 sm:inset-10 md:inset-x-16 md:inset-y-10 rounded-[36px] sm:rounded-[68px] border border-dashed border-white/10 pointer-events-none"
       />
 
       {/* Subtle center tabletop watermark */}
       <div className="fixed inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden">
-        <div className="text-[84px] sm:text-[140px] font-black italic tracking-tighter text-white/[0.025] -rotate-12">
+        <div className="text-[56px] sm:text-[140px] font-black italic tracking-tighter text-white/[0.025] -rotate-12">
           UNO PARTY
         </div>
       </div>
 
-      {/* Ambient corner glow orbs */}
+      {/* Lightweight mobile radial color aura (zero GPU blur filter cost) */}
       <div
-        className="fixed -bottom-24 -left-24 w-72 h-72 rounded-full blur-[110px] opacity-20 pointer-events-none transition-colors duration-700"
+        className="md:hidden fixed inset-0 pointer-events-none opacity-20 transition-colors duration-500"
+        style={{
+          background: `radial-gradient(circle at 50% 45%, ${colorMeta.hex} 0%, transparent 62%)`,
+        }}
+      />
+
+      {/* Ambient corner glow orbs (desktop only - expensive blur on mobile GPU) */}
+      <div
+        className="hidden md:block fixed -bottom-24 -left-24 w-72 h-72 rounded-full blur-[110px] opacity-20 pointer-events-none transition-colors duration-700"
         style={{ backgroundColor: colorMeta.hex }}
       />
       <div
-        className="fixed -bottom-24 -right-24 w-72 h-72 rounded-full blur-[110px] opacity-20 pointer-events-none transition-colors duration-700"
+        className="hidden md:block fixed -bottom-24 -right-24 w-72 h-72 rounded-full blur-[110px] opacity-20 pointer-events-none transition-colors duration-700"
         style={{ backgroundColor: colorMeta.hex }}
       />
 
-      {/* Overhead Stage Spotlight */}
+      {/* Overhead Stage Spotlight (desktop only) */}
       <motion.div
         animate={{ backgroundColor: colorMeta.hex }}
         transition={{ duration: 0.8 }}
-        className="fixed -top-24 left-1/2 -translate-x-1/2 w-[560px] h-[340px] rounded-full blur-[130px] opacity-25 pointer-events-none"
+        className="hidden md:block fixed -top-24 left-1/2 -translate-x-1/2 w-[560px] h-[340px] rounded-full blur-[130px] opacity-25 pointer-events-none"
       />
 
-      {/* Subtle noise grain overlay */}
+      {/* Subtle noise grain overlay (desktop only - SVG feTurbulence is heavy on mobile) */}
       <div
-        className="fixed inset-0 pointer-events-none opacity-[0.035]"
+        className="hidden md:block fixed inset-0 pointer-events-none opacity-[0.035]"
         style={{
           backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
         }}
       />
 
-      {/* Dynamic center color aura */}
+      {/* Dynamic center color aura (desktop only) */}
       <motion.div
-        animate={{ backgroundColor: colorMeta.hex, scale: [1, 1.06, 1] }}
-        transition={{ backgroundColor: { duration: 0.8 }, scale: { repeat: Infinity, duration: 5, ease: 'easeInOut' } }}
-        className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[520px] h-[360px] rounded-full blur-[140px] opacity-25 pointer-events-none"
+        animate={{ backgroundColor: colorMeta.hex }}
+        transition={{ duration: 0.8 }}
+        className="hidden md:block fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[520px] h-[360px] rounded-full blur-[140px] opacity-25 pointer-events-none"
       />
 
       {/* ── TOP HEADER ── */}
-      <header className="w-full max-w-5xl mx-auto flex items-center justify-between px-3 py-2 rounded-2xl bg-[#0C1A2A]/90 backdrop-blur-xl border border-white/8 shadow-[0_8px_32px_rgba(0,0,0,0.6)] z-30 mb-2 relative">
+      <header className="w-full max-w-5xl mx-auto flex items-center justify-between px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-2xl bg-[#0C1A2A]/95 md:bg-[#0C1A2A]/90 md:backdrop-blur-xl border border-white/8 shadow-lg md:shadow-[0_8px_32px_rgba(0,0,0,0.6)] z-30 mb-1.5 sm:mb-2 relative">
         {/* Accent line at top of header */}
         <div
           className="absolute top-0 left-6 right-6 h-px rounded-full pointer-events-none transition-all duration-700"
@@ -603,7 +611,7 @@ export const UnoView: React.FC = () => {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
               transition={{ duration: 0.3 }}
-              className="mt-2 px-4 py-1.5 rounded-full bg-black/50 border border-white/10 text-[11px] font-semibold text-slate-300 max-w-sm truncate text-center shadow-lg backdrop-blur-md"
+              className="mt-2 px-3.5 py-1 rounded-full bg-[#07111C]/90 md:bg-black/50 border border-white/10 text-[11px] font-semibold text-slate-300 max-w-xs sm:max-w-sm truncate text-center shadow-md md:shadow-lg md:backdrop-blur-md"
             >
               {unoState.lastMoveNotice}
             </motion.div>

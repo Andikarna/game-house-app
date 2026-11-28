@@ -70,19 +70,19 @@ export const LudoChatBox: React.FC = () => {
   };
 
   return (
-    <div className="fixed bottom-5 left-4 z-40 sm:bottom-6 sm:left-6 select-none">
+    <div className="fixed bottom-3 left-2.5 z-40 sm:bottom-5 sm:left-5 select-none">
       {/* Floating Chat Trigger Button */}
       <button
         type="button"
         onClick={handleOpen}
-        className="relative p-3 rounded-2xl bg-indigo-600/90 hover:bg-indigo-500 text-white shadow-[0_8px_25px_rgba(79,70,229,0.55)] border border-indigo-400/40 backdrop-blur-md active:scale-95 transition-all cursor-pointer flex items-center justify-center group"
+        className="relative p-2 sm:p-2.5 rounded-xl sm:rounded-2xl bg-indigo-600/95 hover:bg-indigo-500 text-white shadow-lg border border-indigo-400/40 md:backdrop-blur-md active:scale-95 transition-all cursor-pointer flex items-center justify-center group"
         title="Buka Obrolan / Chat Bebas"
       >
-        <MessageSquare className="w-5 h-5 group-hover:scale-110 transition-transform" />
+        <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5 group-hover:scale-110 transition-transform" />
         
         {/* Unread Counter Badge */}
         {unreadCount > 0 && (
-          <span className="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 min-w-[20px] rounded-full bg-rose-500 text-white text-[10px] font-black font-mono border-2 border-slate-900 shadow-lg animate-bounce flex items-center justify-center">
+          <span className="absolute -top-1.5 -right-1.5 px-1 py-0.5 min-w-[16px] sm:min-w-[18px] rounded-full bg-rose-500 text-white text-[9px] sm:text-[10px] font-black font-mono border-2 border-slate-900 shadow-lg flex items-center justify-center">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
@@ -92,31 +92,31 @@ export const LudoChatBox: React.FC = () => {
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.9, y: 15 }}
+            initial={{ opacity: 0, scale: 0.9, y: 12 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 15 }}
+            exit={{ opacity: 0, scale: 0.9, y: 12 }}
             transition={{ type: 'spring', stiffness: 400, damping: 28 }}
-            className="absolute bottom-16 left-0 w-[290px] sm:w-[330px] rounded-3xl bg-slate-950/95 border border-slate-700/80 shadow-[0_20px_60px_rgba(0,0,0,0.85)] backdrop-blur-xl flex flex-col overflow-hidden"
+            className="absolute bottom-12 sm:bottom-14 left-0 w-[245px] sm:w-[300px] rounded-2xl sm:rounded-3xl bg-slate-950/95 border border-slate-700/80 shadow-2xl md:backdrop-blur-xl flex flex-col overflow-hidden"
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-3.5 py-2.5 bg-slate-900/90 border-b border-slate-800">
-              <div className="flex items-center gap-2">
-                <MessageSquare className="w-4 h-4 text-indigo-400" />
-                <h4 className="text-xs font-black text-white tracking-wide uppercase">
-                  Obrolan Papan Ludo
+            <div className="flex items-center justify-between px-3 py-2 bg-slate-900/95 border-b border-slate-800">
+              <div className="flex items-center gap-1.5">
+                <MessageSquare className="w-3.5 h-3.5 text-indigo-400" />
+                <h4 className="text-[11px] sm:text-xs font-black text-white tracking-wide uppercase">
+                  Obrolan Meja
                 </h4>
               </div>
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="p-1 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
               >
-                <X className="w-4 h-4" />
+                <X className="w-3.5 h-3.5" />
               </button>
             </div>
 
             {/* Recent Messages Area */}
-            <div className="p-3 max-h-[160px] overflow-y-auto flex flex-col gap-2 scrollbar-thin scrollbar-thumb-slate-700">
+            <div className="p-2.5 max-h-[120px] sm:max-h-[150px] overflow-y-auto flex flex-col gap-1.5 scrollbar-thin scrollbar-thumb-slate-700">
               {(!chatMessages || chatMessages.length === 0) ? (
                 <div className="py-6 text-center text-slate-500 text-xs italic">
                   Belum ada pesan. Ketik pesan atau pilih opsi cepat di bawah!

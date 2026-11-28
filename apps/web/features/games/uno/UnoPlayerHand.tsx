@@ -80,7 +80,7 @@ export const UnoPlayerHand: React.FC<UnoPlayerHandProps> = ({
           <motion.div
             initial={{ scale: 0.85, opacity: 0, y: 6 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-2xl border backdrop-blur-xl"
+            className="flex items-center gap-2 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl sm:rounded-2xl border md:backdrop-blur-xl"
             style={{ background: 'rgba(5,46,22,0.85)', borderColor: 'rgba(74,222,128,0.5)' }}
           >
             <Sparkles className="w-3.5 h-3.5 text-emerald-400" />

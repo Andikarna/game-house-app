@@ -189,7 +189,7 @@ export const UnoAnimationLayer: React.FC<UnoAnimationLayerProps> = ({
 
             {/* Glowing pill badge */}
             <div
-              className="relative px-8 py-3.5 rounded-3xl border-2 backdrop-blur-2xl shadow-2xl flex flex-col items-center text-center"
+              className="relative px-5 py-2.5 sm:px-8 sm:py-3.5 rounded-2xl sm:rounded-3xl border-2 md:backdrop-blur-2xl shadow-2xl flex flex-col items-center text-center"
               style={{
                 background: 'linear-gradient(135deg, rgba(12,18,32,0.95), rgba(4,8,16,0.92))',
                 borderColor: comboBanner.colorHex,

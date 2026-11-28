@@ -74,9 +74,9 @@ export const EmotePicker: React.FC<EmotePickerProps> = ({
   const isCoolingDown = cooldownUntil > Date.now();
 
   const buttonPositionClasses = {
-    'bottom-right': 'fixed bottom-4 sm:bottom-6 right-4 sm:right-6 z-40',
-    'bottom-left': 'fixed bottom-4 sm:bottom-6 left-4 sm:left-6 z-40',
-    'top-right': 'fixed top-20 right-4 sm:right-6 z-40',
+    'bottom-right': 'fixed bottom-3 sm:bottom-5 right-2.5 sm:right-5 z-40',
+    'bottom-left': 'fixed bottom-3 sm:bottom-5 left-2.5 sm:left-5 z-40',
+    'top-right': 'fixed top-16 right-2.5 sm:right-5 z-40',
     'inline': 'relative z-10'
   }[buttonPosition];
 
@@ -89,19 +89,19 @@ export const EmotePicker: React.FC<EmotePickerProps> = ({
           onClick={() => setPickerOpen(!isPickerOpen)}
           disabled={isCoolingDown}
           title="Kirim Emot (Tekan 'T')"
-          className={`relative group flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 rounded-2xl shadow-2xl backdrop-blur-md border transition-all duration-200 select-none cursor-pointer active:scale-90 ${
+          className={`relative group flex items-center justify-center w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl shadow-lg md:backdrop-blur-md border transition-all duration-200 select-none cursor-pointer active:scale-90 ${
             isPickerOpen
-              ? 'bg-amber-500 border-amber-300 text-slate-950 scale-105 shadow-amber-500/40 ring-4 ring-amber-400/30'
-              : 'bg-slate-900/90 hover:bg-slate-800 border-slate-700/80 hover:border-amber-400/80 text-amber-400 shadow-xl'
+              ? 'bg-amber-500 border-amber-300 text-slate-950 scale-105 shadow-amber-500/40 ring-2 ring-amber-400/30'
+              : 'bg-slate-900/95 hover:bg-slate-800 border-slate-700/80 hover:border-amber-400/80 text-amber-400 shadow-lg'
           } ${isCoolingDown ? 'opacity-70 cursor-not-allowed' : ''}`}
         >
           {isPickerOpen ? (
-            <X className="w-6 h-6 stroke-[2.5]" />
+            <X className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.5]" />
           ) : (
             <>
-              <Smile className="w-6 h-6 sm:w-7 sm:h-7 stroke-[2.2] group-hover:scale-110 transition-transform" />
+              <Smile className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.2] group-hover:scale-110 transition-transform" />
               {/* Hotkey Badge */}
-              <span className="hidden sm:inline-block absolute -bottom-1 -right-1 bg-slate-950/90 text-amber-300 text-[10px] font-black px-1.5 py-0.5 rounded-md border border-slate-700 shadow">
+              <span className="hidden sm:inline-block absolute -bottom-1 -right-1 bg-slate-950/90 text-amber-300 text-[9px] font-black px-1 py-0.5 rounded border border-slate-700 shadow">
                 T
               </span>
             </>
@@ -138,11 +138,11 @@ export const EmotePicker: React.FC<EmotePickerProps> = ({
 
             {/* Picker Container */}
             <motion.div
-              initial={{ opacity: 0, y: 40, scale: 0.95 }}
+              initial={{ opacity: 0, y: 30, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 30, scale: 0.95 }}
+              exit={{ opacity: 0, y: 20, scale: 0.95 }}
               transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-              className="relative w-full max-w-lg bg-slate-900/95 border border-slate-700/80 rounded-3xl p-4 sm:p-5 shadow-2xl backdrop-blur-xl pointer-events-auto flex flex-col gap-3.5 max-h-[85vh]"
+              className="relative w-full max-w-md bg-slate-900/95 border border-slate-700/80 rounded-2xl sm:rounded-3xl p-3 sm:p-4 shadow-2xl md:backdrop-blur-xl pointer-events-auto flex flex-col gap-2.5 sm:gap-3 max-h-[75vh]"
             >
               {/* Header */}
               <div className="flex items-center justify-between pb-2 border-b border-slate-800">
@@ -192,16 +192,16 @@ export const EmotePicker: React.FC<EmotePickerProps> = ({
               </div>
 
               {/* 24-Emote Grid */}
-              <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 sm:gap-2.5 overflow-y-auto max-h-[50vh] p-1">
+              <div className="grid grid-cols-4 sm:grid-cols-6 gap-1.5 sm:gap-2 overflow-y-auto max-h-[42vh] p-0.5">
                 {filteredEmotes.map((emote) => (
                   <button
                     key={emote.id}
                     type="button"
                     onClick={() => handleSendEmote(emote.id)}
                     title={`${emote.label} - ${emote.description}`}
-                    className="group relative flex flex-col items-center justify-center p-2 rounded-2xl bg-surface-elevated/70 hover:bg-slate-800 border border-slate-700/60 hover:border-amber-400/80 hover:scale-108 transition-all duration-200 cursor-pointer shadow-md hover:shadow-amber-500/20"
+                    className="group relative flex flex-col items-center justify-center p-1.5 sm:p-2 rounded-xl sm:rounded-2xl bg-surface-elevated/70 hover:bg-slate-800 border border-slate-700/60 hover:border-amber-400/80 transition-all duration-150 cursor-pointer shadow-sm"
                   >
-                    <div className="w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center">
                       <img
                         src={emote.image}
                         alt={emote.label}

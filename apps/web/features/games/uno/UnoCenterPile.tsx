@@ -46,7 +46,7 @@ export const UnoCenterPile: React.FC<UnoCenterPileProps> = ({
         {/* Active color pill */}
         <motion.div
           layout
-          className="px-3.5 py-1.5 rounded-full border backdrop-blur-xl shadow-lg flex items-center gap-1.5 text-xs font-black transition-all duration-500"
+          className="px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-full border md:backdrop-blur-xl shadow-md md:shadow-lg flex items-center gap-1.5 text-[11px] sm:text-xs font-black transition-all duration-500"
           style={{
             background: `${colorMeta.hex}18`,
             borderColor: `${colorMeta.hex}60`,
@@ -64,7 +64,7 @@ export const UnoCenterPile: React.FC<UnoCenterPileProps> = ({
 
         {/* Turn indicator with Next Turn player */}
         <div
-          className={`px-3.5 py-1.5 rounded-full border backdrop-blur-xl text-xs font-black flex items-center gap-2 transition-all duration-300 ${
+          className={`px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-full border md:backdrop-blur-xl text-[11px] sm:text-xs font-black flex items-center gap-2 transition-all duration-300 ${
             isMyTurn
               ? 'bg-gradient-to-r from-amber-600/35 to-orange-600/35 border-amber-400/70 text-amber-100 shadow-[0_0_22px_rgba(249,115,22,0.6)]'
               : 'bg-black/40 border-white/12 text-slate-300'
@@ -93,11 +93,11 @@ export const UnoCenterPile: React.FC<UnoCenterPileProps> = ({
 
       {/* Main center arena */}
       <div className="relative flex items-center justify-center my-1">
-        {/* Swirling conic orbit ring */}
+        {/* Swirling conic orbit ring (desktop only - blur filter + infinite spin is heavy on mobile) */}
         <motion.div
           animate={{ rotate: direction === 1 ? 360 : -360 }}
           transition={{ repeat: Infinity, duration: 9, ease: 'linear' }}
-          className="absolute -inset-12 sm:-inset-16 rounded-full pointer-events-none opacity-55 blur-[18px]"
+          className="hidden md:block absolute -inset-12 sm:-inset-16 rounded-full pointer-events-none opacity-55 blur-[18px]"
           style={{
             background: `conic-gradient(from 0deg, transparent 0deg, ${colorMeta.hex} 80deg, transparent 180deg, ${colorMeta.hex} 260deg, transparent 360deg)`,
           }}
@@ -108,7 +108,7 @@ export const UnoCenterPile: React.FC<UnoCenterPileProps> = ({
           animate={{ rotate: direction === 1 ? 360 : -360 }}
           transition={{ repeat: Infinity, duration: 14, ease: 'linear' }}
           viewBox="0 0 320 220"
-          className="absolute -inset-8 sm:-inset-12 w-[calc(100%+4rem)] sm:w-[calc(100%+6rem)] h-[calc(100%+4rem)] sm:h-[calc(100%+6rem)] pointer-events-none opacity-65"
+          className="hidden sm:block absolute -inset-8 sm:-inset-12 w-[calc(100%+4rem)] sm:w-[calc(100%+6rem)] h-[calc(100%+4rem)] sm:h-[calc(100%+6rem)] pointer-events-none opacity-65"
         >
           <ellipse
             cx="160"
@@ -124,7 +124,7 @@ export const UnoCenterPile: React.FC<UnoCenterPileProps> = ({
 
         {/* Glass oval table pad */}
         <div
-          className="relative flex items-center justify-center px-6 py-4 sm:px-11 sm:py-6 rounded-[44px] backdrop-blur-2xl border border-white/15 shadow-[0_24px_65px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.12)]"
+          className="relative flex items-center justify-center px-5 py-3.5 sm:px-11 sm:py-6 rounded-[32px] sm:rounded-[44px] md:backdrop-blur-2xl border border-white/15 shadow-xl md:shadow-[0_24px_65px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.12)]"
           style={{
             background: `radial-gradient(ellipse at 50% 35%, ${colorMeta.hex}22, rgba(3,12,22,0.86) 72%)`,
           }}
