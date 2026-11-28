@@ -12,6 +12,8 @@ export interface CardFlightEvent {
   to: { x: number; y: number } | 'hand' | 'center' | string;
   duration?: number;
   isFaceDown?: boolean;
+  showcaseFirst?: boolean;
+  actorName?: string;
 }
 
 export interface ComboCardBanner {
@@ -120,27 +122,68 @@ export const UnoAnimationLayer: React.FC<UnoAnimationLayerProps> = ({
             }
           }
 
+          const showX = typeof window !== 'undefined' ? window.innerWidth * 0.5 : endX;
+          const showY = typeof window !== 'undefined' ? window.innerHeight * 0.42 : endY;
+
+          if (flight.showcaseFirst && flight.card && !flight.isFaceDown) {
+            return (
+              <motion.div
+                key={flight.id}
+                initial={{
+                  x: startX - 38,
+                  y: startY - 55,
+                  scale: 0.72,
+                  rotate: -12,
+                  opacity: 0.9,
+                }}
+                animate={{
+                  x: [startX - 38, showX - 38, showX - 38, endX - 38],
+                  y: [startY - 55, showY - 55, showY - 55, endY - 55],
+                  scale: [0.72, 1.42, 1.42, 0.92],
+                  rotate: [-12, 0, 0, 4],
+                  opacity: [0.95, 1, 1, 0.85],
+                }}
+                exit={{ opacity: 0, scale: 0.7 }}
+                transition={{
+                  duration: flight.duration || 1.15,
+                  times: [0, 0.28, 0.68, 1],
+                  ease: 'easeInOut',
+                }}
+                onAnimationComplete={() => onFlightComplete(flight.id)}
+                className="absolute left-0 top-0 flex flex-col items-center gap-1.5 drop-shadow-[0_16px_32px_rgba(0,0,0,0.75)]"
+                style={{ perspective: 1000 }}
+              >
+                <UnoCard card={flight.card} size="sm" />
+                {flight.actorName && (
+                  <span className="px-2 py-0.5 rounded-full bg-slate-950/90 border border-white/20 text-[10px] font-black text-white shadow-md whitespace-nowrap">
+                    {flight.actorName}
+                  </span>
+                )}
+              </motion.div>
+            );
+          }
+
           return (
             <motion.div
               key={flight.id}
               initial={{
                 x: startX - 38,
                 y: startY - 55,
-                scale: 0.7,
-                rotate: -15,
+                scale: 0.75,
+                rotate: -12,
                 opacity: 0.9,
               }}
               animate={{
                 x: endX - 38,
                 y: endY - 55,
-                scale: [0.7, 1.15, 0.95],
-                rotate: [ -15, 12, 0],
-                opacity: [0.9, 1, 0.8],
+                scale: [0.75, 1.08, 0.95],
+                rotate: [-12, 8, 0],
+                opacity: [0.9, 1, 0.85],
               }}
-              exit={{ opacity: 0, scale: 0.6 }}
+              exit={{ opacity: 0, scale: 0.65 }}
               transition={{
-                duration: flight.duration || 0.48,
-                ease: [0.22, 1, 0.36, 1], // snappy cubic-bezier
+                duration: flight.duration || 0.68,
+                ease: [0.25, 0.8, 0.25, 1],
               }}
               onAnimationComplete={() => onFlightComplete(flight.id)}
               className="absolute left-0 top-0 shadow-2xl filter drop-shadow-[0_12px_24px_rgba(0,0,0,0.6)]"

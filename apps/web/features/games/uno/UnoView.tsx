@@ -100,7 +100,7 @@ export const UnoView: React.FC = () => {
           id: `draw-${Date.now()}-${i}`,
           from: 'deck',
           to: 'hand',
-          duration: 0.34 + i * 0.06,
+          duration: 0.68 + i * 0.12,
           isFaceDown: true,
         });
       }
@@ -120,7 +120,7 @@ export const UnoView: React.FC = () => {
       const actorId = unoState.lastFx?.actorId;
       const isMe = actorId === playerId;
       if (!isMe) {
-        // If actorId is provided, flight originates from that specific player's pod!
+        // Show card at center first, then land on discard pile so opponents can clearly see it
         setCardFlights((prev) => [
           ...prev,
           {
@@ -128,8 +128,10 @@ export const UnoView: React.FC = () => {
             card: unoState.topCard,
             from: actorId || 'opponent',
             to: 'center',
-            duration: 0.42,
+            duration: 1.15,
             isFaceDown: false,
+            showcaseFirst: true,
+            actorName: unoState.lastFx?.actorNickname || (actorId ? unoState.players[actorId]?.nickname : undefined),
           },
         ]);
       }
@@ -241,7 +243,7 @@ export const UnoView: React.FC = () => {
         baseVersion: unoState.stateVersion || 0,
       });
 
-      // Spawn flying card animation from player hand to center
+      // Show card at center first, then land on discard pile
       setCardFlights((prev) => [
         ...prev,
         {
@@ -249,8 +251,10 @@ export const UnoView: React.FC = () => {
           card,
           from: 'hand',
           to: 'center',
-          duration: 0.35,
+          duration: 1.05,
           isFaceDown: false,
+          showcaseFirst: true,
+          actorName: 'Anda',
         },
       ]);
 
@@ -281,14 +285,14 @@ export const UnoView: React.FC = () => {
   const handleDrawCard = useCallback(() => {
     soundManager.playCardDraw();
     lastLocalDrawAtRef.current = Date.now();
-    // Immediate optimistic flight from deck to hand
+    // Immediate optimistic flight from deck to hand (smooth & unhurried)
     setCardFlights((prev) => [
       ...prev,
       {
         id: `local-draw-${Date.now()}`,
         from: 'deck',
         to: 'hand',
-        duration: 0.34,
+        duration: 0.68,
         isFaceDown: true,
       },
     ]);
